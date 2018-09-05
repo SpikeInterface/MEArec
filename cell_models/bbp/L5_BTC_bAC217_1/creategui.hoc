@@ -1,0 +1,157 @@
+/*
+Copyright (c) 2015 EPFL-BBP, All rights reserved.
+
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to Creative Commons, 171
+Second Street, Suite 300, San Francisco, California, 94105, USA.
+*/
+
+
+/*                                                                               
+ * @file creategui.hoc                                                           
+ * @brief Draw the GUI                                
+ * @author Werner Van Geit @ BBP                                                 
+ * @date 2015                                                                    
+*/        
+
+load_file("ringplot.hoc")
+
+pwmcnt = PWManager[0].count  // the initial GUIs should not be dismissed
+
+objref mainhbox
+objref plotvbox
+objref shapehbox
+objref synapsevbox
+objref synapsevbox_size
+objref gV, sP, rP, synapse_plot                                                               
+
+
+xres = 1200
+yres = 800
+xstart = 50
+ystart = 0
+
+proc make_mainwindow() {
+    mainhbox = new HBox(3)
+    mainhbox.intercept(1)
+
+    mainhbox.adjuster(200)
+    make_runcontrol()
+
+    mainhbox.adjuster(700)
+    make_plottingpanel()
+
+    mainhbox.adjuster(250)
+    make_synapsepanel($o1)
+
+    mainhbox.adjuster(250)
+    mainhbox.intercept(0)   
+    mainhbox.full_request(1) 
+    mainhbox.map("Main", xstart, ystart, xres, yres)
+}
+
+proc make_plottingpanel() {
+    plotvbox = new VBox()
+    plotvbox.intercept(1)
+
+    plotvbox.adjuster(300)
+    make_shapepanel()
+    
+    plotvbox.adjuster(500)
+    rP = new RingPlot()                                                         
+
+    plotvbox.intercept(0)    
+    mainhbox.full_request(1) 
+    plotvbox.map("Plotting", 0, 0, -1, -1)
+}
+
+
+proc make_runcontrol() {                                                   
+    xpanel("RunControl", 0)                                                     
+    xbutton("Init & Run","restart()")                                           
+    xbutton("Stop","stoprun=1")                                                 
+    xvalue("Total time", "tstop")                                                 
+    xvalue("Sim Time","t", 0,"", 0, 1 )                                 
+    xvalue("Real Time","realtime", 0,"", 0, 1 )                                 
+    xbutton("Quit","quit()")
+    
+    xlabel("Step current")
+    xradiobutton("No step","stepcurrent=\"none\"", 1)                                                                                
+    xradiobutton("Step current 1","stepcurrent=\"stepcurrent1\"")            
+    xradiobutton("Step current 2","stepcurrent=\"stepcurrent2\"")               
+    xradiobutton("Step current 3","stepcurrent=\"stepcurrent3\"")               
+    xpanel(1498, 0)
+} 
+                                                                                
+proc make_shapepanel() {                                                                                                                                                                                                     
+    shapehbox = new HBox()
+    shapehbox.intercept(1)
+
+    shapehbox.adjuster(350)
+    sP = new PlotShape(0)                                                       
+    sP.variable("soma", "v(0.5)")                                               
+    sP.view(-594.956, -98.0373, 1260.25, 1188.42, 573, 0, 505.92, 592)         
+    sP.exec_menu("Shape Plot")                                                  
+
+    shapehbox.adjuster(350)                                    
+    synapse_plot = new Shape(0)
+    synapse_plot.view(-594.956, -98.0373, 1260.25, 1188.42, 49, 0, 500.16, 592)
+ 
+    shapehbox.intercept(0)    
+    shapehbox.full_request(1) 
+    plotvbox.full_request(1) 
+    mainhbox.full_request(1) 
+    shapehbox.map("Shapes", 1104, 0, -1, -1)                                                          
+}                  
+
+proc make_synapsepanel() { local n_of_pre_mtypes, pre_mtype_id localobj active_pre_mtypes, pre_mtype_freqs
+    strdef pre_mtype_name
+
+    synapsevbox = new HBox()
+    synapsevbox.intercept(1)
+    xpanel("Synapses")
+    xlabel("Presyn m-types")
+    for i=0, $o1.synapses.pre_mtypes.size-1 {
+         pre_mtype_id = $o1.synapses.pre_mtypes.x[i]
+         pre_mtype_freqs = $o1.synapses.pre_mtype_freqs
+         pre_mtype_name = $o1.synapses.id_mtype_map.o(pre_mtype_id).s
+         active_pre_mtypes = $o1.synapses.active_pre_mtypes
+         xstatebutton(pre_mtype_name, &active_pre_mtypes.x[pre_mtype_id], "cell.synapses.update_synapses(synapse_plot)")
+    }
+    xpanel(100, 0)
+
+    xpanel("Freq")
+    xlabel("Frequency (Hz)")
+    for i=0, $o1.synapses.pre_mtypes.size-1 {
+         pre_mtype_id = $o1.synapses.pre_mtypes.x[i]
+         pre_mtype_freqs = $o1.synapses.pre_mtype_freqs
+         pre_mtype_name = $o1.synapses.id_mtype_map.o(pre_mtype_id).s
+         active_pre_mtypes = $o1.synapses.active_pre_mtypes
+         xpvalue("", &pre_mtype_freqs.x[pre_mtype_id], 0, "cell.synapses.update_synapses(synapse_plot)", 1)
+    }
+    xpanel(100, 0)
+
+    synapsevbox.intercept(0)
+
+    show_synapsepanel()
+}
+
+proc show_synapsepanel() {
+    if (synapses_enabled == 1) {
+        synapsevbox.map("Presynaptic activity", 0, 0, -1, -1)
+    } else {
+        synapsevbox.unmap()
+    }
+}

@@ -1,0 +1,91 @@
+/*                                                                               
+Copyright (c) 2015 EPFL-BBP, All rights reserved.                                
+                                                                                 
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''                    
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,            
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR           
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT                 
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR           
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF             
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR                  
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,            
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE             
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN           
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                    
+                                                                                 
+This work is licensed under a 
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit 
+http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to 
+Creative Commons, 
+171 Second Street, Suite 300, 
+San Francisco, California, 94105, USA.                 
+*/           
+
+/*                                                                               
+ * @file init.hoc                                                           
+ * @brief Initialisation                                
+ * @author Werner Van Geit @ BBP                                                 
+ * @date 2015                                                                    
+*/        
+
+//----------------------------------------------------------------------------
+//  define a panel to run the different demos
+//----------------------------------------------------------------------------
+
+load_file("nrngui.hoc")
+load_file("constants.hoc")
+load_file("creategui.hoc")
+load_file("createsimulation.hoc")
+
+// By default, disable the step currents
+strdef stepcurrent
+stepcurrent = "none"
+
+// By default, enable synapses
+synapses_enabled = 1
+
+// Set up simulation
+create_cell(synapses_enabled)
+create_recording()
+
+
+// Start the GUI
+make_mainwindow(cell)
+
+// Save the windows that already exist before this initialisation
+pwmcnt = PWManager[0].count
+
+/** Procedure linked to the Init & Run button */ 
+proc restart() {
+    cleanup()	
+
+    // make_plottingpanel()
+    create_stimulus(stepcurrent)
+
+    cell.synapses.update_synapses(synapse_plot)
+    simulate()
+
+    save_recording()
+}
+
+/** Cleanup previous windows / simulations */
+proc cleanup() { local i
+	for i=0, n_graph_lists-1 {
+		graphList[i].remove_all()
+	}
+	flush_list.remove_all()
+	fast_flush_list.remove_all()
+
+    rP.cleanup()
+    fast_flush_list.append(rP)                                                  
+    fast_flush_list.append(sP)                                                   
+
+	doNotify()
+	for (i = PWManager[0].count-1; i >= pwmcnt; i -= 1) {
+		PWManager[0].close(i)
+		doNotify()
+	}
+	stoprun = 0
+    cell.synapses.reset_synapses()
+}

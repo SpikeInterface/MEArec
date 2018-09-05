@@ -1,0 +1,171 @@
+
+
+/*
+Copyright (c) 2015 EPFL-BBP, All rights reserved.
+
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This work is licensed under a
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit
+http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to
+Creative Commons,
+171 Second Street, Suite 300,
+San Francisco, California, 94105, USA.
+*/
+
+/*
+ * @file biophys.hoc
+ * @brief Biophysics
+ * @author Etay Hay, Werner Van Geit @ BBP
+ * @date 2015
+*/
+begintemplate bAC217_biophys
+public biophys, distribute
+
+proc distribute(){local x localobj sl
+        strdef stmp,distfunc,mech
+        sl = $o1
+        mech = $s2
+        distfunc = $s3
+        sprint(distfunc,"%%s %s(%%f) = %s",mech, distfunc)
+        forsec sl for(x) {
+            sprint (stmp,distfunc,secname(),x,distance(x))
+            execute(stmp)
+        }
+    }
+
+proc biophys() {
+	forsec $o1.basal {
+		insert NaTs2_t
+		insert SKv3_1
+		insert Nap_Et2
+		insert Ih
+		insert Im
+		insert K_Pst
+		insert K_Tst
+	}
+
+	forsec $o1.all {
+		insert pas
+	}
+
+	forsec $o1.somatic {
+		insert NaTs2_t
+		insert SKv3_1
+		insert Ca
+		insert SK_E2
+		insert Ca_LVAst
+		insert Nap_Et2
+		insert Im
+		insert K_Pst
+		insert K_Tst
+		insert CaDynamics_E2
+	}
+
+	forsec $o1.apical {
+		insert NaTs2_t
+		insert SKv3_1
+		insert Nap_Et2
+		insert Ih
+		insert Im
+		insert K_Pst
+		insert K_Tst
+	}
+
+	forsec $o1.axonal {
+		insert SKv3_1
+		insert Ca
+		insert SK_E2
+		insert CaDynamics_E2
+		insert Nap_Et2
+		insert Im
+		insert K_Pst
+		insert K_Tst
+		insert Ca_LVAst
+		insert NaTa_t
+	}
+
+	forsec $o1.all {
+		Ra = 100.0
+	}
+
+	forsec $o1.all {
+		cm = 1.0
+	}
+
+	forsec $o1.all {
+		e_pas = -75.300257
+	}
+
+	forsec $o1.axonal {
+		ena = 50
+	}
+
+	forsec $o1.axonal {
+		ek = -85
+	}
+
+	forsec $o1.somatic {
+		ena = 50
+	}
+
+	forsec $o1.somatic {
+		ek = -85
+	}
+
+		distribute($o1.basal,"gK_Tstbar_K_Tst","(-0.869600 + 2.087000*exp((%g--1000.000000)*-0.003000))*0.002940")
+		distribute($o1.basal,"gSKv3_1bar_SKv3_1","(0.0 * %g + 1.0)*0.005450")
+		distribute($o1.basal,"gNap_Et2bar_Nap_Et2","(0.0 * %g + 1.0)*0.000001")
+		distribute($o1.basal,"gNaTs2_tbar_NaTs2_t","(0.0 * %g + 1.0)*0.004119")
+		distribute($o1.basal,"gIhbar_Ih","(-0.869600 + 2.087000*exp((%g-0.000000)*0.003000))*0.000051")
+		distribute($o1.basal,"e_pas","(0.0 * %g + 1.0)*-60.065872")
+		distribute($o1.basal,"g_pas","(0.0 * %g + 1.0)*0.000006")
+		distribute($o1.basal,"gImbar_Im","(-0.869600 + 2.087000*exp((%g--1000.000000)*-0.003000))*0.000371")
+		distribute($o1.apical,"gK_Tstbar_K_Tst","(-0.869600 + 2.087000*exp((%g--1000.000000)*-0.003000))*0.002940")
+		distribute($o1.apical,"gSKv3_1bar_SKv3_1","(0.0 * %g + 1.0)*0.005450")
+		distribute($o1.apical,"gNap_Et2bar_Nap_Et2","(0.0 * %g + 1.0)*0.000001")
+		distribute($o1.apical,"gNaTs2_tbar_NaTs2_t","(0.0 * %g + 1.0)*0.004119")
+		distribute($o1.apical,"gIhbar_Ih","(-0.869600 + 2.087000*exp((%g-0.000000)*0.003000))*0.000051")
+		distribute($o1.apical,"e_pas","(0.0 * %g + 1.0)*-60.065872")
+		distribute($o1.apical,"g_pas","(0.0 * %g + 1.0)*0.000006")
+		distribute($o1.apical,"gImbar_Im","(-0.869600 + 2.087000*exp((%g--1000.000000)*-0.003000))*0.000371")
+		distribute($o1.axonal,"gNaTa_tbar_NaTa_t","(0.0 * %g + 1.0)*3.418459")
+		distribute($o1.axonal,"gK_Tstbar_K_Tst","(0.0 * %g + 1.0)*0.026009")
+		distribute($o1.axonal,"gamma_CaDynamics_E2","(0.0 * %g + 1.0)*0.003923")
+		distribute($o1.axonal,"gNap_Et2bar_Nap_Et2","(0.0 * %g + 1.0)*0.000001")
+		distribute($o1.axonal,"gCa_LVAstbar_Ca_LVAst","(0.0 * %g + 1.0)*0.002256")
+		distribute($o1.axonal,"gSK_E2bar_SK_E2","(0.0 * %g + 1.0)*0.000009")
+		distribute($o1.axonal,"gK_Pstbar_K_Pst","(0.0 * %g + 1.0)*0.025854")
+		distribute($o1.axonal,"gSKv3_1bar_SKv3_1","(0.0 * %g + 1.0)*0.196957")
+		distribute($o1.axonal,"decay_CaDynamics_E2","(0.0 * %g + 1.0)*20.715642")
+		distribute($o1.axonal,"e_pas","(0.0 * %g + 1.0)*-60.250899")
+		distribute($o1.axonal,"g_pas","(0.0 * %g + 1.0)*0.000002")
+		distribute($o1.axonal,"gImbar_Im","(0.0 * %g + 1.0)*0.000599")
+		distribute($o1.axonal,"gCabar_Ca","(0.0 * %g + 1.0)*0.000138")
+		distribute($o1.somatic,"gK_Tstbar_K_Tst","(0.0 * %g + 1.0)*0.008343")
+		distribute($o1.somatic,"gamma_CaDynamics_E2","(0.0 * %g + 1.0)*0.000893")
+		distribute($o1.somatic,"gNap_Et2bar_Nap_Et2","(0.0 * %g + 1.0)*0.000001")
+		distribute($o1.somatic,"gCa_LVAstbar_Ca_LVAst","(0.0 * %g + 1.0)*0.005574")
+		distribute($o1.somatic,"gSK_E2bar_SK_E2","(0.0 * %g + 1.0)*0.026900")
+		distribute($o1.somatic,"gK_Pstbar_K_Pst","(0.0 * %g + 1.0)*0.502333")
+		distribute($o1.somatic,"gSKv3_1bar_SKv3_1","(0.0 * %g + 1.0)*0.653374")
+		distribute($o1.somatic,"decay_CaDynamics_E2","(0.0 * %g + 1.0)*605.033222")
+		distribute($o1.somatic,"e_pas","(0.0 * %g + 1.0)*-76.498119")
+		distribute($o1.somatic,"g_pas","(0.0 * %g + 1.0)*0.000057")
+		distribute($o1.somatic,"gImbar_Im","(0.0 * %g + 1.0)*0.000784")
+		distribute($o1.somatic,"gNaTs2_tbar_NaTs2_t","(0.0 * %g + 1.0)*0.300054")
+		distribute($o1.somatic,"gCabar_Ca","(0.0 * %g + 1.0)*0.000792")
+}
+
+endtemplate bAC217_biophys

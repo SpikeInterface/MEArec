@@ -1,0 +1,9 @@
+1.0.11: Made compatible with python3. Improved README
+1.0.10: Increased the current to calculate the Rin to get above the noise level
+        for models with stochastic channels
+1.0.9:  Every model package now contains a cellinfo.json file with e.g. the
+        m-type, e-type, etc.
+1.0.8:  Code was added to calculate the Resting Membrane Potential, 
+        Input Resitance and Time constant
+1.0.6:  Make random number generators use exact same seed as in large network 
+        simulation

@@ -1,0 +1,44 @@
+
+
+/*
+Copyright (c) 2015 EPFL-BBP, All rights reserved.
+
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This work is licensed under a
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit
+http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to
+Creative Commons,
+171 Second Street, Suite 300,
+San Francisco, California, 94105, USA.
+*/
+
+/*
+ * @file morphology.hoc
+ * @brief Morphology
+ * @author Werner Van Geit @ BBP
+ * @date 2015
+*/
+
+begintemplate morphology_8052133265
+public morphology
+
+proc morphology(){localobj nl,import
+          nl = new Import3d_Neurolucida3()
+          nl.quiet = 1
+          nl.input("morphology/dend-C060114A7_axon-C060116A3_-_Clone_2.asc")
+          import = new Import3d_GUI(nl, 0)
+          import.instantiate($o1)
+          }
+endtemplate morphology_8052133265

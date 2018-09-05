@@ -1,0 +1,93 @@
+/*                                                                               
+ * @file ringplot.hoc                                                           
+ * @brief Horizontally scrolling plot                                
+ * @author M. Hines @ Yale, Werner Van Geit @ BBP                                                 
+ * @date 2015                                                                    
+*/        
+
+load_file("nrngui.hoc")
+
+begintemplate RingPlot
+public g, clipped_voltage
+public view_count, fastflush, flush, cleanup
+objref g, clipped_voltage, clipped_time, voltage, time, max_vec
+
+
+/** Constructor */
+proc init() {
+    // Generate graph
+    g = new Graph(0)
+
+    // Horizontal width of the plot (in ms)
+    clip_size = 3000.0
+
+    // Record voltage
+    voltage = new Vector(10000)
+    voltage.record(&v(.5))
+
+    // Record time
+    time = new Vector(10000)
+    time.record(&t)
+
+    // Vector that will contain the clipped data
+    clipped_voltage = new Vector()
+    clipped_time = new Vector()
+
+    // Set up location and size of window
+    g.view(0, -90, 3000, 120, 50, 650, 1007.04, 450)
+}
+
+/** View count of the graph */
+func view_count() {
+    return g.view_count() 
+}
+
+/** Fast flush the plot */
+func fastflush() {
+    update()
+    return g.flush()
+}
+
+/** Flush the plot */
+func flush() {
+  update()
+  return g.flush()
+}
+
+/** Update the plot */
+proc update() {
+    // Set clipping region (in ms)
+    clip_size = 3000.0
+  
+    // Time at right side of clipping region
+    right_t = t
+
+    // Time at left side of clipping region
+    // Wait until time reaches clip_size to start scrolling
+    if (t >= clip_size) {
+        left_t = t - clip_size
+    } else {
+        left_t = 0.0
+    }
+
+    // Calculate clipped vectors
+    clipped_voltage.copy(voltage, 0, left_t/dt, right_t/dt-1)
+    clipped_time.copy(time, 0, left_t/dt, right_t/dt-1)
+    clipped_time.sub(left_t)
+
+    // Erase previous plot
+    g.erase()
+    // Plot clipped vectors
+    clipped_voltage.plot(g, clipped_time)
+}
+
+/** Clean up the plot */
+proc cleanup() {
+
+    // Vector that will contain the clipped data
+    clipped_voltage = new Vector()
+    clipped_time = new Vector()
+    
+}
+
+endtemplate RingPlot

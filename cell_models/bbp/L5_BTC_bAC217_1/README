@@ -1,0 +1,119 @@
+Running NEURON model packages ME-type models
+============================================
+
+The instructions below are based on the instructions for running models from
+ModelDB (http://senselab.med.yale.edu/ModelDB/). They assume you have installed
+a recent NEURON package (>7.3 is known to work), available at
+http://www.neuron.yale.edu.
+
+Linux / Unix / Mac
+------------------
+1. Download one of the model packages from the Downloads section, or from an
+me-type fact sheet.  For this example we will download the package named
+L5_DBC_cACint209_3.zip (i.e. m-type L5_DBC, e-type cAC, exemplar 3)
+
+2. Unzip into the appropriate location
+
+user@machine:~/dev/sim/neuron$ unzip L5_DBC_cACint209_3.zip
+user@machine:~/dev/sim/neuron$ cd L5_DBC_cACint209_3
+
+3. Launch the hoc GUI
+
+user@machine:~/dev/sim/neuron/L5_DBC_cACint209_3$ sh run_hoc.sh
+
+4. Read the 'How to use the ME-type model GUI' section below
+
+Windows
+-------
+1. Download one of the model packages from the Downloads section, or from an
+me-type fact sheet.  For this example we will download the package named
+L5_DBC_cACint209_3.zip
+
+2. Unzip the downloaded package
+
+3. Run mknrndll and point it to the 'mechanisms' directory inside the unzipped
+cell package directory
+
+4. Run nrngui and from using 'File->working dir' menu option change to the
+'mechanisms' directory. Then load the 'mosinit.hoc' script from the root of the
+unzipped cell package directory
+
+5. The GUI should load automatically. Read the 'How to use the ME-type model
+GUI' section below
+
+Running the Python version of the model package on Linux / Unix / Mac OS X
+==========================================================================
+Both Python 2.6+ as 3.4+ are supported.
+If you have installed Neuron with Python support, you can run a python version
+of the model. The python script depends on numpy and matplotlib, so first 
+install these packages with e.g. 'pip install numpy matplotlib'
+The script will run without a GUI, and will produce traces for
+step current 1, 2 and 3 in the directory python_recordings
+
+user@machine:~/dev/sim/neuron/L5_DBC_cACint209_3$ sh run_py.sh
+
+How to use the ME-type model GUI
+================================
+
+To start simulating the model, press the Init & Run button. Initially there are
+no stimuli present, which means that the cell will stay at its resting membrane
+potential.
+
+There are three panels that show the output of the model. One is a graph with
+the membrane voltage recorded in the soma (units: ms and mV), the two other
+panels have a representation of the cell's morphology. The sections in the
+first morphology change color dependending on their membrane voltage during the
+simulation. When synaptic input is present, the second morphology will show the
+location of the activated synapses.
+
+Two cell can be stimulated in two ways: step currents (current clamp) and
+synaptic input.
+
+Step currents can be selected by choosing 'Step current x' using the radio
+buttons. Every step corresponds with the same amplitude as was used to generate
+the plots on the website.
+
+Synaptic inputs can be enabled by pressing one of the buttons from the list of
+presynaptic m-types. When a certain m-type is selected, all the synapses that
+cells from the specified m-type make on the simulated cell (in the neocortical
+microcircuit model) will become active. Every presynaptic cell will be
+represented by a Poisson spike train, and the synapses will receive input from
+these virtual cell. The default firing rate of these virtual cells is set to 10
+Hz. The user can change these value by changing the input field next to the
+respective m-type activation button.
+
+Installing Neuron on Mac OS X using Homebrew
+============================================
+
+In our experience the Homebrew package manager is the most convenient way to 
+get a commandline version of Neuron that has both X11 and Python support 
+running on your Mac.
+
+1. Install Homebrew by following the instruction on http://brew.sh, or:
+
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)")
+
+2. Tap the Science Homebrew repo from 
+
+https://github.com/Homebrew/homebrew-science 
+
+by executing:
+
+brew tap homebrew/science
+
+3. Now you can install Neuron:
+
+brew install neuron
+
+This will install all the necessary software dependencies 
+like InterViews, X11, ...
+
+You can test the installation by executing:
+
+nrngui
+
+which should start the Neuron GUI
+
+To test the Neuron python module:
+
+python -c 'import neuron'

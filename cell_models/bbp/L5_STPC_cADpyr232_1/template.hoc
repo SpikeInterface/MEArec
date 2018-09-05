@@ -1,0 +1,259 @@
+/* Copyright (c) 2015 EPFL-BBP, All rights reserved.                             
+                                                                                 
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''                    
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,            
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR           
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT                 
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR           
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF             
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR                  
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,            
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE             
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN           
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                    
+                                                                                 
+This work is licensed under a 
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit 
+http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to 
+Creative Commons, 171 Second Street, Suite 300, 
+San Francisco, California, 94105, USA.                 
+*/      
+
+/*                                                                               
+ * @file template.hoc                                                           
+ * @brief Main cell template of the simulation                                
+ * @author James King, Werner Van Geit @ BBP                                                 
+ * @date 2015                                                                    
+*/        
+
+load_file("morphology.hoc")
+load_file("biophysics.hoc")
+load_file("synapses/synapses.hoc")
+
+/** Main cell template */
+begintemplate cADpyr232_L5_STPC_d16b0be14e
+  public init
+  public soma, dend, apic, axon
+  public all, somatic, apical, axonal, basal
+  public nSecSoma, nSecApical, nSecBasal, nSecAxonal, nSecAll, nSecAxonalOrig
+  public SecSyn, distribute_channels
+  public morphology, synapses
+  public re_init_rng
+  objref SecSyn, this
+  objref all, somatic, apical, axonal, basal
+  objref synapses
+  strdef tstr
+  objref rngList, rng
+
+/** Constructor 
+
+    Arguments: 
+        synapse_enabled: 0 or 1, switch to disable/enable synapses
+*/
+proc init() { local synapses_enabled
+    synapses_enabled = $1
+
+    // Create sectionlists to contain all the zones in the cell
+	all = new SectionList()
+	somatic = new SectionList()
+	basal = new SectionList()
+	apical = new SectionList()
+	axonal = new SectionList()
+
+    // Make sure we start from a clean sheet
+	forall delete_section()
+
+    // Load the morphology
+    load_morphology()
+
+    // Set the number of compartments per section (2 per 40 mum)
+    geom_nseg(40)
+
+    // Initialise the biophysics 
+    biophys()
+
+    
+    forsec this.all {
+        if(diam == 0){
+          diam =  1
+          printf("Error : Morphology problem with section [%s] 0 diam \n", \
+                secname())
+        }
+    }
+
+    // Initialise synapses if requested
+    if (synapses_enabled == 1) {
+        load_synapses()
+    }
+
+    
+}
+
+create soma[1], dend[1], apic[1], axon[1]
+
+/** Iterate over the section and compute how many segments should be allocate 
+    to each. 
+
+    Arguments:
+        chunkSize: int, for every chunkSize length at 2 compartments, default 40 
+*/                                                                             
+proc geom_nseg() { local secIndex, chunkSize                              
+    chunkSize = 40                                                              
+    if( numarg() > 0 ) {                                                        
+        chunkSize = $1                                                          
+    }                                                                           
+    soma area(.5) // make sure diam reflects 3d points                          
+    secIndex=0                                                                  
+    forsec all {                                                                
+        nseg = 1 + 2*int(L/chunkSize)                                           
+        secIndex = secIndex+1                                                   
+    }                                                                           
+}        
+
+/** Initialise biophysics */                                                                             
+proc biophys() {localobj bp
+    // Replace the axon with a stub axon
+    replace_axon()
+    
+    // Initialise distance function to soma
+    access soma
+    distance()
+
+    // Run the biophysics function from the template
+    bp = new cADpyr232_biophys()
+    bp.biophys(this)
+}
+
+/** Load the morphology */                                                                             
+proc load_morphology() {localobj m
+    m = new morphology_d16b0be14e()
+    m.morphology(this)
+}
+
+/** Load the synapses */                                                                             
+proc load_synapses() {
+    synapses = new synapses_d16b0be14e()
+    synapses.load_synapses(this)
+}
+
+
+/** Replace the axon built from the original morphology file with a stub axon.  
+    The stub axon will attempt to use diam info from original axon and L=30.                                                                                
+*/                                                                             
+proc replace_axon(){ local nSec, D1, D2, dist, count                     
+                                                                                
+    // preserve the number of original axonal sections                          
+    nSec  = 0                                                                   
+    forsec axonal{nSec = nSec + 1}                                              
+                                                                                
+    // Try to grab info from original axon                                      
+    if (nSec == 0) { //No axon section present                                    
+        D1 = D2 = 1                                                             
+    } else {                                                                    
+        access axon[0]                                                          
+        D1 = D2 = diam                                                          
+        if( nSec > 1 ) { //More than one axon section present                    
+            access soma distance() //to calculate distance from soma            
+            count = 0 
+            // loop through all axon sections and check for 60um distance
+            forsec axonal {
+                count = count + 1                                               
+                dist = distance(0.5)
+                // if section is longer than 60um then store diam 
+                // and exit from loop                                            
+                if( dist > 60 ) { 
+                    D2 = diam                                                   
+                    break                                                       
+                }                                                               
+            }                                                                   
+        }                                                                       
+    }                                                                           
+                                                                                
+    // Delete old axon                                                  
+    forsec axonal{delete_section()}
+    
+    // And create new one                                             
+    execute1("create axon[2]\n", this)                                          
+                                                                                
+    // Set dimensions of new axon, and append sections to sectionlists
+    access axon[0] {                                                            
+        L = 30                                                              
+        diam = D1                                                           
+        nseg = 1 + 2*int(L/40)                                              
+        all.append()                                                            
+        axonal.append()                                                         
+    }                            
+    access axon[1] {                                                            
+        L = 30                                                                  
+        diam = D2                                                           
+        nseg = 1 + 2*int(L/40)                                              
+        all.append()                                                            
+        axonal.append()                                                         
+    }                                                                           
+    nSecAxonal = 2                                                              
+        
+    // Connect sections to each other and to soma
+    soma[0] connect axon[0](0), 1                                           
+    axon[0] connect axon[1](0), 1
+    access soma                                           
+}                 
+
+
+/** (Re)initialise random number generators for stochastic channels
+
+    Arguments:
+        gid: int, global identifier of the cell
+*/
+proc re_init_rng() {local channelID
+    objref rng
+    rngList = new List()
+    channelID = 0
+
+    forsec this.somatic {
+        for (x, 0) {
+            // Initialise the random number generator
+            rng = new Random()
+            // Set the seeds to a value that depends on the gid of the cell
+            // and the channelid within the cell
+            rng.MCellRan4( channelID*10000+100, $1*10000+250+1 )
+            channelID = channelID + 1
+            // Set to uniform distribution
+            rng.uniform(0,1)
+
+            // Pass rng to stochastic channel
+            setdata_StochKv(x)
+            setRNG_StochKv(rng)
+
+            // Store the rngs in a list for persistency
+            rngList.append(rng)
+        }
+    }
+
+    forsec this.basal {
+        for (x, 0) {
+            rng = new Random()
+            rng.MCellRan4( channelID*10000+100, $1*10000+250+1 )
+            channelID = channelID + 1
+            rng.uniform(0,1)
+            setdata_StochKv(x)
+            setRNG_StochKv(rng)
+            rngList.append(rng)
+        }
+    }
+
+    forsec this.apical {
+        for (x, 0) {
+            rng = new Random()
+            rng.MCellRan4( channelID*10000+100, $1*10000+250+1 )
+            channelID = channelID + 1
+            rng.uniform(0,1)
+            setdata_StochKv(x)
+            setRNG_StochKv(rng)
+            rngList.append(rng)
+        }
+    }
+}
+
+
+endtemplate cADpyr232_L5_STPC_d16b0be14e

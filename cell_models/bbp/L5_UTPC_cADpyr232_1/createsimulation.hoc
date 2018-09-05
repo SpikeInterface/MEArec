@@ -1,0 +1,115 @@
+/*                                                                               
+Copyright (c) 2015 EPFL-BBP, All rights reserved.                                
+                                                                                 
+THIS SOFTWARE IS PROVIDED BY THE BLUE BRAIN PROJECT ``AS IS''                    
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,            
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR           
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BLUE BRAIN PROJECT                 
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR           
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF             
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR                  
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,            
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE             
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN           
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                    
+                                                                                 
+This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode or send a letter to Creative Commons, 171
+Second Street, Suite 300, San Francisco, California, 94105, USA.                 
+*/ 
+
+/*                                                                               
+ * @file createsimulation.hoc                                                           
+ * @brief Set up the simulation                                
+ * @author Werner Van Geit @ BBP                                                 
+ * @date 2015                                                                    
+*/        
+
+load_file("nrngui.hoc")
+load_file("import3d.hoc")
+
+load_file("morphology.hoc")
+load_file("biophysics.hoc")
+load_file("template.hoc")
+
+//======================== settings ===================================
+
+hyp_amp = -0.074585
+step_amp1 = 0.1860936
+step_amp2 = 0.2016014
+step_amp3 = 0.2171092
+
+//=================== creating cell object ===========================
+objref cell
+
+proc create_cell() { local synapses_enabled
+    synapses_enabled = $1
+    cell = new cADpyr232_L5_UTPC_5e3840b51e(synapses_enabled)
+}
+//==================== recording settings ==========================
+
+objref time, voltage
+proc create_recording() {
+    voltage = new Vector()
+    time = new Vector()
+
+    access cell.soma
+    time.record(&t, 0.1)
+    voltage.record(&v(0.5), 0.1)
+
+}
+
+//==================== stimulus settings ===========================
+
+objref hypamp_stimulus
+objref step_stimulus
+
+proc create_stimulus() {
+    strdef stepcurrent 
+    stepcurrent = $s1
+    hypamp_stimulus = new IClamp(0.5)
+    hypamp_stimulus.dur = tstop
+    hypamp_stimulus.del = 0
+
+    cell.soma hypamp_stimulus
+
+    step_stimulus = new IClamp(0.5)
+    step_stimulus.dur = 2000
+    step_stimulus.del = 700
+    if (strcmp(stepcurrent, "stepcurrent1") == 0) { 
+        step_stimulus.amp = step_amp1
+        hypamp_stimulus.amp = hyp_amp
+    } else if (strcmp(stepcurrent, "stepcurrent2") == 0) {
+        step_stimulus.amp = step_amp2
+        hypamp_stimulus.amp = hyp_amp
+    } else if (strcmp(stepcurrent, "stepcurrent3") == 0) {
+        step_stimulus.amp = step_amp3
+        hypamp_stimulus.amp = hyp_amp
+    } else {
+        step_stimulus.amp = 0.0
+        hypamp_stimulus.amp = 0.0
+    }
+
+    cell.soma step_stimulus
+}
+
+//============================= simulation ================================
+
+proc simulate() {
+    cvode.active(0)
+
+    run()
+}
+
+//============================= saving results ============================
+
+proc save_recording() { localobj timevoltage, fh
+    timevoltage = new Matrix(time.size(), 2)
+    timevoltage.setcol(0, time)
+    timevoltage.setcol(1, voltage)
+
+    fh = new File()
+    fh.wopen("hoc_recordings/soma_voltage.dat")
+    timevoltage.fprint(0, fh, "%e ")
+    fh.close()
+}
