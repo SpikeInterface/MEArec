@@ -22,13 +22,7 @@ On Linux/MacOS:
 On Windows:
 `activate neurocnn`
 
-The neural simulations rely on NEURON (https://www.neuron.yale.edu/neuron/) (use version 7.5) and the latest version of LFPy (2.0). Once NEURON is installed, you can install LFPy (all requirements are installed in the environment):
-
-```
-git clone https://github.com/LFPy/LFPy
-cd LFPy
-python setup.py install
-```
+The neural simulations rely on NEURON 7.5 (https://www.neuron.yale.edu/neuron/) (it can be downloaded from https://neuron.yale.edu/ftp/neuron/versions/) and the LFPy 2.0. NEURON should be installed manually.
 
 Moreover, these scripts make use of a package for handling MEAs (MEAutility):
 
