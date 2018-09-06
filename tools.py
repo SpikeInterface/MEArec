@@ -6,13 +6,9 @@ import quantities as pq
 from quantities import Quantity
 import yaml
 import elephant
-# import scipy.signal as ss
-# from scipy.optimize import curve_fit
 import os
 from os.path import join
 import matplotlib.pylab as plt
-from sklearn.decomposition import PCA
-from neuroplot import *
 
 def load(filename):
     '''Generic loading of cPickled objects from file'''
@@ -24,7 +20,7 @@ def load(filename):
     return obj
 
 
-def load_EAP_data(templates_folder, celltypes=None, samples_per_cat=None):
+def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
     """ Loading extracellular action potential data from files
 
     Parameters:

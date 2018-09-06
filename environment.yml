@@ -6,8 +6,8 @@ dependencies:
   - scipy
   - cython
   - mpi4py
+  - matplotlib
   - pip:
-    - matplotlib
     - neo
     - elephant
     - click

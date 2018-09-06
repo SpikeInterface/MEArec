@@ -240,10 +240,10 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model, model_type, sim_folder, cell_model_id):
+def run_cell_model(cell_model, model_type, sim_folder, cell_model_id, params_path=None):
     """ Run simulation and adjust input strength to have a certain number of 
-        spikes (num_to_save < num_spikes <= 3*num_to_save 
-        where num_to_save=10 by default)
+        spikes (target_spikes[0] < num_spikes <= target_spikes[1]
+        where target_spikes=[10,30] by default)
 
     Parameters:
     -----------
@@ -269,7 +269,7 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id):
             not os.path.isfile(join(sim_folder, ('v_spikes_%s.npy' % cell_name))):
 
         np.random.seed(123 * cell_model_id)
-        T = 1200
+        T = 1000
         dt = 2 ** -5
         cell = return_cell(cell_model, model_type, cell_name, T, dt, 0)
 
@@ -281,12 +281,16 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id):
         num_spikes = 0
         spikes = []
 
+        if params_path is None:
+            target_spikes = [10, 30]
+        else:
+            with open(params_path, 'r') as f:
+                params = yaml.load(f)
+            target_spikes = params['target_spikes']
+
         cut_out = [2. / dt, 5. / dt]
-        num_to_save = 10
-
         i = 0
-
-        while not num_to_save < num_spikes <= num_to_save * 3:
+        while not target_spikes[0] < num_spikes <= target_spikes[1]:
             noiseVec, cell, syn = set_input(weight, dt, T, cell, delay, stim_length)
 
             cell.simulate(rec_imem=True)
@@ -303,9 +307,9 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id):
             num_spikes = len(spikes)
 
             print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
-            if num_spikes >= num_to_save * 3:
+            if num_spikes >= target_spikes[1]:
                 weight *= 0.75
-            elif num_spikes <= num_to_save:
+            elif num_spikes <= target_spikes[0]:
                 weight *= 1.25
 
             i += 1
@@ -314,10 +318,10 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id):
                 sys.exit()
 
         t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
-        i_spikes = np.zeros((num_to_save, cell.totnsegs, len(t)))
-        v_spikes = np.zeros((num_to_save, len(t)))
+        i_spikes = np.zeros((target_spikes[0], cell.totnsegs, len(t)))
+        v_spikes = np.zeros((target_spikes[0], len(t)))
 
-        for idx, spike_idx in enumerate(spikes[1:num_to_save+1]):
+        for idx, spike_idx in enumerate(spikes[1:target_spikes[0]+1]):
             spike_idx = int(spike_idx)
             v_spike = v[spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
             i_spike = cell.imem[:, spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
@@ -771,7 +775,7 @@ if __name__ == '__main__':
     extra_sim_folder = join(data_dir, 'templates', model)
     vm_im_sim_folder = join(data_dir, 'templates', model, 'Vm_Im')
 
-    cell = run_cell_model(cell_folder, model, vm_im_sim_folder, int(numb))
+    cell = run_cell_model(cell_folder, model, vm_im_sim_folder, int(numb), params_path)
 
     if not only_intracellular:
         calc_extracellular(cell_folder, model, extra_sim_folder, vm_im_sim_folder, rotation, int(numb), probe, nobs,
