@@ -28,11 +28,11 @@ cells = 'all'
 @click.option('--intraonly', '-i', default=False, help='if True it only simulate intracellular')
 @click.option('--n', '-n', default=1000, help='number of observations per cell type')
 @click.option('--ncontacts', '-nc', default=1, help='number of contacts per electrode')
-@click.option('--overhang', '-ov', default=30, help='extension (um) beyopnd MEA boundaries for neuron locations')
+@click.option('--overhang', '-ov', default=30., help='extension (um) beyopnd MEA boundaries for neuron locations')
 @click.option('--xplane', '-xp', default=0, help='x_plane (um) coordinate for MEA')
 @click.option('--xlim', '-xl', default=[10,80],  nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the x-axis (depth)')
-@click.option('--det-thresh', '-dt', default=30, help='detection threshold for EAPs')
+@click.option('--det-thresh', '-dt', default=30., help='detection threshold for EAPs')
 @click.option('--params', '-prm', default=None, help='path to params.yaml')
 def run(model, rot, probe, intraonly, n, ncontacts, overhang, xplane, xlim, det_thresh, params):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
