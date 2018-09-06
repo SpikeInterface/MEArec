@@ -1,0 +1,15 @@
+name: mearec
+dependencies:
+  - python=2.7
+  - pyyaml
+  - numpy
+  - scipy
+  - cython
+  - mpi4py
+  - pip:
+    - matplotlib
+    - neo
+    - elephant
+    - click
+    - LFPy==2.0
+    - ipython
