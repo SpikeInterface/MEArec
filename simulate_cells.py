@@ -240,7 +240,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model, model_type, sim_folder, cell_model_id, params_path=None):
+def run_cell_model(cell_model, sim_folder, seed, **kwargs):
     """ Run simulation and adjust input strength to have a certain number of 
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
         where target_spikes=[10,30] by default)
@@ -265,42 +265,35 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id, params_pat
 
     cell_name = os.path.split(cell_model)[-1]
 
-    if not os.path.isfile(join(sim_folder, ('i_spikes_%s.npy' % cell_name))) and \
-            not os.path.isfile(join(sim_folder, ('v_spikes_%s.npy' % cell_name))):
+    imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
+    vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
+    if not np.any(cell_model in imem_files) and np.any(cell_model in vmem_files):
 
-        np.random.seed(123 * cell_model_id)
-        T = 1000
-        dt = 2 ** -5
-        cell = return_cell(cell_model, model_type, cell_name, T, dt, 0)
+        np.random.seed(seed)
+        T = kwargs['sim_time'] * 1000
+        dt = kwargs['dt']
+        cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
 
-        delay = 200
-        stim_length = 1000
-        weight = 0.23
-        # weight = -1.25
+        delay = kwargs['delay']
+        stim_length = T - delay
+        weights = kwargs['weights']
+        weight = weights[0]
+        target_spikes = kwargs['target_spikes']
+        cuts = kwargs['cut_out']
+        cut_out = [cuts[0] / dt, cuts[1] / dt]
 
         num_spikes = 0
-        spikes = []
 
-        if params_path is None:
-            target_spikes = [10, 30]
-        else:
-            with open(params_path, 'r') as f:
-                params = yaml.load(f)
-            target_spikes = params['target_spikes']
-
-        cut_out = [2. / dt, 5. / dt]
         i = 0
         while not target_spikes[0] < num_spikes <= target_spikes[1]:
             noiseVec, cell, syn = set_input(weight, dt, T, cell, delay, stim_length)
-
             cell.simulate(rec_imem=True)
 
             t = cell.tvec
             v = cell.somav
+            print(cell.imem.shape)
             t = t
             v = v
-
-            # ipdb.set_trace()
 
             spikes = find_spike_idxs(v[int(cut_out[0]):-int(cut_out[1])])
             spikes = list(np.array(spikes) + cut_out[0])
@@ -308,20 +301,20 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id, params_pat
 
             print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
             if num_spikes >= target_spikes[1]:
-                weight *= 0.75
+                weight *= weights[0]
             elif num_spikes <= target_spikes[0]:
-                weight *= 1.25
+                weight *= weights[1]
 
             i += 1
-
             if i >= 10:
                 sys.exit()
 
         t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
-        i_spikes = np.zeros((target_spikes[0], cell.totnsegs, len(t)))
-        v_spikes = np.zeros((target_spikes[0], len(t)))
+        # discard first spike
+        i_spikes = np.zeros((num_spikes-1, cell.totnsegs, len(t)))
+        v_spikes = np.zeros((num_spikes-1, len(t)))
 
-        for idx, spike_idx in enumerate(spikes[1:target_spikes[0]+1]):
+        for idx, spike_idx in enumerate(spikes[1:]):
             spike_idx = int(spike_idx)
             v_spike = v[spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
             i_spike = cell.imem[:, spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
@@ -330,22 +323,13 @@ def run_cell_model(cell_model, model_type, sim_folder, cell_model_id, params_pat
 
         if not os.path.isdir(sim_folder):
             os.makedirs(sim_folder)
-        np.save(join(sim_folder, 'i_spikes_%s.npy' % cell_name), i_spikes)
-        np.save(join(sim_folder, 'v_spikes_%s.npy' % cell_name), v_spikes)
-
-        return cell
+        np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes-1, cell_name)), i_spikes)
+        np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes-1, cell_name)), v_spikes)
 
     else:
         print('Cell has already be simulated. Using stored membrane currents')
-        np.random.seed(123 * cell_model_id)
-        T = 1200
-        dt = 2 ** -5
-        cell = return_cell(cell_model, model_type, cell_name, T, dt, 0)
 
-        return cell
-
-def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,\
-                       rotation, cell_model_id, elname, nobs, params_path=None, position=None):
+def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
          arbitrary number of spikes above a certain noise level.
 
@@ -370,21 +354,29 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
     --------
         nothing, but saves the result
     """
-    sim_folder = join(save_sim_folder, rotation)
-
-    np.random.seed(123 * cell_model_id)
-    dt = 2**-5
-    T = 1
-
     cell_name = os.path.split(cell_model)[-1]
     cell_save_name = cell_name
+    np.random.seed(seed)
 
-    cell = return_cell(cell_model, model_type, cell_name, T, dt, 0)
+    T = kwargs['sim_time'] * 1000
+    dt = kwargs['dt']
+    rotation =  kwargs['rot']
+    nobs =  kwargs['n']
+    ncontacts = kwargs['ncontacts']
+    overhang = kwargs['overhang']
+    x_plane = kwargs['xplane']
+    x_lim = kwargs['xlim']
+    det_thresh = kwargs['det_thresh']
+    MEAname = kwargs['probe']
+
+    sim_folder = join(save_sim_folder, rotation)
+    cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
 
     # Load data from previous cell simulation
-    i_spikes = np.load(join(load_sim_folder, 'i_spikes_%s.npy' % cell_name))
-    v_spikes = np.load(join(load_sim_folder, 'v_spikes_%s.npy' % cell_name))
-
+    imem_file = [f for f in os.listdir(load_sim_folder) if cell_name in f and 'imem' in f][0]
+    vmem_file = [f for f in os.listdir(load_sim_folder) if cell_name in f and 'vmem' in f][0]
+    i_spikes = np.load(join(load_sim_folder, imem_file))
+    v_spikes = np.load(join(load_sim_folder, vmem_file))
     cell.tvec = np.arange(i_spikes.shape[-1]) * dt
 
     save_spikes = []
@@ -393,30 +385,10 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
     save_offs = []
     target_num_spikes = int(nobs)
 
-    if params_path is None:
-        ncontacts = 1
-        overhang = 30
-        xplane = 0
-        x_lim = [10., 80.]
-        threshold_detect = 30
-    else:
-        with open(params_path, 'r') as f:
-            params = yaml.load(f)
-        ncontacts = params['ncontacts']
-        overhang = params['overhang']
-        x_plane = params['x_plane']
-        x_lim = params['x_lim']
-        threshold_detect = params['threshold_detect']
-
-    i = 0
-    # specify MEA
-    MEAname = elname
 
     # load MEA info
     elinfo = MEA.return_mea_info(electrode_name=MEAname)
-    
     # specify number of points for average EAP on each site
-    n = 1  # 10 # 50
     elinfo.update({'n_points': ncontacts})
 
     # Create save folder
@@ -467,10 +439,10 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
             
         y_lim = [float(min(elec_y)-elinfo['pitch'][0]/2.-overhang), float(max(elec_y)+elinfo['pitch'][0]/2.+overhang)]
         z_lim = [float(min(elec_z)-elinfo['pitch'][1]/2.-overhang), float(max(elec_z)+elinfo['pitch'][1]/2.+overhang)]
-        print(x_lim)
 
         ignored=0
         saved = 0
+        i = 0
 
         while len(save_spikes) < target_num_spikes:
             if i > 1000 * target_num_spikes:
@@ -480,9 +452,9 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
             cell.imem = i_spikes[spike_idx, :, :]
             cell.somav = v_spikes[spike_idx, :]
 
-            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, model_type, electrode_parameters,
+            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
                                                                  [x_lim, y_lim, z_lim], rotation, pos=position)
-            if (np.ptp(espikes, axis=1) >= threshold_detect).any():
+            if (np.ptp(espikes, axis=1) >= det_thresh).any():
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -500,10 +472,6 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
         save_rot = np.array(save_rot)
         save_offs = np.array(save_offs)
 
-        np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
-        np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
-        np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
-
         if not os.path.isfile(join(save_folder, 'e_elpts_%d.npy' % target_num_spikes)):
             np.save(join(save_folder, 'e_elpts_%d.npy' % target_num_spikes),
                     save_offs)
@@ -511,13 +479,17 @@ def calc_extracellular(cell_model, model_type, save_sim_folder, load_sim_folder,
         # Log information: (consider xml)
         with open(join(save_folder, 'info_%s.yaml' % cell_save_name),'w') as f:
             # create dictionary for yaml file
-            data_yaml = {'General': {'cell name': cell_name, 'target spikes': target_num_spikes, 
-                                     'detect threshold': threshold_detect, 'NEURON': neuron.h.nrnversion(1),
+            data_yaml = {'General': {'cell name': cell_name, 'target spikes': target_num_spikes,
+                                     'detect threshold': det_thresh, 'NEURON': neuron.h.nrnversion(1),
                                      'LFPy': LFPy.__version__ , 'dt': dt},
                         'Electrodes': elinfo,
                         'Location': {'z_lim': list(z_lim),'y_lim': list(y_lim), 'x_lim': list(x_lim), 'rotation': rotation}
                         }
             yaml.dump(data_yaml, f, default_flow_style=False)
+
+        np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
+        np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
+        np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
 
 
 def get_physrot_specs(cell_name, model):
@@ -751,34 +723,23 @@ if __name__ == '__main__':
     if len(sys.argv) == 2 and sys.argv[1] == 'compile':
             compile_all_mechanisms()
             sys.exit(0)
-    elif len(sys.argv) == 8:
-        cell_folder, model, numb, only_intracellular, rotation, probe, nobs = sys.argv[1:]
-        only_intracellular = str2bool(only_intracellular)
-        params_path = None
-    elif len(sys.argv) == 9:
-        cell_folder, model, numb, only_intracellular, rotation, probe, nobs, params_path = sys.argv[1:]
-        only_intracellular = str2bool(only_intracellular)
-    else: 
-        raise RuntimeError("Wrong usage. Give arguments: \n \
-        \t 'compile' to compile mechanisms \n \
-        \n\t or for cell simulation: \n \
-        \t <cell name> \t path to cell model files\n \
-        \t <model_type> \t cell model type (here 'bbp')\n \
-        \t <cell id> \t arbitrary cell id, used to set the numpy.random seed\n \
-        \t <only_intra> \t (bool) whether to simulate only the intracellular potential \n \
-        \t <rotation> \t specifies neuron-MEA alignment ('Norot','physrot','3drot')\n \
-        \t <probe> \t MEA probe name (corresponding to the json file in electrodes directory)\n \
-        \t <nobs> \t number of EAP observations to simulate")
+    elif len(sys.argv) == 4:
+        cell_model = sys.argv[1]
+        intraonly = str2bool(sys.argv[2])
+        params_path = sys.argv[3]
 
-    data_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(params_path, 'r') as f:
+            params = yaml.load(f)
 
-    extra_sim_folder = join(data_dir, 'templates', model)
-    vm_im_sim_folder = join(data_dir, 'templates', model, 'Vm_Im')
+        sim_folder = params['template_folder']
+        cell_folder = params['cell_folder']
+        rot = params['rot']
 
-    cell = run_cell_model(cell_folder, model, vm_im_sim_folder, int(numb), params_path)
+        extra_sim_folder = join(params['template_folder'])
+        vm_im_sim_folder = join(params['template_folder'], 'intracellular')
 
-    if not only_intracellular:
-        calc_extracellular(cell_folder, model, extra_sim_folder, vm_im_sim_folder, rotation, int(numb), probe, nobs,
-                           params_path)
+        run_cell_model(cell_model, vm_im_sim_folder, np.random.randint(1, 1000), **params)
+        if not intraonly:
+            calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, np.random.randint(1, 1000), **params)
 
 
