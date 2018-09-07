@@ -38,10 +38,14 @@ Cell models can be downloaded from the Neocortical Micro Circuit Portal https://
 (13 models from layer 5 for testing are already included).
 Newly downloaded models should be unzipped to the folder `cell_models/bbp/`
 
-The script for generating EAP templates is `templates_gen.py`. If you run `python templates_gen.py --help` all the available arguments and options are listed. In order to check available MEA probes, just run `python templates_gen.py`, or do not provide the `--probe` option.
-During the first run of the scripts, the NEURON model in the `cell_models/bbp/` will be first compiled and then the EAP templates will be generated and saved in `templates\bbp\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model)
+The script for generating EAP templates is `template_gen.py`. If you run `python templates_gen.py --help` all the available arguments and options are listed. In order to check available MEA probes, just run `python templates_gen.py`, or do not provide the `--probe` option.
+During the first run of the scripts, the NEURON model in the `cell_models/bbp/` will be first compiled and then the EAP templates will be generated and saved in `templates\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model)
+Simulation parameters can be changed from the `params/template_params.yaml` file, provided with an external yaml file (with the `--params` option) or overwritten with command line argument.
 
 ## Spike trains generation
+
+The script for generating EAP templates is `spiketrain_gen.py`. Simulation parameters can be viewed and changed in the `params/spiketrain_params.yaml`.
+Spike trains and info are saved in `spiketrains\spiketrains_<neurons>_<date>` folder (neurons is the number of neurons).
 
 
 ## Recordings generation
