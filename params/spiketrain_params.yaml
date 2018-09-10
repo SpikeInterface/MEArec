@@ -6,6 +6,7 @@ spiketrain_folder: spiketrains
 # spike train generation parameters
 
 # rates = [] # individual spike trains rates
+# types = [] # individual spike trains class (exc-inh)
 
 # alternative to rates - excitatory and inhibitory settings
 n_exc: 15 # number of excitatory cells

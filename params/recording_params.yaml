@@ -1,0 +1,32 @@
+# Default parameters for recording generation (recording_gen.py)
+
+# general
+recording_folder: recordings
+
+# excitatory and inhibitory cell names
+excitatory: ['STPC', 'TTPC1', 'TTPC2', 'UTPC']
+inhibitory: ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC', 'NGC', 'SBC']
+
+# recording generation parameters
+min_dist: 25 # minimum distance between neurons
+min_amp: 50 # minimum spike amplitude in uV
+noise_level: 10 # noise standard deviation in uV
+noise_mode: uncorrelated # so far only uncorrelated is implemented
+depth_lim: null # limits for neuron depths (x-coord) in um [min, max]
+fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
+filter: True # if True it filters the recordings
+cutoff: [300, 6000] # filter cutoff frequencies in Hz
+overlap_threshold: 0.8 # threshold to consider two templates spatially overlapping
+                       # (e.g 0.6 -> 60% of template B on largest electrode of template A)
+n_jitters: 10 # number of temporal jittered copies for each eap
+upsample: 8 # upsampling factor to extract jittered copies
+pad_len: [3, 3] # padding of templates in ms
+seed: null # random seed to draw eap templates
+
+modulation: electrode # type of spike modulation [none (no modulation) |
+                      # template (each spike instance is modulated with the same value on each electrode) |
+                      # electrode (each electrode is modulated separately)]
+mrand: 1 # mean of gaussian modulation (should be 1)
+sdrand:  0.05 # standard deviation of gaussian modulation
+
+chunk_duration: 0 # chunk duration in s for chunk processing (if 0 the entire recordings are generated at once)

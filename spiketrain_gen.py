@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 """
 Generates spike trains using elephant
@@ -389,7 +389,7 @@ def run(params, **kwargs):
         params_dict['duration'] = kwargs['duration']
 
     info = {'Params': params_dict}
-    yaml.dump(info, open('tmp_info.yaml', 'w'))
+    yaml.dump(info, open('tmp_info.yaml', 'w'), default_flow_style=False)
 
     spgen = SpikeTrainGenerator(params_dict)
     spgen.generate_spikes()
@@ -407,6 +407,8 @@ def run(params, **kwargs):
         os.makedirs(save_folder)
     np.save(join(save_folder, 'gtst'), spiketrains)
     shutil.move('tmp_info.yaml', join(save_folder, 'info.yaml'))
+    print('\nSaved spike trains in', save_folder, '\n')
+
 
 if __name__ == '__main__':
     run()

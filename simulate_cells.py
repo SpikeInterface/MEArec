@@ -265,9 +265,13 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
     cell_name = os.path.split(cell_model)[-1]
 
+    if not os.path.isdir(sim_folder):
+        os.makedirs(sim_folder)
+
     imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
     vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
-    if not np.any(cell_model in imem_files) and np.any(cell_model in vmem_files):
+
+    if not (np.any(cell_model in imem_files) and np.any(cell_model in vmem_files)):
 
         np.random.seed(seed)
         T = kwargs['sim_time'] * 1000
@@ -327,7 +331,7 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
         np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes-1, cell_name)), v_spikes)
 
     else:
-        print('Cell has already be simulated. Using stored membrane currents')
+        print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
 
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate

@@ -8,7 +8,7 @@ template_folder: templates
 sim_time: 1 # intracellular simulation time in s
 target_spikes: [3, 50]  # min-max number of spikes in sim_time
 cut_out: [2, 5]  # pre-post peak cut_out in ms
-dt: 0.03125  # time step (2**-5) in s
+dt: 0.03125  # time step (2**-5) in ms
 delay: 10  # stimulation delay in ms
 weights: [0.25, 1.75]  # weights to multiply stimulus amplitude if number of spikes is above (0.25) or above (1.25)
                        # target spikes

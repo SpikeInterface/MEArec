@@ -24,6 +24,8 @@ from tools import load_tmp_eap
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
               help='template filename')
+@click.option('--cellfolder', '-cf', default=None,
+              help='folder containing bbp cell models')
 @click.option('--rot', '-r', default=None,
               help='possible rotation arguments: Norot-physrot-3drot (default=physrot)')
 @click.option('--probe', '-p', default=None,
@@ -59,7 +61,10 @@ def run(params, **kwargs):
         MEA.return_mea()
         return
 
-    model_folder = params_dict['cell_folder']
+    if kwargs['cellfolder'] is not None:
+        model_folder = kwargs['cellfolder']
+    else:
+        model_folder = params_dict['cell_folder']
     cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
     template_folder = params_dict['template_folder']
     intraonly = kwargs['intraonly']
@@ -118,9 +123,9 @@ def run(params, **kwargs):
         np.save(join(save_folder, 'rotations'), rotations)
         np.save(join(save_folder, 'celltypes'), celltypes)
         info.update({'Params': params_dict})
-        yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'))
+        yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
         shutil.rmtree(tmp_folder)
-
+        print('\nSaved eap templates in', save_folder, '\n')
 
 if __name__ == '__main__':
     run()

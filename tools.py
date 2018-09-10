@@ -107,9 +107,35 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
         info['General'].pop('cell name', None)
 
     print("Done loading spike data ...")
-    print("Loaded categories", loaded_categories)
-    print("Ignored categories", ignored_categories)
-    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list), loaded_categories, info
+    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str),\
+           loaded_categories, info
+
+
+def load_templates(template_folder):
+    print("Loading templates...")
+
+    templates = np.load(join(template_folder, 'templates.npy'))
+    locs = np.load(join(template_folder, 'locations.npy'))
+    rots = np.load(join(template_folder, 'rotations.npy'))
+    celltypes = np.load(join(template_folder, 'celltypes.npy'))
+
+    with open(join(template_folder, 'info.yaml'), 'r') as f:
+        info = yaml.load(f)
+
+    print("Done loading templates...")
+    return templates, locs, rots, celltypes, info
+
+
+def load_spiketrains(spiketrain_folder):
+    print("Loading spike trains...")
+
+    spiketrains = np.load(join(spiketrain_folder, 'gtst.npy'))
+
+    with open(join(spiketrain_folder, 'info.yaml'), 'r') as f:
+        info = yaml.load(f)
+
+    print("Done loading spike trains...")
+    return spiketrains, info
 
 
 def apply_pca(X, n_comp):
@@ -190,11 +216,10 @@ def load_validation_data(validation_folder,load_mcat=False):
 def get_binary_cat(categories, excit, inhib):
     binary_cat = []
     for i, cat in enumerate(categories):
-        if cat in excit:
-            binary_cat.append('EXCIT')
-        elif cat in inhib:
-            binary_cat.append('INHIB')
-
+        if np.any([ex in str(cat) for ex in excit]):
+            binary_cat.append('E')
+        elif np.any([inh in str(cat) for inh in inhib]):
+            binary_cat.append('I')
     return np.array(binary_cat, dtype=str)
 
 
@@ -376,12 +401,12 @@ def filter_analog_signals(anas, freq, fs, filter_type='bandpass', order=3, copy_
         raise ValueError('Filter is not stable')
 
 
-def select_cells(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=[], min_amp=None, drift=False,
+def select_cells(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=None, min_amp=None, drift=False,
                  drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
     pos_sel = []
     idxs_sel = []
-    exc_idxs = np.where(bin_cat == 'EXCIT')[0]
-    inh_idxs = np.where(bin_cat == 'INHIB')[0]
+    exc_idxs = np.where(bin_cat == 'E')[0]
+    inh_idxs = np.where(bin_cat == 'I')[0]
 
     if not min_amp:
         min_amp = 0
@@ -407,7 +432,7 @@ def select_cells(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=[], mi
             else:
                 amp = np.max(np.abs(spikes[id_cell]))
                 if not drift:
-                    if len(bound_x) == 0:
+                    if bound_x is None:
                         if amp > min_amp:
                             # save cell
                             pos_sel.append(loc[id_cell])
@@ -456,36 +481,25 @@ def select_cells(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=[], mi
     return idxs_sel
 
 
-def find_overlapping_spikes(spikes, thresh=0.7, parallel=True):
+def find_overlapping_spikes(spikes, thresh=0.7):
     overlapping_pairs = []
 
     for i in range(spikes.shape[0] - 1):
-        if parallel:
-            import multiprocessing
-            nprocesses = len(spikes)
-            # t_start = time.time()
-            pool = multiprocessing.Pool(nprocesses)
-            results = [pool.apply_async(overlapping(i, spikes,))
-                       for i, sp_times in enumerate(sst)]
-            overlapping_pairs = []
-            for result in results:
-                overlapping_pairs.extend(result.get())
-        else:
-            temp_1 = spikes[i]
-            max_ptp = (np.array([np.ptp(t) for t in temp_1]).max())
-            max_ptp_idx = (np.array([np.ptp(t) for t in temp_1]).argmax())
+        temp_1 = spikes[i]
+        max_ptp = (np.array([np.ptp(t) for t in temp_1]).max())
+        max_ptp_idx = (np.array([np.ptp(t) for t in temp_1]).argmax())
 
-            for j in range(i + 1, spikes.shape[0]):
-                temp_2 = spikes[j]
-                ptp_on_max = np.ptp(temp_2[max_ptp_idx])
+        for j in range(i + 1, spikes.shape[0]):
+            temp_2 = spikes[j]
+            ptp_on_max = np.ptp(temp_2[max_ptp_idx])
 
-                max_ptp_2 = (np.array([np.ptp(t) for t in temp_2]).max())
+            max_ptp_2 = (np.array([np.ptp(t) for t in temp_2]).max())
 
-                max_peak = np.max([ptp_on_max, max_ptp])
-                min_peak = np.min([ptp_on_max, max_ptp])
+            max_peak = np.max([ptp_on_max, max_ptp])
+            min_peak = np.min([ptp_on_max, max_ptp])
 
-                if min_peak > thresh * max_peak and ptp_on_max > thresh * max_ptp_2:
-                    overlapping_pairs.append([i, j])  # , max_ptp_idx, max_ptp, ptp_on_max
+            if min_peak > thresh * max_peak and ptp_on_max > thresh * max_ptp_2:
+                overlapping_pairs.append([i, j])  # , max_ptp_idx, max_ptp, ptp_on_max
 
     return np.array(overlapping_pairs)
 
@@ -2441,23 +2455,44 @@ def unit_SNR(sst, sources, times):
     return np.array(noise_source)
 
 
-def interpolate_template(temp, mea_pos, mea_dim, x_shift=0, y_shift=0):
-    from scipy import interpolate
-    x = mea_pos[:, 1]
-    y = mea_pos[:, 2]
+def resample_spiketrains(spiketrains, fs=None, T=None):
+    '''
+    Resamples spike trains. Provide either fs or T parameters
+    Parameters
+    ----------
+    fs: new sampling frequency (quantity)
+    T: new period (quantity)
 
-    func = []
-    for t in range(temp.shape[1]):
-        func.append(interpolate.interp2d(x, y, temp[:, t], kind='cubic'))
+    Returns
+    -------
+    matrix with resampled binned spike trains
 
-    x1 = x + x_shift
-    y1 = y + y_shift
-    t_shift = []
-    for f in func:
-        t_shift.append([f(x_, y_) for (x_, y_) in zip(x1, y1)])
+    '''
+    import elephant.conversion as conv
 
-    return np.squeeze(np.array(t_shift)).swapaxes(0,1)
-
+    resampled_mat = []
+    if not fs and not T:
+        print('Provide either sampling frequency fs or time period T')
+        return
+    elif fs:
+        if not isinstance(fs, Quantity):
+            raise ValueError("fs must be of type pq.Quantity")
+        binsize = 1./fs
+        binsize.rescale('ms')
+        resampled_mat = []
+        for sts in spiketrains:
+            spikes = conv.BinnedSpikeTrain(sts, binsize=binsize).to_array()
+            resampled_mat.append(np.squeeze(spikes))
+    elif T:
+        binsize = T
+        if not isinstance(T, Quantity):
+            raise ValueError("T must be of type pq.Quantity")
+        binsize.rescale('ms')
+        resampled_mat = []
+        for sts in spiketrains:
+            spikes = conv.BinnedSpikeTrain(sts, binsize=binsize).to_array()
+            resampled_mat.append(np.squeeze(spikes))
+    return np.array(resampled_mat)
 
 def convolve_single_template(spike_id, spike_bin, template, modulation=False, amp_mod=None):
     if len(template.shape) == 2:
@@ -2471,7 +2506,7 @@ def convolve_single_template(spike_id, spike_bin, template, modulation=False, am
 
     if len(template.shape) == 2:
         rand_idx = np.random.randint(njitt)
-        print('rand_idx: ', rand_idx)
+        # print('rand_idx: ', rand_idx)
         temp_jitt = template[rand_idx]
         if not modulation:
             for pos, spos in enumerate(spike_pos):
@@ -2484,7 +2519,7 @@ def convolve_single_template(spike_id, spike_bin, template, modulation=False, am
                     diff = n_samples - (spos - len_spike // 2)
                     gt_source[spos - len_spike // 2:] += temp_jitt[:diff]
         else:
-            print('Template-Electrode modulation')
+            # print('Template-Electrode modulation')
             for pos, spos in enumerate(spike_pos):
                 if spos - len_spike // 2 >= 0 and spos - len_spike // 2 + len_spike <= n_samples:
                     gt_source[spos - len_spike // 2:spos - len_spike // 2 + len_spike] += amp_mod[pos]*temp_jitt
@@ -2495,7 +2530,7 @@ def convolve_single_template(spike_id, spike_bin, template, modulation=False, am
                     diff = n_samples - (spos - len_spike // 2)
                     gt_source[spos - len_spike // 2:] += amp_mod[pos]*temp_jitt[:diff]
     else:
-        print('No modulation')
+        # print('No modulation')
         for pos, spos in enumerate(spike_pos):
             if spos - len_spike // 2 >= 0 and spos - len_spike // 2 + len_spike <= n_samples:
                 gt_source[spos - len_spike // 2:spos - len_spike // 2 + len_spike] += template
@@ -2528,9 +2563,9 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
         amp_mod = np.ones_like(spike_pos)
         if len(template.shape) == 3:
             rand_idx = np.random.randint(njitt)
-            print('rand_idx: ', rand_idx)
+            # print('rand_idx: ', rand_idx)
             temp_jitt = template[rand_idx]
-            print('No modulation')
+            # print('No modulation')
             for pos, spos in enumerate(spike_pos):
                 if spos - len_spike // 2 >= 0 and spos - len_spike // 2 + len_spike <= n_samples:
                     recordings[:, spos - len_spike // 2:spos - len_spike // 2 + len_spike] += amp_mod[pos] * temp_jitt
@@ -2541,7 +2576,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
                     diff = n_samples - (spos - len_spike // 2)
                     recordings[:, spos - len_spike // 2:] += amp_mod[pos] * temp_jitt[:, :diff]
         else:
-            print('No jitter')
+            # print('No jitter')
             for pos, spos in enumerate(spike_pos):
                 if spos - len_spike // 2 >= 0 and spos - len_spike // 2 + len_spike <= n_samples:
                     recordings[:, spos - len_spike // 2:spos - len_spike // 2 + len_spike] += amp_mod[
@@ -2557,10 +2592,10 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
         spike_pos = np.where(spike_bin == 1)[0]
         if len(template.shape) == 3:
             rand_idx = np.random.randint(njitt)
-            print('rand_idx: ', rand_idx)
+            # print('rand_idx: ', rand_idx)
             temp_jitt = template[rand_idx]
             if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                print('Template modulation')
+                #print('Template modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
                         recordings[:, spos-len_spike//2:spos-len_spike//2+len_spike] +=  amp_mod[pos] * temp_jitt
@@ -2571,7 +2606,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
                         diff = n_samples-(spos - len_spike // 2)
                         recordings[:, spos - len_spike // 2:] += amp_mod[pos] * temp_jitt[:, :diff]
             else:
-                print('Electrode modulation')
+                #print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
                         recordings[:, spos - len_spike // 2:spos - len_spike // 2 + len_spike] += \
@@ -2587,7 +2622,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
                             [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, :diff])]
         else:
             if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                print('Template modulation')
+                #print('Template modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos - len_spike // 2 >= 0 and spos - len_spike // 2 + len_spike <= n_samples:
                         recordings[:, spos - len_spike // 2:spos - len_spike // 2 + len_spike] += amp_mod[
@@ -2600,7 +2635,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
                         recordings[:, spos - len_spike // 2:] += amp_mod[pos] * template[:, :diff]
 
             else:
-                print('Electrode modulation')
+                #print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
                         recordings[:, spos - len_spike // 2:spos - len_spike // 2 + len_spike] += \
@@ -2617,7 +2652,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, modulation=Fal
                         # recordings[:, spos - len_spike // 2:] += amp_mod[pos] * template[:, :diff]
 
 
-    print('DONE: convolution with spike ', spike_id)
+    #print('DONE: convolution with spike ', spike_id)
 
     return recordings
 
