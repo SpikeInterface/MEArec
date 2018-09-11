@@ -93,7 +93,7 @@ def run(params, **kwargs):
     # Compile NEURON models (nrnivmodl)
     if not os.path.isdir(join(model_folder, 'mods')):
         print('Compiling NEURON models')
-        os.system('python simulate_cells.py compile')
+        os.system('python simulate_cells.py compile %s' % model_folder)
 
     # Simulate neurons and EAP for different cell models sparately
     for numb, cell_model in enumerate(cell_models):

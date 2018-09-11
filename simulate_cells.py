@@ -22,10 +22,6 @@ import MEAutility as MEA
 import yaml
 import time
 
-from defaultconfig import *
-if os.path.exists('./config.py'):
-    from config import *
-
 def get_templatename(f):
     '''
     Assess from hoc file the templatename being specified within
@@ -49,7 +45,7 @@ def get_templatename(f):
     return templatename
 
 
-def compile_all_mechanisms(model='bbp'):
+def compile_all_mechanisms(cell_folder):
     """ Attempt to set up a folder with all unique mechanism *.mod files and 
         compile them all. assumes all cell models are in a folder 'cell_models'
     
@@ -59,24 +55,24 @@ def compile_all_mechanisms(model='bbp'):
         Cell model type ('bbp' - Blue Brain Project, i.e. NMC database)
     """
 
-    if not os.path.isdir(join(root_folder, 'cell_models', model, 'mods')):
-        os.mkdir(join(root_folder, 'cell_models', model, 'mods'))
+    if not os.path.isdir(join(cell_folder, 'mods')):
+        os.mkdir(join(cell_folder, 'mods'))
 
-    neurons = [join(root_folder,'cell_models', model, f) \
-               for f in os.listdir(join(root_folder, 'cell_models', model)) \
+    neurons = [join(cell_folder, f) \
+               for f in os.listdir(join(cell_folder)) \
                if f != 'mods']
     print(neurons)
 
     for nrn in neurons:
         for nmodl in glob(join(nrn, 'mechanisms', '*.mod')):
             print(nmodl)
-            while not os.path.isfile(join(root_folder, 'cell_models', model, 'mods', os.path.split(nmodl)[-1])):
-                print('cp {} {}'.format(nmodl, join(root_folder, 'cell_models', model, 'mods')))
-                os.system('cp {} {}'.format(nmodl, join(root_folder, 'cell_models', model, 'mods')))
-
-    os.chdir(join(root_folder, 'cell_models', model, 'mods'))
+            while not os.path.isfile(join(cell_folder, 'mods', os.path.split(nmodl)[-1])):
+                print('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
+                os.system('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
+    starting_dir = os.getcwd()
+    os.chdir(join(cell_folder, 'mods'))
     os.system('nrnivmodl')
-    os.chdir(root_folder)
+    os.chdir(starting_dir)
 
 
 def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
@@ -724,9 +720,10 @@ def str2bool(v):
 
 if __name__ == '__main__':
 
-    if len(sys.argv) == 2 and sys.argv[1] == 'compile':
-            compile_all_mechanisms()
-            sys.exit(0)
+    if len(sys.argv) == 3 and sys.argv[1] == 'compile':
+        cell_folder = sys.argv[2]
+        compile_all_mechanisms(cell_folder)
+        sys.exit(0)
     elif len(sys.argv) == 4:
         cell_model = sys.argv[1]
         intraonly = str2bool(sys.argv[2])
