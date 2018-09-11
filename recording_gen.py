@@ -20,39 +20,15 @@ import MEAutility as MEA
 import click
 from tools import *
 
-root_folder = os.getcwd()
-
-#TODO add bursting events
-
 class RecordingGenerator:
     def __init__(self, template_folder, spiketrain_folder, params):
-        # save=False, spike_folder=None, fs=None, noise_mode=None, n_neurons=None, p_exc=None,
-        #          bound_x=[], min_amp=None, noise_level=None, duration=None, f_exc=None, f_inh=None,
-        #          filter=True, over=None, sync=None, modulation='none', min_dist=None, plot_figures=True,
-        #          seed=2904):
         '''
 
         Parameters
         ----------
-        save: save flag (True-False)
-        spike_folder: folder containing spikes or CNN model with validation_data folder
-        fs: sampling frequency (if None taken from spikes)
-        noise_mode: noise generation (uncorrelated: independent gaussian noise - correlated-dist: noise correlated with distance)
-        n_neurons: number of cells
-        p_exc: percent of excitatory cells
-        bound_x: boundaries for x direction in um (e.g. [10 60])
-        min_amp: minimum amplitude of templates in uV
-        noise_level: rms noise level
-        duration: duration in s
-        f_exc: average frequency of excitatory cells
-        f_inh: average frequency of inhibtory cells
-        filter: filter or not (True-False)
-        over: threshold to consider 2 templates dpatially overlapping (e.g. 0.6)
-        sync: rate of added synchrony on overlapping spikes
-        modulation: modulation type (none - noise-all (electrodes modulated separately) - noise (templates modulated separately))
-        min_dist: minimum distance between cells in um
-        plot_figures: plot figures or not
-        seed: random seed to select cells
+        template_folder
+        spiketrain_folder
+        params
         '''
 
         eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
@@ -111,8 +87,8 @@ class RecordingGenerator:
             # print(n_exc, n_inh)
         #print( n_exc, ' excitatory and ', n_inh, ' inhibitory'
 
-        idxs_cells = select_cells(locs, eaps, bin_cat, n_exc, n_inh, bound_x=depth_lim, min_amp=min_amp,
-                                  min_dist=min_dist)
+        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, bound_x=depth_lim, min_amp=min_amp,
+                                      min_dist=min_dist, verbose=True)
         template_celltypes = celltypes[idxs_cells]
         template_locs = locs[idxs_cells]
         templates_bin = bin_cat[idxs_cells]
@@ -205,7 +181,7 @@ class RecordingGenerator:
         for i, st in enumerate(spiketrains):
             st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], loc=template_locs[i])
         print('Finding temporally overlapping spikes')
-        overlapping = find_overlapping_spikes(templates, thresh=overlap_threshold)
+        overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
         # print(overlapping)
         # annotate_overlapping(spiketrains, overlapping_pairs=overlapping, verbose=True)
 
@@ -373,8 +349,11 @@ class RecordingGenerator:
             else:
                 recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
 
-        ''' save meta data in old fashioned format'''
+        print('Extracting spike waveforms')
+        extract_wf(spiketrains, recordings, times, fs)
+
         self.recordings = recordings
+        self.times = times
         self.templates = templates
         self.spiketrains = spiketrains
         self.peaks = peak
@@ -429,6 +408,8 @@ class RecordingGenerator:
               help='sampling frequency in kHz (default from templates sampling frequency)')
 @click.option('--min-dist', '-md', default=None, type=int,
               help='minumum distance between neuron in um (default=25)')
+@click.option('--min-amp', '-ma', default=None, type=int,
+              help='minumum eap amplitude in uV (default=50)')
 @click.option('--noise-lev', '-nl', default=None, type=int,
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
@@ -468,6 +449,8 @@ def run(params, **kwargs):
 
     if kwargs['min_dist'] is not None:
         params_dict['min_dist'] = kwargs['min_dist']
+    if kwargs['min_amp'] is not None:
+        params_dict['min_amp'] = kwargs['min_amp']
     if kwargs['noise_lev'] is not None:
         params_dict['noise_lev'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
@@ -504,13 +487,17 @@ def run(params, **kwargs):
         os.makedirs(rec_path)
 
     np.save(join(rec_path, 'recordings'), recgen.recordings)
-    np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
-    np.save(join(rec_path, 'peak'), recgen.peaks)
-    np.save(join(rec_path, 'sources'), recgen.sources)
+    np.save(join(rec_path, 'times'), recgen.times)
     np.save(join(rec_path, 'templates'), recgen.templates)
+    np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
+    np.save(join(rec_path, 'sources'), recgen.sources)
+    np.save(join(rec_path, 'peaks'), recgen.peaks)
 
     with open(join(rec_path, 'info.yaml'), 'w') as f:
         yaml.dump(info, f, default_flow_style=False)
+
+    print('\nSaved recordings in', save_folder, '\n')
+
 
 if __name__ == '__main__':
     run()

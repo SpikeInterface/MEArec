@@ -114,7 +114,7 @@ def run(params, **kwargs):
         else:
             fname = kwargs['fname']
         tmp_folder = join(template_folder, rot, 'tmp_%d_%s' % (n, probe))
-        templates, locations, rotations, celltypes, loaded_cat, info = load_tmp_eap(tmp_folder)
+        templates, locations, rotations, celltypes, info = load_tmp_eap(tmp_folder)
         save_folder = join(template_folder, rot, fname)
         if not os.path.isdir(save_folder):
             os.makedirs(save_folder)

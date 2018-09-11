@@ -20,6 +20,8 @@ import matplotlib.pylab as plt
 import quantities as pq
 from quantities import Quantity
 
+#TODO be consistent with E-I notation
+
 class SpikeTrainGenerator:
     def __init__(self, params):
         '''
