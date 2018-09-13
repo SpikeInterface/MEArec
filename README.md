@@ -17,7 +17,7 @@ For Anaconda
 Then activate the environment:
 
 On Linux/MacOS:
-`source activate neurocnn`
+`source activate mearec`
 
 On Windows:
 `activate neurocnn`
@@ -38,20 +38,20 @@ Cell models can be downloaded from the Neocortical Micro Circuit Portal https://
 (13 models from layer 5 for testing are already included).
 Newly downloaded models should be unzipped to the folder `cell_models/bbp/`
 
-The script for generating EAP templates is `template_gen.py`. If you run `python templates_gen.py --help` all the available arguments and options are listed. In order to check available MEA probes, just run `python templates_gen.py`, or do not provide the `--probe` option.
+The script for generating EAP templates is `gen_templates.py`. If you run `python gen_templates.py --help` all the available arguments and options are listed. In order to check available MEA probes, just run `python gen_templates.py`, or do not provide the `--probe` option.
 During the first run of the scripts, the NEURON model in the `cell_models/bbp/` will be first compiled. Simulation parameters can be changed from the `params/template_params.yaml` file, provided with an external yaml file (with the `--params` option) or overwritten with command line argument. 
 EAP templates will be generated and saved in `templates\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model) and they can be loaded with the `tools.load_eaps(path-to-recordings)` function.
 
 
 ## Spike trains generation
 
-The script for generating EAP templates is `spiketrain_gen.py`. Simulation parameters can be viewed and changed in the `params/spiketrain_params.yaml`.
+The script for generating EAP templates is `gen_spiketrain.py`. Simulation parameters can be viewed and changed in the `params/spiketrain_params.yaml`.
 Spike trains and info are saved in `spiketrains\spiketrains_<neurons>_<date>` folder (neurons is the number of neurons) and they can be loaded with the `tools.load_spiketrains(path-to-spiketrains)` function.
 
 
 ## Recordings generation
 
-Once EAP templates and spike trains are generated, the `recording_gen.py` script combines to create simulated recordings. 
+Once EAP templates and spike trains are generated, the `gen_recording.py` script combines to create simulated recordings. 
 Run the script with `--template` or `-t` option to point to the templates path and the `--spiketrain` or `-st` for the spike trains path. In brief, the templates are selected based onthe number of available spike trains and other parameters (see `params/recording_params.yaml` for details). Then, templates are convoluted in time with the spikes to create clean recordings. During convolution, single eap can be modulated either at the template level, or at the single electrode level (eith the `--modulation` ot `-m` option - none | template | electrode). Finally, a gaussian noise is added to the clean recordings (`--noise-lev` or `-nl` allows to change the noise sd in uV) and the recordings are filtered (unless the `--no-filter` option is used).
 Recordings are saved in `recordings\recording_<neurons>cells_<meaname>_<duration>s_<noise-level>uV_<date>` and they can be loaded with the `tools.load_recordings(path-to-recordings)` function.
 
