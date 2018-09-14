@@ -496,7 +496,7 @@ def run(params, **kwargs):
     with open(join(rec_path, 'info.yaml'), 'w') as f:
         yaml.dump(info, f, default_flow_style=False)
 
-    print('\nSaved recordings in', save_folder, '\n')
+    print('\nSaved recordings in', rec_path, '\n')
 
 
 if __name__ == '__main__':
