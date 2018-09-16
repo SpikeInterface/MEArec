@@ -1203,7 +1203,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
 ### RECORDING OPERATION ###
 
-def extract_wf(spiketrains, recordings, times, fs, upsample=8, n_pad=2):
+def extract_wf(spiketrains, recordings, times, fs, n_pad=2):
     '''
 
     Parameters
@@ -1212,16 +1212,12 @@ def extract_wf(spiketrains, recordings, times, fs, upsample=8, n_pad=2):
     recordings
     times
     fs
-    upsample
     n_pad
 
     Returns
     -------
 
     '''
-    import scipy.signal as ss
-    import quantities as pq
-
     n_pad = int(n_pad * pq.ms * fs.rescale('kHz'))
     unit = times[0].rescale('ms').units
 
@@ -1250,7 +1246,6 @@ def extract_wf(spiketrains, recordings, times, fs, upsample=8, n_pad=2):
                 spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad - nPts)), 'constant')
             if first_spike:
                 nsamples = len(spike_rec)
-                nsamples_up = nsamples * upsample
                 first_spike = False
 
             min_amp = np.min(spike_rec)
