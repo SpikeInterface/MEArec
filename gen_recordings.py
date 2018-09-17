@@ -354,6 +354,7 @@ class RecordingGenerator:
 
         self.recordings = recordings
         self.times = times
+        self.positions = mea_pos
         self.templates = templates
         self.spiketrains = spiketrains
         self.peaks = peak
@@ -488,6 +489,7 @@ def run(params, **kwargs):
 
     np.save(join(rec_path, 'recordings'), recgen.recordings)
     np.save(join(rec_path, 'times'), recgen.times)
+    np.save(join(rec_path, 'positions'), recgen.positions)
     np.save(join(rec_path, 'templates'), recgen.templates)
     np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
     np.save(join(rec_path, 'sources'), recgen.sources)
