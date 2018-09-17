@@ -267,7 +267,8 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
     imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
     vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
 
-    if not (np.any(cell_model in imem_files) and np.any(cell_model in vmem_files)):
+    if not (np.any([cell_name in ifile for ifile in imem_files]) and
+            np.any([cell_name in vfile for vfile in vmem_files])):
 
         np.random.seed(seed)
         T = kwargs['sim_time'] * 1000
@@ -425,7 +426,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 'y': elec_y,
                 'z': elec_z,
                 'n': ncontacts,
-                'r': elinfo['r'],
+                'r': elinfo['size'],
                 'N': N,
                 'contact_shape': elinfo['shape']
             }
@@ -436,9 +437,19 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 'y': elec_y,
                 'z': elec_z
             }
-            
-        y_lim = [float(min(elec_y)-elinfo['pitch'][0]/2.-overhang), float(max(elec_y)+elinfo['pitch'][0]/2.+overhang)]
-        z_lim = [float(min(elec_z)-elinfo['pitch'][1]/2.-overhang), float(max(elec_z)+elinfo['pitch'][1]/2.+overhang)]
+
+        if elinfo['shape'] == 'square':
+            # size is the side length
+            y_lim = [float(min(elec_y)-elinfo['size']/2.-overhang),
+                     float(max(elec_y)+elinfo['size']/2.+overhang)]
+            z_lim = [float(min(elec_z)-elinfo['size']/2.-overhang),
+                     float(max(elec_z)+elinfo['size']/2.+overhang)]
+        elif elinfo['shape'] == 'circle':
+            # sixe is the radius
+            y_lim = [float(min(elec_y)-elinfo['size']-overhang),
+                     float(max(elec_y)+elinfo['size']+overhang)]
+            z_lim = [float(min(elec_z)-elinfo['size']-overhang),
+                     float(max(elec_z)+elinfo['size']+overhang)]
 
         ignored=0
         saved = 0
