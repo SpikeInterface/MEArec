@@ -21,7 +21,7 @@ import click
 from tools import *
 
 class RecordingGenerator:
-    def __init__(self, template_folder, spiketrain_folder, params):
+    def __init__(self, template_folder, spiketrain_folder, params, overlap=False):
         '''
 
         Parameters
@@ -34,6 +34,7 @@ class RecordingGenerator:
         eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
         spiketrains, spike_info = load_spiketrains(spiketrain_folder)
         n_neurons = len(spiketrains)
+        cut_outs = temp_info['Params']['cut_out']
 
         seed = params['seed']
         np.random.seed(seed)
@@ -58,7 +59,7 @@ class RecordingGenerator:
         #
         # #print( 'Modulation: ', self.modulation
         #
-        # parallel=False
+        parallel=False
         #
         # all_categories = ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC',
         #                   'NGC', 'SBC', 'STPC', 'TTPC1', 'TTPC2', 'UTPC']
@@ -73,7 +74,8 @@ class RecordingGenerator:
         electrode_name = temp_info['Electrodes']['electrode_name']
         elinfo = MEA.return_mea_info(electrode_name)
         x_plane = temp_info['Params']['xplane']
-        mea_pos, mea_dim, mea_pitch = MEA.return_mea(electrode_name)
+        mea = MEA.return_mea(electrode_name)
+        mea_pos = mea.positions
 
         n_elec = eaps.shape[1]
         # this is fixed from recordings
@@ -142,7 +144,7 @@ class RecordingGenerator:
             temp_jitt = []
             for n in range(n_jitters):
                 # align waveform
-                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
                 if shift > 0:
                     t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
                 elif shift < 0:
@@ -153,6 +155,8 @@ class RecordingGenerator:
                 temp_jitt.append(temp_down)
             templates_jitter.append(temp_jitt)
         templates = np.array(templates_jitter)
+
+        cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
 
     #
         # if self.sync_rate != 0:
@@ -180,10 +184,10 @@ class RecordingGenerator:
         print('Adding spiketrain annotations')
         for i, st in enumerate(spiketrains):
             st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], loc=template_locs[i])
-        print('Finding temporally overlapping spikes')
-        overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
-        # print(overlapping)
-        # annotate_overlapping(spiketrains, overlapping_pairs=overlapping, verbose=True)
+        if overlap:
+            print('Finding temporally overlapping spikes')
+            overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
+            annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
 
 
         amp_mod = []
@@ -240,6 +244,7 @@ class RecordingGenerator:
                     finished = True
             print('Chunks: ', chunks)
 
+
         if len(chunks) > 0:
             recording_chunks = []
             for ch, chunk in enumerate(chunks):
@@ -257,9 +262,11 @@ class RecordingGenerator:
                     for st, spike_bin in enumerate(spike_matrix_chunk):
                         #print( 'Convolving with spike ', st, ' out of ', spike_matrix_chunk.shape[0]
                         if modulation == 'none':
-                            rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st])
+                            rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                        cut_out=cut_outs_samples)
                         else:
                             rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                        cut_out=cut_outs_samples,
                                                                                    modulation=True,
                                                                                    amp_mod=amp_chunk[st])
                 else:
@@ -283,31 +290,35 @@ class RecordingGenerator:
                     seed = np.random.randint(10000)
                     np.random.seed(seed)
 
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st])
+                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                 cut_out=cut_outs_samples)
                     np.random.seed(seed)
                     gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                              templates[st, :, np.argmax(peak[st])]))
+                                                              templates[st, :, np.argmax(peak[st])],
+                                                              cut_out=cut_outs_samples))
                 elif modulation == 'electrode':
                     seed = np.random.randint(10000)
                     np.random.seed(seed)
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
                                                                       modulation=True,
                                                                       amp_mod=amp_mod[st])
                     np.random.seed(seed)
                     gt_spikes.append(convolve_single_template(st, spike_bin,
                                                               templates[st, :, np.argmax(peak[st])],
+                                                              cut_out=cut_outs_samples,
                                                               modulation=True,
                                                               amp_mod=amp_mod[st][:,
                                                                       np.argmax(peak[st])]))
                 elif modulation == 'template' or modulation == 'all':
                     seed = np.random.randint(10000)
                     np.random.seed(seed)
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
                                                                       modulation=True,
                                                                       amp_mod=amp_mod[st])
                     np.random.seed(seed)
                     gt_spikes.append(convolve_single_template(st, spike_bin,
                                                               templates[st, :, np.argmax(peak[st])],
+                                                              cut_out=cut_outs_samples,
                                                               modulation=True,
                                                               amp_mod=amp_mod[st]))
 
@@ -360,11 +371,11 @@ class RecordingGenerator:
         self.peaks = peak
         self.sources = gt_spikes
 
-        general = {'spiketrain_folder': str(spiketrain_folder), 'template_folder': str(template_folder),
+        general_info = {'spiketrain_folder': str(spiketrain_folder), 'template_folder': str(template_folder),
                    'n_neurons': n_neurons, 'electrode_name': str(electrode_name),'fs': float(fs.magnitude),
                    'duration': float(duration.magnitude), 'seed': seed}
 
-        templates = {'pad_len': [float(pl.magnitude) for pl in pad_len], 'depth_lim': depth_lim,
+        templates_info = {'pad_len': [float(pl.magnitude) for pl in pad_len], 'depth_lim': depth_lim,
                      'min_amp': min_amp, 'min_dist': min_dist}
 
 
@@ -373,20 +384,23 @@ class RecordingGenerator:
         #              'overlap_pairs': self.overlapping,
         #              'sync_rate': self.sync_rate}
 
-        modulation = {'modulation': modulation,'mrand': mrand, 'sdrand': sdrand}
+        modulation_info = {'modulation': modulation,'mrand': mrand, 'sdrand': sdrand}
 
-        noise = {'noise_mode': noise_mode, 'noise_level': noise_level}
+        noise_info = {'noise_mode': noise_mode, 'noise_level': noise_level}
 
         if filter:
-            filter = {'filter': filter, 'cutoff': [float(co.magnitude) for co in cutoff]}
+            filter_info = {'filter': filter, 'cutoff': [float(co.magnitude) for co in cutoff]}
         else:
-            filter = {'filter': filter}
+            filter_info = {'filter': filter}
 
         # create dictionary for yaml file
-        info = {'General': general, 'Templates': templates, 'Modulation': modulation,
-                'Filter': filter, 'Noise': noise}
+        info = {'General': general_info, 'Templates': templates_info, 'Modulation': modulation_info,
+                'Filter': filter_info, 'Noise': noise_info}
 
         self.info = info
+
+        print(templates.shape)
+        print(cut_outs*fs)
 
         # self.rec_path = join(rec_dir, self.rec_name)
         # os.makedirs(self.rec_path)
@@ -421,6 +435,8 @@ class RecordingGenerator:
               help='random seed (default randint(1,1000))')
 @click.option('--no-filt', is_flag=True,
               help='if True no filter is applied')
+@click.option('--overlap', is_flag=True,
+              help='if True it annotates overlapping spikes')
 def run(params, **kwargs):
     """Generates recordings from TEMPLATES and SPIKETRAINS"""
     # Retrieve params file
@@ -469,7 +485,9 @@ def run(params, **kwargs):
     else:
         params_dict['seed'] = np.random.randint(1, 10000)
 
-    recgen = RecordingGenerator(template_folder, spiketrain_folder, params_dict)
+    overlap = kwargs['overlap']
+
+    recgen = RecordingGenerator(template_folder, spiketrain_folder, params_dict, overlap)
     info = recgen.info
 
     n_neurons = info['General']['n_neurons']
