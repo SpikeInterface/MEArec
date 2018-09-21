@@ -29,7 +29,7 @@ Moreover, these scripts make use of a package for handling MEAs (MEAutility):
 ```
 git clone https://github.com/alejoe91/MEAutility
 cd MEAutility
-python setup.py devlop
+python setup.py install (or develop)
 ```
 
 ## EAP templates generation
