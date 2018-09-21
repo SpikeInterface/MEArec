@@ -171,7 +171,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     return cell
 
 
-def find_spike_idxs(v, thresh=-30):
+def find_spike_idxs(v, thresh=-30, find_max=30):
     """ Find spike indices
     
     Parameters:
@@ -180,13 +180,23 @@ def find_spike_idxs(v, thresh=-30):
         Membrane potential
     thresh: float (optional, default = -30)
         Threshold for spike detections
+    find_max: int
+        Number of sample to find spike maximum after detection crossing
 
     Returns:
     --------
     spikes : array_like
-        Indices of threshold crossings in the positive direction, i.e. spikes
+        Indices of spike peaks in the positive direction, i.e. spikes
     """
-    spikes = [idx for idx in range(len(v) - 1) if v[idx] < thresh < v[idx + 1]]
+    spikes_th = [idx for idx in range(len(v) - 1) if v[idx] < thresh < v[idx + 1]]
+    spikes = []
+    for sp in spikes_th:
+        max_idx =  np.argmax(v[sp:sp+find_max])
+        spikes.append(sp+max_idx)
+
+    print('\n\n\n', spikes)
+    print('\n\n\n', spikes_th)
+
     return spikes
 
 
@@ -408,7 +418,8 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
         x_plane = 0.
-        pos, dim, pitch = MEA.return_mea(electrode_name=MEAname, x_plane=x_plane)
+        mea = MEA.return_mea(electrode_name=MEAname)
+        pos = mea.positions
 
         elec_x = pos[:, 0]
         elec_y = pos[:, 1]
@@ -438,16 +449,10 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 'z': elec_z
             }
 
-        if elinfo['shape'] == 'square':
-            y_lim = [float(min(elec_y)-elinfo['size']/2.-overhang),
-                     float(max(elec_y)+elinfo['size']/2.+overhang)]
-            z_lim = [float(min(elec_z)-elinfo['size']/2.-overhang),
-                     float(max(elec_z)+elinfo['size']/2.+overhang)]
-        elif elinfo['shape'] == 'circle':
-            y_lim = [float(min(elec_y) - elinfo['size'] - overhang),
-                     float(max(elec_y) + elinfo['size'] + overhang)]
-            z_lim = [float(min(elec_z) - elinfo['size'] - overhang),
-                     float(max(elec_z) + elinfo['size'] + overhang)]
+        y_lim = [float(min(elec_y) - elinfo['size'] - overhang),
+                 float(max(elec_y) + elinfo['size'] + overhang)]
+        z_lim = [float(min(elec_z) - elinfo['size'] - overhang),
+                 float(max(elec_z) + elinfo['size'] + overhang)]
 
         ignored=0
         saved = 0
