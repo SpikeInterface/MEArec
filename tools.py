@@ -891,10 +891,10 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
             if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
                 #print('Template modulation')
                 for pos, spos in enumerate(spike_pos):
-                    if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
-                        recordings[:, spos-len_spike//2:spos-len_spike//2+len_spike] +=  amp_mod[pos] * temp_jitt
-                    elif spos-len_spike//2 < 0:
-                        diff = -(spos-len_spike//2)
+                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] +=  amp_mod[pos] * temp_jitt
+                    elif spos - cut_out[0] < 0:
+                        diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
                     else:
                         diff = n_samples-(spos - cut_out[0])
@@ -902,11 +902,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
             else:
                 #print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
-                    if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
+                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
                             [a * t for (a, t) in zip(amp_mod[pos], temp_jitt)]
-                    elif spos-len_spike//2 < 0:
-                        diff = -(spos-len_spike//2)
+                    elif spos - cut_out[0] < 0:
+                        diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += \
                             [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, diff:])]
                         # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
@@ -931,11 +931,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
             else:
                 #print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
-                    if spos-len_spike//2 >= 0 and spos-len_spike//2+len_spike <= n_samples:
+                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
                             [a * t for (a, t) in zip(amp_mod[pos], template)]
-                    elif spos-len_spike//2 < 0:
-                        diff = -(spos-len_spike//2)
+                    elif spos - cut_out[0] < 0:
+                        diff = -(spos - cut_out[0])
                         recordings[:, : spos + cut_out[1]] += \
                             [a * t for (a, t) in zip(amp_mod[pos], template[:, diff:])]
                         # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]

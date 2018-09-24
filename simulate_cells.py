@@ -193,10 +193,6 @@ def find_spike_idxs(v, thresh=-30, find_max=30):
     for sp in spikes_th:
         max_idx =  np.argmax(v[sp:sp+find_max])
         spikes.append(sp+max_idx)
-
-    print('\n\n\n', spikes)
-    print('\n\n\n', spikes_th)
-
     return spikes
 
 
