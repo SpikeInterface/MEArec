@@ -35,7 +35,7 @@ def get_templatename(f):
 
     '''
     templatename = None
-    f = file("template.hoc", 'r')
+    f = open("template.hoc", 'r')
     for line in f.readlines():
         if 'begintemplate' in line.split():
             templatename = line.split()[-1]
@@ -109,20 +109,20 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     if model_type == 'bbp':
         neuron.load_mechanisms('../mods')
 
-        f = file("template.hoc", 'r')
+        f = open("template.hoc", 'r')
         templatename = get_templatename(f)
         f.close()
 
-        f = file("biophysics.hoc", 'r')
+        f = open("biophysics.hoc", 'r')
         biophysics = get_templatename(f)
         f.close()
 
-        f = file("morphology.hoc", 'r')
+        f = open("morphology.hoc", 'r')
         morphology = get_templatename(f)
         f.close()
 
         #get synapses template name
-        f = file(join("synapses", "synapses.hoc"), 'r')
+        f = open(join("synapses", "synapses.hoc"), 'r')
         synapses = get_templatename(f)
         f.close()
 
@@ -422,7 +422,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         elec_z = pos[:, 2]
 
         N = np.empty((pos.shape[0], 3))
-        for i in xrange(N.shape[0]):
+        for i in np.arange(N.shape[0]):
             N[i, ] = [1, 0, 0]  # normal vec. of contacts
 
         # Add square electrodes (instead of circles)

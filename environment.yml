@@ -1,6 +1,6 @@
 name: mearec
 dependencies:
-  - python=2.7
+  - python=3
   - pyyaml
   - numpy
   - scipy
