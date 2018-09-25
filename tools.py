@@ -8,7 +8,7 @@ import yaml
 import elephant
 import os
 from os.path import join
-import matplotlib.pylab as plt
+import MEAutility as MEA
 import h5py
 
 
@@ -1377,7 +1377,7 @@ def raster_plots(st, bintype=False, ax=None, overlap=False, labels=False, color_
     return ax
 
 
-def plot_templates(templates, mea_pos, mea_pitch, single_figure=True):
+def plot_templates(templates, mea, single_figure=True):
     '''
 
     Parameters
@@ -1390,7 +1390,7 @@ def plot_templates(templates, mea_pos, mea_pitch, single_figure=True):
     -------
 
     '''
-    from neuroplot import plot_weight
+    import matplotlib.pylab as plt
 
     n_sources = len(templates)
     fig_t = plt.figure()
@@ -1402,10 +1402,9 @@ def plot_templates(templates, mea_pos, mea_pitch, single_figure=True):
         for n, t in enumerate(templates):
             print('Plotting spike ', n, ' out of ', n_sources)
             if len(t.shape) == 3:
-                # plot_mea_recording(w[:5], mea_pos, mea_pitch, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=0.1)
-                plot_mea_recording(t.mean(axis=0), mea_pos, mea_pitch, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                MEA.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
             else:
-                plot_mea_recording(t, mea_pos, mea_pitch, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                MEA.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
 
     else:
         cols = int(np.ceil(np.sqrt(n_sources)))
@@ -1413,24 +1412,25 @@ def plot_templates(templates, mea_pos, mea_pitch, single_figure=True):
 
         for n in range(n_sources):
             ax_t = fig_t.add_subplot(rows, cols, n+1)
-            plot_mea_recording(templates[n], mea_pos, mea_pitch, ax=ax_t)
+            MEA.plot_mea_recording(templates[n], mea, ax=ax_t)
 
     return fig_t
 
 
-def plot_waveforms(spiketrains, mea_pos, mea_pitch):
+def plot_waveforms(spiketrains, mea):
     '''
 
     Parameters
     ----------
     spiketrains
-    mea_pos
-    mea_pitch
+    mea
 
     Returns
     -------
 
     '''
+    import matplotlib.pylab as plt
+
     wf = [s.waveforms for s in spiketrains]
     fig_w = plt.figure()
     ax_w = fig_w.add_subplot(111)
@@ -1438,205 +1438,10 @@ def plot_waveforms(spiketrains, mea_pos, mea_pitch):
 
     for n, w in enumerate(wf):
         print('Plotting spike ', n, ' out of ', len(wf))
-        # plot_mea_recording(w[:5], mea_pos, mea_pitch, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=0.1)
-        plot_mea_recording(w.mean(axis=0), mea_pos, mea_pitch, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=2)
+        MEA.plot_mea_recording(w.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=2)
 
     return fig_w
 
-def plot_mea_recording(spikes, mea_pos, mea_pitch, colors=None, points=False, lw=1, ax=None, spacing=None,
-                       scalebar=False, time=None, dt=None, vscale=None):
-    '''
-
-    Parameters
-    ----------
-    spikes
-    mea_pos
-    mea_pitch
-    color
-    points
-    lw
-
-    Returns
-    -------
-
-    '''
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1, frameon=False)
-        no_tight = False
-    else:
-        no_tight = True
-
-    if spacing is None:
-        spacing = 0.1*np.max(mea_pitch)
-
-    # normalize to min peak
-    if vscale is None:
-        LFPmin = 1.5*   np.max(np.abs(spikes))
-        spike_norm = spikes / LFPmin * mea_pitch[1]
-    else:
-        spike_norm = spikes / vscale * mea_pitch[1]
-
-    if colors is None:
-        if len(spikes.shape) > 2:
-            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        else:
-            colors='k'
-
-    number_electrode = mea_pos.shape[0]
-    for el in range(number_electrode):
-        if len(spikes.shape) == 3:  # multiple
-            if points:
-                for sp_i, sp in enumerate(spike_norm):
-                    if len(colors) >= len(spike_norm) and len(colors) > 1:
-                        print(colors[sp_i])
-                        ax.plot(np.linspace(0, mea_pitch[0]-spacing, spikes.shape[2]) + mea_pos[el, 1],
-                                np.transpose(sp[el, :]) +  mea_pos[el, 2], linestyle='-', marker='o', ms=2, lw=lw,
-                                color=colors[np.mod(sp_i, len(colors))],
-                                label='EAP '+ str(sp_i+1))
-                    elif len(colors) == 1:
-                        ax.plot(np.linspace(0, mea_pitch[0] - spacing, spikes.shape[2]) + mea_pos[el, 1],
-                                np.transpose(sp[el, :]) +
-                                mea_pos[el, 2], linestyle='-', marker='o', ms=2, lw=lw, color=colors,
-                                label='EAP ' + str(sp_i + 1))
-            else:
-                for sp_i, sp in enumerate(spike_norm):
-                    if len(colors) > 1:
-                        ax.plot(np.linspace(0, mea_pitch[0]-spacing, spikes.shape[2]) + mea_pos[el, 1],
-                                np.transpose(sp[el, :]) + mea_pos[el, 2], lw=lw, color=colors[np.mod(sp_i, len(colors))],
-                                label='EAP '+str(sp_i+1))
-                    elif len(colors) == 1:
-                        ax.plot(np.linspace(0, mea_pitch[0] - spacing, spikes.shape[2]) + mea_pos[el, 1],
-                                np.transpose(sp[el, :]) + mea_pos[el, 2], lw=lw, color=colors,
-                                label='EAP ' + str(sp_i + 1))
-
-        else:
-            if points:
-                ax.plot(np.linspace(0, mea_pitch[0]-spacing, spikes.shape[1]) + mea_pos[el, 1], spike_norm[el, :]
-                        + mea_pos[el, 2], color=colors, linestyle='-', marker='o', ms=2, lw=lw)
-            else:
-                ax.plot(np.linspace(0, mea_pitch[0]-spacing, spikes.shape[1]) + mea_pos[el, 1], spike_norm[el, :] +
-                        mea_pos[el, 2], color=colors, lw=lw)
-
-        # ax.set_ylim([np.min(spikes), np.max(spikes)])
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.axis('off')
-
-    if scalebar:
-        if dt is None and time is None:
-            raise AttributeError('Pass either dt or time in the argument')
-        else:
-            shift = 0.1*spacing
-            pos_h = [np.min(mea_pos[:, 1]), np.min(mea_pos[:, 2]) - 1.5*mea_pitch[1]]
-            if vscale is None:
-                length_h = mea_pitch[1] * LFPmin / (LFPmin // 10 * 10)
-            else:
-                length_h = mea_pitch[1]
-            pos_w = [np.min(mea_pos[:, 1]), np.min(mea_pos[:, 2]) - 1.5*mea_pitch[1]]
-            length_w = mea_pitch[0]/5.
-
-            ax.plot([pos_h[0], pos_h[0]], [pos_h[1], pos_h[1] + length_h], color='k', lw=2)
-            if vscale is None:
-                ax.text(pos_h[0]+shift, pos_h[1] + length_h / 2., str(int(LFPmin // 10 * 10)) + ' $\mu$V')
-            else:
-                ax.text(pos_h[0]+shift, pos_h[1] + length_h / 2., str(int(vscale)) + ' $\mu$V')
-            ax.plot([pos_w[0], pos_w[0]+length_w], [pos_w[1], pos_w[1]], color='k', lw=2)
-            ax.text(pos_w[0]+shift, pos_w[1]-length_h/3., str(time/5) + ' ms')
-
-    if not no_tight:
-        fig.tight_layout()
-
-    return ax
-
-
-def play_mea_recording(rec, mea_pos, mea_pitch, fs, window=1, step=0.1, colors=None, lw=1, ax=None, fig=None, spacing=None,
-                       scalebar=False, time=None, dt=None, vscale=None, spikes=None, repeat=False, interval=10):
-    '''
-
-    Parameters
-    ----------
-    rec
-    mea_pos
-    mea_pitch
-    fs
-    window
-    step
-    colors
-    lw
-    ax
-    spacing
-    scalebar
-    time
-    dt
-    vscale
-
-    Returns
-    -------
-
-    '''
-    n_window = int(fs*window)
-    n_step = int(fs*step)
-    start = np.arange(0, rec.shape[1], n_step)
-
-    if fig is None:
-        fig = plt.figure()
-    if ax is None:
-        ax = fig.add_subplot(1,1,1, frameon=False)
-        no_tight = False
-    else:
-        no_tight = True
-
-    if spacing is None:
-        spacing = 0.1*np.max(mea_pitch)
-
-    # normalize to min peak
-    if vscale is None:
-        LFPmin = 1.5 * np.max(np.abs(rec))
-        rec_norm = rec / LFPmin * mea_pitch[1]
-    else:
-        rec_norm = rec / float(vscale) * mea_pitch[1]
-
-    if colors is None:
-        if len(rec.shape) > 2:
-            colors = plt.rcParams['axes.color_cycle']
-        else:
-            colors='k'
-
-    number_electrode = mea_pos.shape[0]
-    lines = []
-    for el in range(number_electrode):
-        if len(rec.shape) == 3:  # multiple
-            raise Exception('Dimensions should be Nchannels x Nsamples')
-        else:
-            line, = ax.plot(np.linspace(0, mea_pitch[0] - spacing, n_window) + mea_pos[el, 1],
-                            np.zeros(n_window) + mea_pos[el, 2], color=colors, lw=lw)
-            lines.append(line)
-
-    text = ax.text(0.7, 0, 'Time: ',
-                   color='k', fontsize=15, transform=ax.transAxes)
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.axis('off')
-
-    def update(i):
-        if n_window + i < rec.shape[1]:
-            for el in range(number_electrode):
-                lines[el].set_ydata(rec_norm[el, i:n_window + i] + mea_pos[el, 2])
-        else:
-            for el in range(number_electrode):
-                lines[el].set_ydata(np.pad(rec_norm[el, i:],
-                                           (0, n_window - (rec.shape[1] - i)), 'constant') + mea_pos[el, 2])
-
-        text.set_text('Time: ' + str(round(i/float(fs),1)) + ' s')
-
-        return tuple(lines) + (text,)
-
-    anim = animation.FuncAnimation(fig, update, start, interval=interval, blit=True, repeat=False)
-    fig.tight_layout()
-
-    return anim
 
 # Save recording to hdf5 file -- by jfm 9/24/2018
 def recording_to_hdf5(recording_folder,output_fname):
