@@ -367,8 +367,7 @@ def run(params, **kwargs):
 
     if kwargs['folder'] is not None:
         params_dict['spiketrain_folder'] = kwargs['folder']
-    else:
-        spiketrain_folder = params_dict['spiketrain_folder']
+    spiketrain_folder = params_dict['spiketrain_folder']
 
     if kwargs['n_exc'] is not None:
         params_dict['n_exc'] = kwargs['n_exc']

@@ -455,8 +455,7 @@ def run(params, **kwargs):
 
     if kwargs['folder'] is not None:
         params_dict['recording_folder'] = kwargs['folder']
-    else:
-        recording_folder = params_dict['recording_folder']
+    recording_folder = params_dict['recording_folder']
 
     if kwargs['templates'] is None or kwargs['spiketrains'] is None:
         print('Provide eap templates and spiketrains paths')

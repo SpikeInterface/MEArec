@@ -71,8 +71,7 @@ def run(params, **kwargs):
 
     if kwargs['folder'] is not None:
         params_dict['template_folder'] = kwargs['folder']
-    else:
-        template_folder = params_dict['template_folder']
+    template_folder = params_dict['template_folder']
     intraonly = kwargs['intraonly']
 
     if kwargs['rot'] is not None:
