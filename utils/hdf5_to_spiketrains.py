@@ -24,7 +24,15 @@ def hdf5_to_spiketrains(input_file,output_folder):
     for ii in range(F.attrs['num_spiketrains']):
       times=np.array(F.get('spiketrains/{}/times'.format(ii)))
       t_stop=np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
-      spiketrains.append(neo.core.SpikeTrain(times,t_stop=t_stop,units=quantities.s))
+      annotations_str=str(F.get('spiketrains/{}/annotations'.format(ii))[()])
+      annotations=json.loads(annotations_str)
+      st=neo.core.SpikeTrain(
+        times,
+        t_stop=t_stop,
+        units=quantities.s
+      )
+      st.annotations=annotations
+      spiketrains.append(st)
     np.save(output_folder+'/gtst.npy',spiketrains)
 
 def print_usage():

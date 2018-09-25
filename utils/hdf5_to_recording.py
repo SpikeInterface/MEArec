@@ -6,6 +6,8 @@ import sys
 import yaml
 import json
 import os
+import neo
+import quantities
 
 def hdf5_to_recording(input_file,output_folder):
   if os.path.exists(output_folder):
@@ -34,7 +36,16 @@ def hdf5_to_recording(input_file,output_folder):
     spiketrains=[]
     for ii in range(F.attrs['n_neurons']):
       times=np.array(F.get('spiketrains/{}/times'.format(ii)))
-      spiketrains.append(dict(times=times))
+      t_stop=np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
+      annotations_str=str(F.get('spiketrains/{}/annotations'.format(ii))[()])
+      annotations=json.loads(annotations_str)
+      st=neo.core.SpikeTrain(
+        times,
+        t_stop=t_stop,
+        units=quantities.s
+      )
+      st.annotations=annotations
+      spiketrains.append(st)
     np.save(output_folder+'/spiketrains.npy',spiketrains)
 
 def print_usage():

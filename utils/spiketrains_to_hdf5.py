@@ -20,7 +20,12 @@ def spiketrains_to_hdf5(spiketrains_folder,output_fname):
   for ii in range(len(spiketrains)):
       st=spiketrains[ii]
       F.create_dataset('spiketrains/{}/times'.format(ii),data=st.times.rescale('s').magnitude)
-      F.create_dataset('spiketrains/{}/t_stop'.format(ii),data=st.t_stop)
+      F.create_dataset('spiketrains/{}/t_stop'.format(ii),data=st.t_stop.rescale('s').magnitude)
+      annotations={}
+      for key in st.annotations:
+        if (type(st.annotations[key])==str) or (type(st.annotations[key])==int) or (type(st.annotations[key])==float):
+          annotations[key]=st.annotations[key]
+      F.create_dataset('spiketrains/{}/annotations'.format(ii),data=json.dumps(annotations))
   F.close()
 
 def print_usage():
