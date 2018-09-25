@@ -95,16 +95,19 @@ def run(params, **kwargs):
         yaml.dump(params_dict, tf)
     params = 'tmp_params.yaml'
 
+    # jfm on 9/25/18: using source directory for calls to simulate_cells.py in case the cwd is not the source directory
+    sourcedir=os.path.dirname(os.path.abspath(__file__))
+
     # Compile NEURON models (nrnivmodl)
     if not os.path.isdir(join(model_folder, 'mods')):
         print('Compiling NEURON models')
-        os.system('python simulate_cells.py compile %s' % model_folder)
+        os.system('python %s/simulate_cells.py compile %s' % (sourcedir,model_folder))
 
     # Simulate neurons and EAP for different cell models sparately
     for numb, cell_model in enumerate(cell_models):
         print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-        os.system('python simulate_cells.py %s %s %s'\
-                  % (join(model_folder, cell_model), intraonly, params))
+        os.system('python %s/simulate_cells.py %s %s %s'\
+                  % (sourcedir,join(model_folder, cell_model), intraonly, params))
 
     if os.path.isfile('tmp_params.yaml'):
         os.remove('tmp_params.yaml')
