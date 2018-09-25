@@ -13,3 +13,4 @@ dependencies:
     - click
     - LFPy==2.0
     - ipython
+    - h5py
