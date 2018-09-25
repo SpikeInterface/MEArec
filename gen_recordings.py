@@ -419,6 +419,8 @@ class RecordingGenerator:
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
               help='recording filename')
+@click.option('--folder', '-fol', default=None,
+              help='recording output base folder')
 @click.option('--fs', default=None, type=float,
               help='sampling frequency in kHz (default from templates sampling frequency)')
 @click.option('--min-dist', '-md', default=None, type=int,
@@ -451,7 +453,10 @@ def run(params, **kwargs):
         print(params_dict)
         return
 
-    recording_folder = params_dict['recording_folder']
+    if kwargs['folder'] is not None:
+        params_dict['recording_folder'] = kwargs['folder']
+    else:
+        recording_folder = params_dict['recording_folder']
 
     if kwargs['templates'] is None or kwargs['spiketrains'] is None:
         print('Provide eap templates and spiketrains paths')

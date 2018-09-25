@@ -326,7 +326,9 @@ class SpikeTrainGenerator:
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
-              help='template filename')
+              help='spike train filename')
+@click.option('--folder', '-fol', default=None,
+              help='spike train output base folder')
 @click.option('--n-exc', '-ne', default=None, type=int,
               help='number of excitatory cells (default=15)')
 @click.option('--n-inh', '-ni', default=None, type=int,
@@ -363,7 +365,10 @@ def run(params, **kwargs):
         print(params_dict)
         return
 
-    spiketrain_folder = params_dict['spiketrain_folder']
+    if kwargs['folder'] is not None:
+        params_dict['spiketrain_folder'] = kwargs['folder']
+    else:
+        spiketrain_folder = params_dict['spiketrain_folder']
 
     if kwargs['n_exc'] is not None:
         params_dict['n_exc'] = kwargs['n_exc']

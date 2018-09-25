@@ -24,6 +24,8 @@ from tools import load_tmp_eap
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
               help='template filename')
+@click.option('--folder', '-fol', default=None,
+              help='templates output base folder')
 @click.option('--cellfolder', '-cf', default=None,
               help='folder containing bbp cell models')
 @click.option('--rot', '-r', default=None,
@@ -66,7 +68,11 @@ def run(params, **kwargs):
     else:
         model_folder = params_dict['cell_folder']
     cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
-    template_folder = params_dict['template_folder']
+
+    if kwargs['folder'] is not None:
+        params_dict['template_folder'] = kwargs['folder']
+    else:
+        template_folder = params_dict['template_folder']
     intraonly = kwargs['intraonly']
 
     if kwargs['rot'] is not None:
