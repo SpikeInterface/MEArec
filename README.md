@@ -58,3 +58,91 @@ Recordings are saved in `recordings\recording_<neurons>cells_<meaname>_<duration
 ## Loading the simulated data
 
 The `example_plotting.py` script shows how to load eap templates, spike trains, and recordings. It also shows how to use some plotting functions in `tools.py`.
+
+## Running via MountainLab
+
+Two of the MEArec routines (gen_spiketrains and gen_recording) have been wrapped as [MountainLab](https://github.com/flatironinstitute/mountainlab-js) processors. After installing MountainLab, clone this repository and make a symbolic link to the MountainLab packages directory as described in the [MountainLab documentation](https://github.com/flatironinstitute/mountainlab-js), or as given here:
+
+```
+# install mountainlab
+conda install -c flatiron -c conda-forge mountainlab mountainlab_pytools mlprocessors 
+
+# clone this repository, install the requirements, and install as ML package
+git clone [this-repo]
+cd [this-repo-name]
+pip install -r ml_requirements.txt
+ln -s $PWD `ml-config package_directory`/ml_mearec
+```
+
+If everything worked, you can see the spec for the two processors by running
+
+```
+ml-spec -p mearec.gen_spiketrains
+ml-spec -p mearec.gen_recording
+```
+
+which gives something like the following:
+
+```
+###############################################################################
+mearec.gen_spiketrains
+Generate spiketrains
+
+INPUTS
+
+OUTPUTS
+  spiketrains_out -- MEArec spiketrains .npy output file -- neo format
+
+PARAMETERS
+  duration -- (optional) Duration of spike trains (s)
+  n_exc -- (optional) Number of excitatory cells
+  n_inh -- (optional) Number of inhibitory cells
+  f_exc -- (optional) Mean firing rate of excitatory cells (Hz)
+  f_inh -- (optional) Mean firing rate of inhibitory cells (Hz)
+  min_rate -- (optional) Minimum firing rate for all cells (Hz)
+  st_exc -- (optional) Firing rate standard deviation of excitatory cells (Hz)
+  st_inh -- (optional) Firing rate standard deviation of inhibitory cells (Hz)
+  process -- (optional) poisson or gamma
+  t_start -- (optional) Starting time (s)
+  ref_per -- (optional) Refractory period to remove spike violation (ms)
+
+###############################################################################
+mearec.gen_recording
+Generate a MEArec recording
+
+INPUTS
+  templates -- (optional) MEArec templates .hdf5 file - generated using utils/templates_to_hdf5.py - if omitted, will download default
+  spiketrains -- MEArec spiketrains .npy file
+
+OUTPUTS
+  recording_out -- MEArec recording .hdf5 file
+
+PARAMETERS
+  min_dist -- (optional) minimum distance between neurons
+  min_amp -- (optional) minimum spike amplitude in uV
+  noise_level -- (optional) noise standard deviation in uV
+  filter -- (optional) if True it filters the recordings
+  cutoff -- (optional) filter cutoff frequencies in Hz
+  overlap_threshold -- (optional) threshold to consider two templates spatially overlapping (e.g 0.6 -> 60 percent of template B on largest electrode of template A)
+  n_jitters -- (optional) number of temporal jittered copies for each eap
+  upsample -- (optional) upsampling factor to extract jittered copies
+  pad_len -- (optional) padding of templates in ms
+  modulation -- (optional) # type of spike modulation none (no modulation) | template (each spike instance is modulated with the same value on each electrode) | electrode (each electrode is modulated separately)
+  mrand -- (optional) mean of gaussian modulation (should be 1)
+  sdrand -- (optional) standard deviation of gaussian modulation
+  chunk_duration -- (optional) chunk duration in s for chunk processing (if 0 the entire recordings are generated at once)
+  overlap -- (optional) if True it annotates overlapping spikes
+```
+
+An example run from the command line would be
+
+```
+ml-run-process mearec.gen_spiketrains -o spiketrains_out:spiketrains_60.npy -p duration:60
+ml-run-process mearec.gen_recording -o recording_out:recording_60.h5 -i spiketrains:spiketrains_60.npy -p noise_level:3
+```
+
+This should produce a 60 second recording file named `recording_60.h5`.
+
+These ML processors can also be executed using python or jupyter notebooks using the mountainlab_pytools. See the MountainLab and MountainSort documentation for more details.
+
+
