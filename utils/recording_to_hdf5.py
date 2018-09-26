@@ -30,12 +30,15 @@ def recording_to_hdf5(recording_folder,output_fname):
       st=spiketrains[ii]
       F.create_dataset('spiketrains/{}/times'.format(ii),data=st.times.rescale('s').magnitude)
       F.create_dataset('spiketrains/{}/t_stop'.format(ii),data=st.t_stop)
-      annotations_str=json.dumps(st.annotations)
-      F.create_dataset('spiketrains/{}/annotations'.format(ii),data=annotations_str)
+      annotations={}
+      for key in st.annotations:
+        if (type(st.annotations[key])==str) or (type(st.annotations[key])==int) or (type(st.annotations[key])==float):
+          annotations[key]=st.annotations[key]
+      F.create_dataset('spiketrains/{}/annotations'.format(ii),data=json.dumps(annotations))
   templates=np.load(recording_folder+'/templates.npy')
   F.create_dataset('templates',data=templates)
   templates=np.load(recording_folder+'/times.npy')
-  F.create_dataset('times',data=templates)
+  F.create_dataset('times',data=times)
   F.close()
 
 def print_usage():

@@ -20,12 +20,12 @@ def hdf5_to_templates(input_file,output_folder):
 
     celltypes=np.array(F.get('celltypes'))
     np.save(output_folder+'/celltypes.npy',celltypes)
-    celltypes=np.array(F.get('locations'))
-    np.save(output_folder+'/locations.npy',celltypes)
-    celltypes=np.array(F.get('rotations'))
-    np.save(output_folder+'/rotations.npy',celltypes)
-    celltypes=np.array(F.get('templates'))
-    np.save(output_folder+'/templates.npy',celltypes)
+    locations=np.array(F.get('locations'))
+    np.save(output_folder+'/locations.npy',locations)
+    rotations=np.array(F.get('rotations'))
+    np.save(output_folder+'/rotations.npy',rotations)
+    templates=np.array(F.get('templates'))
+    np.save(output_folder+'/templates.npy',templates)
 
 def print_usage():
   print('Usage: hdf5_to_templates.py [input_file.h5] [output_folder] ')

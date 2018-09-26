@@ -21,18 +21,29 @@ import click
 from tools import *
 
 class RecordingGenerator:
-    def __init__(self, template_folder, spiketrain_folder, params, overlap=False):
+    def __init__(self, templates_data, spiketrains_data, params, overlap=False, optional_info=dict(template_folder='',spiketrain_folder='')):
         '''
 
         Parameters
         ----------
-        template_folder
-        spiketrain_folder
+        templates_data
+        spiketrains_data
         params
         '''
 
-        eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
-        spiketrains, spike_info = load_spiketrains(spiketrain_folder)
+        #eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
+        eaps = templates_data['templates']
+        locs = templates_data['locations']
+        rots = templates_data['rotations']
+        celltypes = templates_data['celltypes']
+        temp_info = templates_data['info']
+        
+        if params['fs'] is None:
+            params['fs'] = 1. / temp_info['General']['dt']
+        
+        #spiketrains, spike_info = load_spiketrains(spiketrain_folder)
+        spiketrains = spiketrains_data['spiketrains']
+        
         n_neurons = len(spiketrains)
         cut_outs = temp_info['Params']['cut_out']
 
@@ -371,7 +382,7 @@ class RecordingGenerator:
         self.peaks = peak
         self.sources = gt_spikes
 
-        general_info = {'spiketrain_folder': str(spiketrain_folder), 'template_folder': str(template_folder),
+        general_info = {'spiketrain_folder': str(optional_info['spiketrain_folder']), 'template_folder': str(optional_info['template_folder']),
                    'n_neurons': n_neurons, 'electrode_name': str(electrode_name),'fs': float(fs.magnitude),
                    'duration': float(duration.magnitude), 'seed': seed}
 
@@ -491,7 +502,22 @@ def run(params, **kwargs):
 
     overlap = kwargs['overlap']
 
-    recgen = RecordingGenerator(template_folder, spiketrain_folder, params_dict, overlap)
+    templates_data=dict(
+        templates=templates,
+        locations=locs,
+        rotations=rots,
+        celltypes=celltypes,
+        info=temp_info
+    )
+    spiketrains_data=dict(
+        spiketrains=spiketrains
+    )
+    optional_info=dict(
+        template_folder=template_folder,
+        spiketrain_folder=spiketrain_folder
+    )
+    
+    recgen = RecordingGenerator(templates_data, spiketrains_data, params_dict, overlap, optional_info)
     info = recgen.info
 
     n_neurons = info['General']['n_neurons']

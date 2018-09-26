@@ -141,8 +141,12 @@ def load_spiketrains(spiketrain_folder):
 
     spiketrains = np.load(join(spiketrain_folder, 'gtst.npy'))
 
-    with open(join(spiketrain_folder, 'info.yaml'), 'r') as f:
-        info = yaml.load(f)
+    # jfm 9/25/19 -- make info.yaml in spiketrain folder optional
+    if os.path.exists(join(spiketrain_folder, 'info.yaml')):
+        with open(join(spiketrain_folder, 'info.yaml'), 'r') as f:
+            info = yaml.load(f)
+    else:
+        info={}
 
     print("Done loading spike trains...")
     return spiketrains, info
