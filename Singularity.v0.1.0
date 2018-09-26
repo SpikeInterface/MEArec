@@ -1,0 +1,39 @@
+Bootstrap: docker
+FROM: continuumio/miniconda3
+
+%labels
+    Maintainer Jeremy Magland
+
+%setup
+  mkdir ${SINGULARITY_ROOTFS}/working
+  cp -r . ${SINGULARITY_ROOTFS}/working/src
+
+%post
+  echo "################################## Activating conda environment"
+  . /opt/conda/etc/profile.d/conda.sh
+  conda create -n mountainlab
+  conda activate mountainlab
+
+  echo "################################## Installing MountainLab"
+  conda install -c flatiron -c conda-forge mountainlab mountainlab_pytools mlprocessors
+
+  echo "################################## Testing installation"
+  ml-list-processors
+
+  # Install MEAutility
+  git clone https://github.com/alejoe91/MEAutility /working/MEAutility
+  cd /working/MEAutility && python setup.py install
+
+  echo "################################## Installing ML package"
+  pip install -r /working/src/ml_requirements.txt
+  ln -s /working/src `ml-config package_directory`/ml_mearec
+
+  echo "################################## Testing package"
+  ml-spec --lock
+  ml-spec -p mearec.gen_spiketrains
+  ml-spec -p mearec.gen_recording
+
+%environment
+  . /opt/conda/etc/profile.d/conda.sh
+  conda activate mountainlab
+
