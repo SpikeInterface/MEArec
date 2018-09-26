@@ -105,7 +105,9 @@ PARAMETERS
   process -- (optional) poisson or gamma
   t_start -- (optional) Starting time (s)
   ref_per -- (optional) Refractory period to remove spike violation (ms)
+```
 
+```
 ###############################################################################
 mearec.gen_recording
 Generate a MEArec recording
@@ -143,6 +145,8 @@ ml-run-process mearec.gen_recording -o recording_out:recording_60.h5 -i spiketra
 
 This should produce a 60 second recording file named `recording_60.h5`.
 
-These ML processors can also be executed using python or jupyter notebooks using the mountainlab_pytools. See the MountainLab and MountainSort documentation for more details.
+Or, if you have singularity and MountainLab installed, you can run these commands in a container without installing this repository by adding the `--container=magland/MEArec:v0.1.0` argument to the `ml-run-process` commands, where the version should be updated as appropriate.
+
+As ML processors, these can also be executed using python or jupyter notebooks using the mountainlab_pytools utilities. See the MountainLab and MountainSort documentation for more details.
 
 
