@@ -1,7 +1,5 @@
 h5py
 numpy
-mountainlab_pytools
-mlprocessors
 click
 neo
 elephant
