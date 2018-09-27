@@ -1,0 +1,8 @@
+LFPy==2.0
+MEAutility
+pyyaml
+matplotlib
+elephant
+click
+h5py
+ipython
