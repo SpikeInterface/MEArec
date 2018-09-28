@@ -7,7 +7,7 @@ setup(
     version="0.1",
     author="Alessio Buccino",
     author_email="alessiob@ifi.uio.no",
-    description="Python package for multi-electrode array (MEA) handling and stimulation.",
+    description="Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/alejoe91/MEArec",
@@ -16,8 +16,7 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)  ",
         "Operating System :: OS Independent",
     ],
-    packages=find_packages(),
-    py_modules=['MEArec'],
+    packages=['MEArec'],
     include_package_data=True,
     install_requires=[
         'click',
@@ -30,8 +29,5 @@ setup(
         'mpi4py',
         'LFPy'
     ],
-    entry_points='''
-        [console_scripts]
-        mearec=MEArec.cli:cli
-    ''',
+    entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )

@@ -1,8 +1,5 @@
 # Default parameters for template generation (template_gen.py)
 
-# general
-cell_folder: cell_models/bbp
-template_folder: templates
 
 # intracellular simulation settings
 sim_time: 1 # intracellular simulation time in s

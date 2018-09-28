@@ -356,7 +356,7 @@ def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0
 ### TEMPLATES OPERATIONS ###
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=None, min_amp=None, drift=False,
-                     drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False, max_trials=1000):
+                     drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
     '''
 
     Parameters
@@ -383,6 +383,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
     idxs_sel = []
     exc_idxs = np.where(bin_cat == 'E')[0]
     inh_idxs = np.where(bin_cat == 'I')[0]
+    permuted_idxs = np.random.permutation(len(bin_cat))
+    permuted_bin_cats = bin_cat[permuted_idxs]
 
     if not min_amp:
         min_amp = 0
@@ -391,70 +393,143 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
         if len(drift_dir_ang) == 0 or preferred_dir == None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
-    #TODO get rid of the while and use for loop cycling through permuted eaps
-    for (idxs, num) in zip([exc_idxs, inh_idxs], [n_exc, n_inh]):
-        n_sel = 0
-        iter = 0
-        while n_sel < num:
-            # randomly draw a cell
-            id_cell = idxs[np.random.permutation(len(idxs))[0]]
-            dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+    placed_exc = 0
+    placed_inh = 0
+    n_sel = 0
+    n_sel_exc = 0
+    n_sel_inh = 0
+    iter = 0
 
-            iter += 1
-
-            if np.any(dist < min_dist):
-                if verbose:
-                    print('distance violation', dist, iter)
-                pass
-            else:
-                amp = np.max(np.abs(spikes[id_cell]))
-                if not drift:
-                    if bound_x is None:
-                        if amp > min_amp:
-                            # save cell
-                            pos_sel.append(loc[id_cell])
-                            idxs_sel.append(id_cell)
-                            n_sel += 1
-                        else:
-                            if verbose:
-                                print('amp violation', amp, iter)
-                    else:
-                        if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
-                            # save cell
-                            pos_sel.append(loc[id_cell])
-                            idxs_sel.append(id_cell)
-                            n_sel += 1
-                        else:
-                            if verbose:
-                                print('boundary violation', loc[id_cell], iter)
+    for (id_cell, bcat) in zip(permuted_idxs, permuted_bin_cats):
+        placed = False
+        iter += 1
+        if n_sel == n_exc + n_inh:
+            break
+        if bcat == 'E':
+            if n_sel_exc < n_exc:
+                dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                if np.any(dist < min_dist):
+                    if verbose:
+                        print('distance violation', dist, iter)
+                    pass
                 else:
-                    # drift
-                    if len(bound_x) == 0:
-                        if amp > min_amp:
-                            # save cell
-                            if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                    amp = np.max(np.abs(spikes[id_cell]))
+                    if not drift:
+                        if bound_x is None:
+                            if amp > min_amp:
+                                # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
                                 n_sel += 1
+                                placed = True
                             else:
                                 if verbose:
-                                    print('drift violation', loc[id_cell], iter)
+                                    print('amp violation', amp, iter)
                         else:
-                            if verbose:
-                                print('amp violation', amp, iter)
+                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                                # save cell
+                                pos_sel.append(loc[id_cell])
+                                idxs_sel.append(id_cell)
+                                n_sel += 1
+                                placed = True
+                            else:
+                                if verbose:
+                                    print('boundary violation', loc[id_cell], iter)
                     else:
-                        if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
-                            # save cell
-                            if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                        # drift
+                        if len(bound_x) == 0:
+                            if amp > min_amp:
+                                # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('amp violation', amp, iter)
+                        else:
+                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                                # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('boundary violation', loc[id_cell], iter)
+                if placed:
+                    n_sel_exc += 1
+        elif bcat == 'I':
+            if n_sel_inh < n_inh:
+
+                dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                if np.any(dist < min_dist):
+                    if verbose:
+                        print('distance violation', dist, iter)
+                    pass
+                else:
+                    amp = np.max(np.abs(spikes[id_cell]))
+                    if not drift:
+                        if bound_x is None:
+                            if amp > min_amp:
+                                # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
                                 n_sel += 1
+                                placed = True
                             else:
                                 if verbose:
-                                    print('drift violation', loc[id_cell], iter)
+                                    print('amp violation', amp, iter)
                         else:
-                            if verbose:
-                                print('boundary violation', loc[id_cell], iter)
+                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                                # save cell
+                                pos_sel.append(loc[id_cell])
+                                idxs_sel.append(id_cell)
+                                n_sel += 1
+                                placed = True
+                            else:
+                                if verbose:
+                                    print('boundary violation', loc[id_cell], iter)
+                    else:
+                        # drift
+                        if len(bound_x) == 0:
+                            if amp > min_amp:
+                                # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('amp violation', amp, iter)
+                        else:
+                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                                # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('boundary violation', loc[id_cell], iter)
+                if placed:
+                    n_sel_inh += 1
     return idxs_sel
 
 

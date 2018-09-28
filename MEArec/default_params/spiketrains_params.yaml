@@ -1,8 +1,5 @@
 # Default parameters for spike train generation (spiketrain_gen.py)
 
-# general
-spiketrain_folder: spiketrains
-
 # spike train generation parameters
 
 # rates = [] # individual spike trains rates

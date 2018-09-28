@@ -1,4 +1,3 @@
-# coding: utf-8
 import os
 from os.path import join
 import time
@@ -11,6 +10,7 @@ from .tools import *
 from .generators import SpikeTrainGenerator
 from .generators import RecordingGenerator
 from .utils.h5tools import *
+import pprint
 import threading
 import time
 
@@ -34,19 +34,31 @@ class simulationThread(threading.Thread):
                 % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params))
         print ("Exiting " + self.name)
 
-# def par_simulate_cells(simulate_script, numb, tot, cell_folder, intraonly, params):
-#     # Simulate neurons and EAP for different cell models sparately
-#     print('\n\n', cell_model, numb + 1, '/', tot, '\n\n')
-#     os.system('python %s %s %s %s' \
-#               % (simulate_script, cell_folder, intraonly, params))
+def getDefaultConfig():
+    this_dir, this_filename = os.path.split(__file__)
+    home = os.path.expanduser("~")
+    mearec_home = join(home, '.config', 'mearec')
+    if not os.path.isdir(mearec_home):
+        os.makedirs(mearec_home)
+        shutil.copytree(join(this_dir, 'default_params'), join(mearec_home, 'default_params'))
+        default_info = {'templates_params': join(mearec_home, 'default_params', 'templates_params.yaml'),
+                        'spiketrains_params': join(mearec_home, 'default_params', 'spiketrains_params.yaml'),
+                        'recordings_params': join(mearec_home, 'default_params', 'recordings_params.yaml'),
+                        'templates_folder': join(mearec_home, 'templates'),
+                        'spiketrains_folder': join(mearec_home, 'spiketrains'),
+                        'recordings_folder': join(mearec_home, 'recordings'),
+                        'cell_models_folder': ''}
+        with open(join(mearec_home, 'mearec.conf'), 'w') as f:
+            yaml.dump(default_info, f)
+    else:
+        with open(join(mearec_home, 'mearec.conf'), 'r') as f:
+            default_info = yaml.load(f)
+    return default_info, mearec_home
 
 @click.group()
 def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
     pass
-
-
-
 
 
 @cli.command()
@@ -85,32 +97,38 @@ def cli():
               help='run with multiprocessing tool')
 def gen_templates(params, **kwargs):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
-    # Retrieve default_params file
     this_dir, this_filename = os.path.split(__file__)
+    info, config_folder = getDefaultConfig()
+
     if params is None:
-        with open(join(this_dir, 'default_params', 'template_params.yaml'), 'r') as pf:
+        with open(join(config_folder, 'default_params', 'templates_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
             params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
-        print(params_dict)
+        pprint.pprint(params_dict)
         MEA.return_mea()
         return
 
     if kwargs['cellfolder'] is not None:
         model_folder = kwargs['cellfolder']
     else:
-        model_folder = params_dict['cell_folder']
+        model_folder = info['cell_models_folder']
+    params_dict['cell_models_folder'] = model_folder
 
-    cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
-    if len(cell_models) == 0:
-        print(model_folder, ' contains no cell models! Indicate a new cell models folder with --cellfolder or -cf')
+    if os.path.isdir(model_folder):
+        cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
+        if len(cell_models) == 0:
+            raise AttributeError(model_folder, ' contains no cell models! Indicate a new cell models folder with --cellfolder or -cf')
+    else:
+        raise NotADirectoryError(model_folder, ' does not exist!')
 
     if kwargs['folder'] is not None:
-        params_dict['template_folder'] = kwargs['folder']
-    template_folder = params_dict['template_folder']
+        params_dict['templates_folder'] = kwargs['folder']
+    else:
+        templates_folder = params_dict['templates_folder']
     intraonly = kwargs['intraonly']
 
     if kwargs['rot'] is not None:
@@ -174,9 +192,9 @@ def gen_templates(params, **kwargs):
             fname = 'templates_%d_%s_%s' % (n, probe, time.strftime("%d-%m-%Y"))
         else:
             fname = kwargs['fname']
-        tmp_folder = join(template_folder, rot, 'tmp_%d_%s' % (n, probe))
+        tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
         templates, locations, rotations, celltypes, info = load_tmp_eap(tmp_folder)
-        save_folder = join(template_folder, rot, fname)
+        save_folder = join(templates_folder, rot, fname)
         if not os.path.isdir(save_folder):
             os.makedirs(save_folder)
         np.save(join(save_folder, 'templates'), templates)
@@ -224,20 +242,24 @@ def gen_spiketrains(params, **kwargs):
     """Generates spike trains for recordings"""
     # Retrieve default_params file
     this_dir, this_filename = os.path.split(__file__)
+    info, config_folder = getDefaultConfig()
+
     if params is None:
-        with open(join(this_dir, 'default_params', 'spiketrain_params.yaml'), 'r') as pf:
+        with open(join(config_folder, 'default_params', 'spiketrains_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
             params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
-        print(params_dict)
+        pprint.pprint(params_dict)
         return
 
     if kwargs['folder'] is not None:
-        params_dict['spiketrain_folder'] = kwargs['folder']
-    spiketrain_folder = params_dict['spiketrain_folder']
+        params_dict['spiketrains_folder'] = kwargs['folder']
+    else:
+        params_dict['spiketrains_folder'] = info['spiketrains_folder']
+    spiketrains_folder = params_dict['spiketrains_folder']
 
     if kwargs['n_exc'] is not None:
         params_dict['n_exc'] = kwargs['n_exc']
@@ -277,7 +299,7 @@ def gen_spiketrains(params, **kwargs):
         fname = 'spiketrains_%d_%s' % (n_neurons, time.strftime("%d-%m-%Y:%H:%M"))
     else:
         fname = kwargs['fname']
-    save_folder = join(spiketrain_folder, fname)
+    save_folder = join(spiketrains_folder, fname)
 
     if not os.path.isdir(save_folder):
         os.makedirs(save_folder)
@@ -321,29 +343,33 @@ def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATES and SPIKETRAINS"""
     # Retrieve default_params file
     this_dir, this_filename = os.path.split(__file__)
+    info, config_folder = getDefaultConfig()
+
     if params is None:
-        with open(join(this_dir, 'default_params', 'recording_params.yaml'), 'r') as pf:
+        with open(join(config_folder, 'default_params', 'recordings_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
             params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
-        print(params_dict)
+        pprint.pprint(params_dict)
         return
 
     if kwargs['folder'] is not None:
-        params_dict['recording_folder'] = kwargs['folder']
-    recording_folder = params_dict['recording_folder']
+        params_dict['recordings_folder'] = kwargs['folder']
+    else:
+        params_dict['recordings_folder'] = info['recordings_folder']
+    recordings_folder = params_dict['recordings_folder']
 
     if kwargs['templates'] is None or kwargs['spiketrains'] is None:
         print('Provide eap templates and spiketrains paths')
         return
     else:
-        template_folder = kwargs['templates']
-        spiketrain_folder = kwargs['spiketrains']
-        templates, locs, rots, celltypes, temp_info = load_templates(template_folder)
-        spiketrains, spike_info = load_spiketrains(spiketrain_folder)
+        templates_folder = kwargs['templates']
+        spiketrains_folder = kwargs['spiketrains']
+        templates, locs, rots, celltypes, temp_info = load_templates(templates_folder)
+        spiketrains, spike_info = load_spiketrains(spiketrains_folder)
         print('Number of templates: ', len(templates))
         print('Number of spike trains: ', len(spiketrains))
 
@@ -370,7 +396,7 @@ def gen_recordings(params, **kwargs):
 
     overlap = kwargs['overlap']
 
-    recgen = RecordingGenerator(template_folder, spiketrain_folder, params_dict, overlap)
+    recgen = RecordingGenerator(templates_folder, spiketrains_folder, params_dict, overlap)
     info = recgen.info
 
     n_neurons = info['General']['n_neurons']
@@ -384,7 +410,7 @@ def gen_recordings(params, **kwargs):
     else:
         fname = kwargs['fname']
 
-    rec_path = join(recording_folder, fname)
+    rec_path = join(recordings_folder, fname)
     if not os.path.isdir(rec_path):
         os.makedirs(rec_path)
 
@@ -423,3 +449,84 @@ def tohdf5(type, folder, fname):
 def fromhdf5(type, h5file, fname):
     """Convert templates spike trains, and recordings from hdf5"""
     pass
+
+@cli.command()
+def default_config():
+    """Print default configurations"""
+    info, config = getDefaultConfig()
+    import pprint
+    pprint.pprint(info)
+
+@cli.command()
+@click.argument('cell-models-folder')
+def set_cell_models_folder(cell_models_folder):
+    """Set default cell_models folder"""
+    info, config = getDefaultConfig()
+    if os.path.isdir(cell_models_folder):
+        info['cell_models_folder'] = os.path.abspath(cell_models_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default cell_models_folder to: ', cell_models_folder)
+    else:
+        print(cell_models_folder, ' is not a folder!')
+
+@cli.command()
+@click.argument('templates-folder')
+@click.option('--create', is_flag=True, help='if True it creates the directory')
+def set_templates_folder(templates_folder, create):
+    """Set default templates output folder"""
+    info, config = getDefaultConfig()
+    if os.path.isdir(templates_folder):
+        info['templates_folder'] = os.path.abspath(templates_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default templates_folder to: ', templates_folder)
+    elif create:
+        os.makedirs(templates_folder)
+        info['templates_folder'] = os.path.abspath(templates_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default templates_folder to: ', templates_folder)
+    else:
+        print(templates_folder, ' is not a folder!')
+
+@cli.command()
+@click.argument('spiketrains-folder')
+@click.option('--create', is_flag=True, help='if True it creates the directory')
+def set_spiketrains_folder(spiketrains_folder, create):
+    """Set default spiketrains output folder"""
+    info, config = getDefaultConfig()
+    if os.path.isdir(spiketrains_folder):
+        info['spiketrains_folder'] = os.path.abspath(spiketrains_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default spiketrains_folder to: ', spiketrains_folder)
+    elif create:
+        os.makedirs(spiketrains_folder)
+        info['spiketrains_folder'] = os.path.abspath(spiketrains_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default spiketrains_folder to: ', spiketrains_folder)
+    else:
+        print(spiketrains_folder, ' is not a folder!')
+
+@cli.command()
+@click.argument('recordings-folder')
+@click.option('--create', is_flag=True, help='if True it creates the directory')
+def set_recordings_folder(recordings_folder, create):
+    """Set default recordings output folder"""
+    info, config = getDefaultConfig()
+    if os.path.isdir(recordings_folder):
+        info['recordings_folder'] = os.path.abspath(recordings_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default recordings_folder to: ', recordings_folder)
+    elif create:
+        os.makedirs(recordings_folder)
+        info['recordings_folder'] = os.path.abspath(recordings_folder)
+        with open(join(config, 'mearec.conf'), 'w') as f:
+            yaml.dump(info, f)
+        print('Set default recordings_folder to: ', recordings_folder)
+    else:
+        print(recordings_folder, ' is not a folder!')
+

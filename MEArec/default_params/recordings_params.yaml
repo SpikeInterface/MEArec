@@ -1,8 +1,5 @@
 # Default parameters for recording generation (recording_gen.py)
 
-# general
-recording_folder: recordings
-
 # excitatory and inhibitory cell names
 excitatory: ['STPC', 'TTPC1', 'TTPC2', 'UTPC']
 inhibitory: ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC', 'NGC', 'SBC']

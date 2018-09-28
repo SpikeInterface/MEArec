@@ -742,12 +742,12 @@ if __name__ == '__main__':
         with open(params_path, 'r') as f:
             params = yaml.load(f)
 
-        sim_folder = params['template_folder']
-        cell_folder = params['cell_folder']
+        sim_folder = params['templates_folder']
+        cell_folder = params['cell_models_folder']
         rot = params['rot']
 
-        extra_sim_folder = join(params['template_folder'])
-        vm_im_sim_folder = join(params['template_folder'], 'intracellular')
+        extra_sim_folder = join(params['templates_folder'])
+        vm_im_sim_folder = join(params['templates_folder'], 'intracellular')
 
         run_cell_model(cell_model, vm_im_sim_folder, np.random.randint(1, 1000), **params)
         if not intraonly:
