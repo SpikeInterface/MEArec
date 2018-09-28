@@ -1,0 +1,23 @@
+# Default parameters for spike train generation (spiketrain_gen.py)
+
+# general
+spiketrain_folder: spiketrains
+
+# spike train generation parameters
+
+# rates = [] # individual spike trains rates
+# types = [] # individual spike trains class (exc-inh)
+
+# alternative to rates - excitatory and inhibitory settings
+n_exc: 15 # number of excitatory cells
+n_inh: 5 # number of inhibitory cells
+f_exc: 5 # average firing rate of excitatory cells in Hz
+f_inh: 15 # average firing rate of inhibitory cells in Hz
+st_exc: 1 # firing rate standard deviation of excitatory cells in Hz
+st_inh: 3 # firing rate standard deviation of inhibitory cells in Hz
+min_rate: 0.5 # minimum firing rate in Hz
+ref_per: 2 # refractory period in ms
+t_start: 0 # start time in s
+duration: 10 # duration in s
+process: poisson # process for spike train simulation (poisson-gamma)
+gamma_shape: 2 # gamma shape (for gamma process)
