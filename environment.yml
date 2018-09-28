@@ -1,11 +1,7 @@
 name: mearec
 dependencies:
-  - python=3
+  - python=3.6.5
   - pyyaml
-  - numpy
-  - scipy
-  - cython
-  - mpi4py
   - matplotlib
   - pip:
     - neo
