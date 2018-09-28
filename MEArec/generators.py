@@ -158,7 +158,7 @@ class SpikeTrainGenerator:
 
     def generate_spikes(self):
         '''
-        Generate spike trains based on params of the SpikeTrainGenerator class.
+        Generate spike trains based on default_params of the SpikeTrainGenerator class.
         self.all_spiketrains contains the newly generated spike trains
 
         Returns
@@ -376,7 +376,7 @@ class RecordingGenerator:
         #print( n_exc, ' excitatory and ', n_inh, ' inhibitory'
 
         idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, bound_x=depth_lim, min_amp=min_amp,
-                                      min_dist=min_dist, verbose=False)
+                                      min_dist=min_dist, verbose=True)
         template_celltypes = celltypes[idxs_cells]
         template_locs = locs[idxs_cells]
         templates_bin = bin_cat[idxs_cells]

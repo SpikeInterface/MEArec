@@ -356,7 +356,7 @@ def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0
 ### TEMPLATES OPERATIONS ###
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=None, min_amp=None, drift=False,
-                     drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
+                     drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False, max_trials=1000):
     '''
 
     Parameters
@@ -391,6 +391,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
         if len(drift_dir_ang) == 0 or preferred_dir == None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
+    #TODO get rid of the while and use for loop cycling through permuted eaps
     for (idxs, num) in zip([exc_idxs, inh_idxs], [n_exc, n_inh]):
         n_sel = 0
         iter = 0

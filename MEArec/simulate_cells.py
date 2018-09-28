@@ -39,7 +39,7 @@ def get_templatename(f):
     for line in f.readlines():
         if 'begintemplate' in line.split():
             templatename = line.split()[-1]
-            print('template {} found!'.format(templatename))
+            # print('template {} found!'.format(templatename))
             continue
     return templatename
 
@@ -126,13 +126,13 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
         synapses = get_templatename(f)
         f.close()
 
-        print('Loading constants')
+        # print('Loading constants')
         neuron.h.load_file('constants.hoc')
-        print('...done.')
+        # print('...done.')
         if not hasattr(neuron.h, morphology):
-            print('loading morpho...')
+            # print('loading morpho...')
             neuron.h.load_file(1, "morphology.hoc")
-            print('done.')
+            # print('done.')
 
         if not hasattr(neuron.h, biophysics):
             neuron.h.load_file(1, "biophysics.hoc")
@@ -142,14 +142,14 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
             neuron.h.load_file(1, join('synapses', 'synapses.hoc'))
 
         if not hasattr(neuron.h, templatename):
-            print('Loading template...')
+            # print('Loading template...')
             neuron.h.load_file(1, "template.hoc")
-            print('done.')
+            # print('done.')
 
         morphologyfile = os.listdir('morphology')[0]#glob('morphology\\*')[0]
 
         # Instantiate the cell(s) using LFPy
-        print('Initialize cell...')
+        # print('Initialize cell...')
         cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
                          templatefile=join('template.hoc'),
                          templatename=templatename,
@@ -161,7 +161,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
                          pt3d=True,
                          delete_sections=True,
                          verbose=True)
-        print('...done.')
+        # print('...done.')
 
     else:
         raise NotImplementedError('Cell model %s is not implemented'\
@@ -268,7 +268,7 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
     if not os.path.isdir(sim_folder):
         os.makedirs(sim_folder)
-    print(sim_folder)
+    # print(sim_folder)
 
     imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
     vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
@@ -298,7 +298,7 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
             t = cell.tvec
             v = cell.somav
-            print(cell.imem.shape)
+            # print(cell.imem.shape)
             t = t
             v = v
 

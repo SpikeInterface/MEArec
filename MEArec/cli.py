@@ -11,7 +11,34 @@ from .tools import *
 from .generators import SpikeTrainGenerator
 from .generators import RecordingGenerator
 from .utils.h5tools import *
+import threading
+import time
 
+
+class simulationThread(threading.Thread):
+    def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.sim_script = simulate_script
+        self.numb = numb
+        self.tot = tot
+        self.cell_model = cell_model
+        self.model_folder = model_folder
+        self.intra = intraonly
+        self.params = params
+    def run(self):
+        print ("Starting " + self.name)
+        print('\n\n', self.cell_model, self.numb + 1, '/', self.tot, '\n\n')
+        os.system('python %s %s %s %s' \
+                % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params))
+        print ("Exiting " + self.name)
+
+# def par_simulate_cells(simulate_script, numb, tot, cell_folder, intraonly, params):
+#     # Simulate neurons and EAP for different cell models sparately
+#     print('\n\n', cell_model, numb + 1, '/', tot, '\n\n')
+#     os.system('python %s %s %s %s' \
+#               % (simulate_script, cell_folder, intraonly, params))
 
 @click.group()
 def cli():
@@ -19,9 +46,12 @@ def cli():
     pass
 
 
+
+
+
 @cli.command()
 @click.option('--params', '-prm', default=None,
-              help='path to params.yaml (otherwise default params are used and some of the parameters'
+              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters'
                    'can be overwritten with the following options)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
@@ -51,11 +81,14 @@ def cli():
               help='detection threshold for EAPs (default=30)')
 @click.option('--intraonly', '-io', is_flag=True,
               help='only run intracellular simulations')
+@click.option('--parallel', '-par', is_flag=True,
+              help='run with multiprocessing tool')
 def gen_templates(params, **kwargs):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
-    # Retrieve params file
+    # Retrieve default_params file
+    this_dir, this_filename = os.path.split(__file__)
     if params is None:
-        with open(join('params/template_params.yaml'), 'r') as pf:
+        with open(join(this_dir, 'default_params', 'template_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
@@ -70,7 +103,10 @@ def gen_templates(params, **kwargs):
         model_folder = kwargs['cellfolder']
     else:
         model_folder = params_dict['cell_folder']
+
     cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
+    if len(cell_models) == 0:
+        print(model_folder, ' contains no cell models! Indicate a new cell models folder with --cellfolder or -cf')
 
     if kwargs['folder'] is not None:
         params_dict['template_folder'] = kwargs['folder']
@@ -97,17 +133,34 @@ def gen_templates(params, **kwargs):
     with open('tmp_params.yaml', 'w') as tf:
         yaml.dump(params_dict, tf)
     params = 'tmp_params.yaml'
+    simulate_script = join(this_dir, 'simulate_cells.py')
 
     # Compile NEURON models (nrnivmodl)
     if not os.path.isdir(join(model_folder, 'mods')):
         print('Compiling NEURON models')
-        os.system('python simulate_cells.py compile %s' % model_folder)
+        os.system('python %s compile %s' % (simulate_script, model_folder))
 
     # Simulate neurons and EAP for different cell models sparately
-    for numb, cell_model in enumerate(cell_models):
-        print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-        os.system('python simulate_cells.py %s %s %s'\
-                  % (join(model_folder, cell_model), intraonly, params))
+    if kwargs['parallel']:
+        start_time = time.time()
+        print('Parallel')
+        tot = len(cell_models)
+        threads = []
+        for numb, cell_model in enumerate(cell_models):
+            threads.append(simulationThread(numb, "Thread-"+str(numb), simulate_script,
+                                            numb, tot, cell_model, model_folder, intraonly, params))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+    else:
+        start_time = time.time()
+        for numb, cell_model in enumerate(cell_models):
+            print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
+            os.system('python %s %s %s %s'\
+                      % (simulate_script, join(model_folder, cell_model), intraonly, params))
+        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
     if os.path.isfile('tmp_params.yaml'):
         os.remove('tmp_params.yaml')
@@ -138,7 +191,7 @@ def gen_templates(params, **kwargs):
 
 @cli.command()
 @click.option('--params', '-prm', default=None,
-              help='path to params.yaml (otherwise default params are used)')
+              help='path to default_params.yaml (otherwise default default_params are used)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
@@ -169,9 +222,10 @@ def gen_templates(params, **kwargs):
               help='duration in s (default=10)')
 def gen_spiketrains(params, **kwargs):
     """Generates spike trains for recordings"""
-    # Retrieve params file
+    # Retrieve default_params file
+    this_dir, this_filename = os.path.split(__file__)
     if params is None:
-        with open(join('params/spiketrain_params.yaml'), 'r') as pf:
+        with open(join(this_dir, 'default_params', 'spiketrain_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
@@ -238,7 +292,7 @@ def gen_spiketrains(params, **kwargs):
 @click.option('--spiketrains', '-st', default=None,
               help='spike trains path')
 @click.option('--params', '-prm', default=None,
-              help='path to params.yaml (otherwise default params are used and some of the parameters can be overwritten with the following options)')
+              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters can be overwritten with the following options)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
@@ -265,9 +319,10 @@ def gen_spiketrains(params, **kwargs):
               help='if True it annotates overlapping spikes')
 def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATES and SPIKETRAINS"""
-    # Retrieve params file
+    # Retrieve default_params file
+    this_dir, this_filename = os.path.split(__file__)
     if params is None:
-        with open(join('params/recording_params.yaml'), 'r') as pf:
+        with open(join(this_dir, 'default_params', 'recording_params.yaml'), 'r') as pf:
             params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
