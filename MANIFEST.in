@@ -1,0 +1,4 @@
+include README.md
+include LICENSE
+
+recursive-include MEArec/default_params *.yaml

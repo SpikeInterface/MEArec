@@ -6,10 +6,10 @@ import click
 import numpy as np
 import yaml
 import shutil
-from .tools import *
-from .generators import SpikeTrainGenerator
-from .generators import RecordingGenerator
-from .utils.h5tools import *
+from MEArec.tools import *
+from MEArec.generators import SpikeTrainGenerator
+from MEArec.generators import RecordingGenerator
+from MEArec.utils.h5tools import *
 import pprint
 import threading
 import time

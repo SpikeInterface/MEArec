@@ -16,7 +16,8 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)  ",
         "Operating System :: OS Independent",
     ],
-    packages=['MEArec'],
+    # packages=['MEArec'],
+    packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'click',
