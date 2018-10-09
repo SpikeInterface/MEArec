@@ -5,8 +5,8 @@ spiketrains:
 
   # spike train generation parameters
 
-  # rates = [] # individual spike trains rates
-  # types = [] # individual spike trains class (exc-inh)
+  # rates: [3,3,5] # individual spike trains rates
+  # types: ['e', 'e', 'i'] # individual spike trains class (exc-inh)
 
   # alternative to rates - excitatory and inhibitory settings
   n_exc: 15 # number of excitatory cells
@@ -56,3 +56,4 @@ recordings:
   mrand: 1 # mean of gaussian modulation (should be 1)
   sdrand:  0.05 # standard deviation of gaussian modulation
   chunk_duration: 0 # chunk duration in s for chunk processing (if 0 the entire recordings are generated at once)
+  overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)

@@ -10,6 +10,27 @@ import time
 import multiprocessing
 from copy import copy
 from .tools import *
+import threading
+import shutil
+
+class simulationThread(threading.Thread):
+    def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.sim_script = simulate_script
+        self.numb = numb
+        self.tot = tot
+        self.cell_model = cell_model
+        self.model_folder = model_folder
+        self.intra = intraonly
+        self.params = params
+    def run(self):
+        print ("Starting " + self.name)
+        print('\n\n', self.cell_model, self.numb + 1, '/', self.tot, '\n\n')
+        os.system('python %s %s %s %s' \
+                % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params))
+        print ("Exiting " + self.name)
 
 
 class SpikeTrainGenerator:
@@ -36,7 +57,7 @@ class SpikeTrainGenerator:
         t_remove: time to remove units
         '''
 
-        self.params = params
+        self.params = copy(params)
 
         # Check quantities
         if 't_start' not in self.params.keys():
@@ -58,6 +79,7 @@ class SpikeTrainGenerator:
             self.n_neurons = len(self.params['rates'])
         else:
             rates = []
+            types = []
             if 'f_exc' not in self.params.keys():
                 self.params['f_exc'] = 5 * pq.Hz
             else:
@@ -84,12 +106,15 @@ class SpikeTrainGenerator:
                 if rate < self.params['min_rate']:
                     rate = self.params['min_rate']
                 rates.append(rate)
+                types.append('e')
             for inh in range(self.params['n_inh']):
                 rate = self.params['st_inh'] * np.random.randn() + self.params['f_inh']
                 if rate < self.params['min_rate']:
                     rate = self.params['min_rate']
                 rates.append(rate)
+                types.append('i')
             self.params['rates'] = rates
+            self.params['types'] = types
             self.n_neurons = len(self.params['rates'])
 
         np.random.seed(self.params['seed'])
@@ -185,9 +210,9 @@ class SpikeTrainGenerator:
             self.all_spiketrains[-1].annotate(freq=rate)
             if 'n_exc' in self.params.keys() and 'n_inh' in self.params.keys():
                 if idx < self.params['n_exc']:
-                    self.all_spiketrains[-1].annotate(type='exc')
+                    self.all_spiketrains[-1].annotate(type='E')
                 else:
-                    self.all_spiketrains[-1].annotate(type='inh')
+                    self.all_spiketrains[-1].annotate(type='I')
             idx += 1
 
         # check consistency and remove spikes below refractory period
@@ -309,7 +334,7 @@ class SpikeTrainGenerator:
         pass
 
 class RecordingGenerator:
-    def __init__(self, template_folder, spiketrains, params, overlap=False):
+    def __init__(self, spiketrains, params):
         '''
 
         Parameters
@@ -318,18 +343,20 @@ class RecordingGenerator:
         spiketrain_folder
         params
         '''
-
-        eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
-        # spiketrains, spike_info = load_spiketrains(spiketrain_folder)
-        n_neurons = len(spiketrains)
-        cut_outs = temp_info['Params']['cut_out']
-
         temp_params = params['templates']
         rec_params = params['recordings']
         st_params = params['spiketrains']
         celltype_params = params['cell_types']
 
-        fs = rec_params['fs'] * pq.kHz
+        templates_folder = temp_params['templates_folder']
+        eaps, locs, rots, celltypes, temp_info = load_templates(templates_folder)
+        n_neurons = len(spiketrains)
+        cut_outs = temp_info['params']['cut_out']
+
+        if rec_params['fs'] is None:
+            fs = 1. / temp_info['params']['dt'] * pq.kHz
+        else:
+            fs = rec_params['fs'] * pq.kHz
         noise_level = rec_params['noise_level']
         noise_mode = rec_params['noise_mode']
         duration = spiketrains[0].t_stop - spiketrains[0].t_start
@@ -339,6 +366,7 @@ class RecordingGenerator:
         chunk_duration = rec_params['chunk_duration']*pq.s
         mrand = rec_params['mrand']
         sdrand = rec_params['sdrand']
+        overlap = rec_params['overlap']
         if rec_params['seed'] is not None:
             noise_seed = rec_params['seed']
         else:
@@ -380,23 +408,22 @@ class RecordingGenerator:
         # print(exc_categories, inh_categories, bin_cat)
 
         # load MEA info
-        electrode_name = temp_info['Electrodes']['electrode_name']
+        electrode_name = temp_info['electrodes']['electrode_name']
         elinfo = MEA.return_mea_info(electrode_name)
-        x_plane = temp_info['Params']['xplane']
-        mea = MEA.return_mea(electrode_name)
+        offset = temp_info['params']['offset']
+        elinfo['offset'] = offset
+        mea = MEA.return_mea(info=elinfo)
         mea_pos = mea.positions
 
         n_elec = eaps.shape[1]
         # this is fixed from recordings
-        spike_duration = np.sum(temp_info['Params']['cut_out'])*pq.ms
-        spike_fs = 1./temp_info['General']['dt']*pq.kHz
+        spike_duration = np.sum(temp_info['params']['cut_out'])*pq.ms
+        spike_fs = 1./temp_info['params']['dt']*pq.kHz
 
         print('Selecting cells')
         if 'type' in spiketrains[0].annotations.keys():
-            n_exc = [st.annotations['type'] for st in spiketrains].count('exc')
+            n_exc = [st.annotations['type'] for st in spiketrains].count('E')
             n_inh = n_neurons - n_exc
-            # print(n_exc, n_inh)
-        #print( n_exc, ' excitatory and ', n_inh, ' inhibitory'
 
         # TODO add y_lim and z_lim
         idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, min_amp=min_amp,
@@ -405,8 +432,6 @@ class RecordingGenerator:
         template_locs = locs[idxs_cells]
         templates_bin = bin_cat[idxs_cells]
         templates = eaps[idxs_cells]
-
-        # print(templates.shape, templates_bin, template_celltypes, template_locs)
 
         # peak images
         peak = []
@@ -676,32 +701,135 @@ class RecordingGenerator:
         self.peaks = peak
         self.sources = gt_spikes
 
-        # TODO update info
+        params['recordings'].update({'electrode_name': electrode_name,
+                                     'duration': float(duration.magnitude)})
 
-        general_info = {'spiketrain_folder': str(spiketrain_folder), 'template_folder': str(template_folder),
-                   'n_neurons': n_neurons, 'electrode_name': str(electrode_name),'fs': float(fs.magnitude),
-                   'duration': float(duration.magnitude), 'seed': seed}
-
-        templates_info = {'pad_len': [float(pl.magnitude) for pl in pad_len], 'depth_lim': depth_lim,
-                     'min_amp': min_amp, 'min_dist': min_dist}
+        self.info = params
 
 
-        # synchrony = {'overlap_threshold': self.overlap_threshold,
-        #              'overlap_pairs_str': str([list(ov) for ov in self.overlapping]),
-        #              'overlap_pairs': self.overlapping,
-        #              'sync_rate': self.sync_rate}
+def gen_recordings(templates_folder, params):
+    '''
 
-        modulation_info = {'modulation': modulation,'mrand': mrand, 'sdrand': sdrand}
+    Parameters
+    ----------
+    templates_folder: str
+        Path to generated templates
+    params: dict OR str
+        Dictionary containing recording parameters OR path to yaml file containing parameters
 
-        noise_info = {'noise_mode': noise_mode, 'noise_level': noise_level}
+    Returns
+    -------
+    recgen: RecordingGenerator
 
-        if filter:
-            filter_info = {'filter': filter, 'cutoff': [float(co.magnitude) for co in cutoff]}
-        else:
-            filter_info = {'filter': filter}
+    '''
+    if isinstance(params, str):
+        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
+            with open(params, 'r') as pf:
+                params_dict = yaml.load(pf)
+    elif isinstance(params, dict):
+        params_dict = params
 
-        # create dictionary for yaml file
-        info = {'general': general_info, 'templates': templates_info, 'modulation': modulation_info,
-                'filter': filter_info, 'noise': noise_info}
+    if 'recording_folder' in params_dict['recordings'].keys():
+        recordings_folder = params_dict['recordings']['recordings_folder']
+    else:
+        print("'recording_folder' not specified: using cwd")
+        recordings_folder = os.getcwd()
 
-        self.info = info
+    if os.path.isdir(templates_folder):
+        params_dict['templates'].update({'templates_folder': templates_folder})
+    else:
+        raise AttributeError("'templates_folder' is not a folder")
+
+    if params_dict['spiketrains']['seed'] is None:
+        params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
+
+    if params_dict['templates']['seed'] is None:
+        params_dict['templates']['seed'] = np.random.randint(1, 10000)
+
+    if params_dict['recordings']['seed'] is None:
+        params_dict['recordings']['seed'] = np.random.randint(1, 10000)
+
+    # Generate spike trains
+    spgen = SpikeTrainGenerator(params_dict['spiketrains'])
+    spgen.generate_spikes()
+    spiketrains = spgen.all_spiketrains
+
+    # Generate recordings
+    recgen = RecordingGenerator(spiketrains, params_dict)
+
+    return recgen
+
+
+def gen_templates(tmp_params_path, intraonly, parallel, delete_tmp=True):
+    '''
+
+    Parameters
+    ----------
+    tmp_params_path: str
+        path to tmp params.yaml (same as templates_params with extra 'simulate_script', 'templates_folder' fields)
+    intraonly: bool
+        if True only intracellular simulation is run
+    parallel:
+        if True multi-threading is used
+    delete_tmp:
+        if True the temporary files are deleted
+
+    Returns
+    -------
+    templates: np.array
+        Array containing num_eaps x num_channels templates
+    locations: np.array
+        Array containing num_eaps x 3 (x,y,z) soma positions
+    rotations: np.array
+        Array containing num_eaps x 3 (x_rot, y_rot. z_rot) rotations
+    celltypes: np.array
+        Array containing num_eaps cell-types
+
+    '''
+    with open(tmp_params_path, 'r') as f:
+        params = yaml.load(f)
+
+    cell_models = params['cell_models']
+    simulate_script = params['simulate_script']
+    cell_models_folder = params['cell_models_folder']
+    templates_folder = params['templates_folder']
+    rot = params['rot']
+    n = params['n']
+    probe = params['probe']
+    tot = len(cell_models)
+
+    import pprint
+
+    pprint.pprint(params)
+
+    # Simulate neurons and EAP for different cell models sparately
+    if parallel:
+        start_time = time.time()
+        print('Parallel')
+        tot = len(cell_models)
+        threads = []
+        for numb, cell_model in enumerate(cell_models):
+            threads.append(simulationThread(numb, "Thread-"+str(numb), simulate_script,
+                                            numb, tot, cell_model, cell_models_folder, intraonly, tmp_params_path))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+    else:
+        start_time = time.time()
+        for numb, cell_model in enumerate(cell_models):
+            print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
+            os.system('python %s %s %s %s'\
+                      % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
+        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+
+    if os.path.isfile(tmp_params_path):
+        os.remove(tmp_params_path)
+
+    tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+    templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+    if delete_tmp:
+        shutil.rmtree(tmp_folder)
+
+    return templates, locations, rotations, celltypes

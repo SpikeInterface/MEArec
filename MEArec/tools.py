@@ -26,14 +26,14 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
 
     Returns
     -------
-    templates, locations, rotations, celltypes, info
+    templates, locations, rotations, celltypes
 
     '''
     print("Loading spike data ...")
     spikelist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
     loclist = [f for f in os.listdir(templates_folder) if f.startswith('pos')]
     rotlist = [f for f in os.listdir(templates_folder) if f.startswith('rot')]
-    infolist = [f for f in os.listdir(templates_folder) if f.startswith('info')]
+    # infolist = [f for f in os.listdir(templates_folder) if f.startswith('info')]
 
     spikes_list = []
     loc_list = []
@@ -43,7 +43,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
     spikelist = sorted(spikelist)
     loclist = sorted(loclist)
     rotlist = sorted(rotlist)
-    infolist = sorted(infolist)
+    # infolist = sorted(infolist)
 
     loaded_categories = set()
     ignored_categories = set()
@@ -86,13 +86,13 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
             cat_list.extend([celltype] * samples_to_read)
             loaded_categories.add(celltype)
 
-    # load info
-    with open(join(templates_folder, infolist[0]), 'r') as fl:
-        info = yaml.load(fl)
-        info['General'].pop('cell name', None)
+    # # load info
+    # with open(join(templates_folder, infolist[0]), 'r') as fl:
+    #     info = yaml.load(fl)
+    #     info['General'].pop('cell name', None)
 
     print("Done loading spike data ...")
-    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str), info
+    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
 def load_templates(template_folder):
