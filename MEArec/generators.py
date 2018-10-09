@@ -427,7 +427,7 @@ class RecordingGenerator:
 
         # TODO add y_lim and z_lim
         idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, min_amp=min_amp,
-                                      min_dist=min_dist, verbose=False)
+                                      min_dist=min_dist, verbose=True)
         template_celltypes = celltypes[idxs_cells]
         template_locs = locs[idxs_cells]
         templates_bin = bin_cat[idxs_cells]
@@ -702,7 +702,9 @@ class RecordingGenerator:
         self.sources = gt_spikes
 
         params['recordings'].update({'electrode_name': electrode_name,
-                                     'duration': float(duration.magnitude)})
+                                     'duration': float(duration.magnitude),
+                                     'fs': float(fs.rescale('Hz').magnitude),
+                                     'n_neurons': n_neurons})
 
         self.info = params
 

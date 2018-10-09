@@ -317,12 +317,9 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['seed'] = kwargs['seed']
 
     recgen = generators.gen_recordings(templates_folder=kwargs['templates'], params=params_dict)
-    info = params_dict
+    info = recgen.info
 
-    info['recordings'].update({'electrode_name': recgen.info['recordings']['electrode_name'],
-                               'duration' : recgen.info['recordings']['duration']})
-
-    n_neurons = len(recgen.spiketrains)
+    n_neurons = info['recordings']['n_neurons']
     electrode_name = info['recordings']['electrode_name']
     duration = info['recordings']['duration']
     noise_level = info['recordings']['noise_level']
