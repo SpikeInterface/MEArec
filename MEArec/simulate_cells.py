@@ -489,11 +489,12 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         # Log information: (consider xml)
         with open(join(save_folder, 'info_%s.yaml' % cell_save_name),'w') as f:
             # create dictionary for yaml file
-            data_yaml = {'General': {'cell name': cell_name, 'target spikes': target_num_spikes,
+            data_yaml = {'general': {'cell name': cell_name, 'target spikes': target_num_spikes,
                                      'detect threshold': det_thresh, 'NEURON': neuron.h.nrnversion(1),
                                      'LFPy': LFPy.__version__ , 'dt': dt},
-                        'Electrodes': elinfo,
-                        'Location': {'z_lim': list(z_lim),'y_lim': list(y_lim), 'x_lim': list(x_lim), 'rotation': rotation}
+                        'electrodes': elinfo,
+                        'location': {'z_lim': list(z_lim),'y_lim': list(y_lim), 'x_lim': list(x_lim),
+                                     'rotation': rotation}
                         }
             yaml.dump(data_yaml, f, default_flow_style=False)
 

@@ -92,6 +92,8 @@ class SpikeTrainGenerator:
             self.params['rates'] = rates
             self.n_neurons = len(self.params['rates'])
 
+        np.random.seed(self.params['seed'])
+
         self.changing = False
         self.intermittent = False
 
@@ -307,7 +309,7 @@ class SpikeTrainGenerator:
         pass
 
 class RecordingGenerator:
-    def __init__(self, template_folder, spiketrain_folder, params, overlap=False):
+    def __init__(self, template_folder, spiketrains, params, overlap=False):
         '''
 
         Parameters
@@ -318,25 +320,46 @@ class RecordingGenerator:
         '''
 
         eaps, locs, rots, celltypes, temp_info = load_templates(template_folder)
-        spiketrains, spike_info = load_spiketrains(spiketrain_folder)
+        # spiketrains, spike_info = load_spiketrains(spiketrain_folder)
         n_neurons = len(spiketrains)
         cut_outs = temp_info['Params']['cut_out']
 
-        seed = params['seed']
-        np.random.seed(seed)
-        chunk_duration = params['chunk_duration']*pq.s
+        temp_params = params['templates']
+        rec_params = params['recordings']
+        st_params = params['spiketrains']
+        celltype_params = params['cell_types']
 
-        fs = params['fs'] * pq.kHz
-        depth_lim = params['depth_lim']
-        min_amp = params['min_amp']
-        min_dist = params['min_dist']
-        noise_level = params['noise_level']
-        noise_mode = params['noise_mode']
+        fs = rec_params['fs'] * pq.kHz
+        noise_level = rec_params['noise_level']
+        noise_mode = rec_params['noise_mode']
         duration = spiketrains[0].t_stop - spiketrains[0].t_start
-        filter = params['filter']
-        cutoff = params['cutoff'] * pq.Hz
-        overlap_threshold = params['overlap_threshold']
-        modulation = params['modulation']
+        filter = rec_params['filter']
+        cutoff = rec_params['cutoff'] * pq.Hz
+        modulation = rec_params['modulation']
+        chunk_duration = rec_params['chunk_duration']*pq.s
+        mrand = rec_params['mrand']
+        sdrand = rec_params['sdrand']
+        if rec_params['seed'] is not None:
+            noise_seed = rec_params['seed']
+        else:
+            rec_params['seed'] = np.random.randint(1,1000)
+            noise_seed = rec_params['seed']
+
+        x_lim = temp_params['x_lim']
+        y_lim = temp_params['y_lim']
+        z_lim = temp_params['z_lim']
+        min_amp = temp_params['min_amp']
+        min_dist = temp_params['min_dist']
+        overlap_threshold = temp_params['overlap_threshold']
+        pad_len = temp_params['pad_len'] * pq.ms
+        n_jitters = temp_params['n_jitters']
+        upsample = temp_params['upsample']
+
+        if temp_params['seed'] is not None:
+            noise_seed = temp_params['seed']
+        else:
+            temp_params['seed'] = np.random.randint(1,1000)
+            noise_seed = temp_params['seed']
 
         #TODO add spike synchrony and overlapping synchony
         #self.sync_rate = float(sync)
@@ -350,8 +373,8 @@ class RecordingGenerator:
         # all_categories = ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC',
         #                   'NGC', 'SBC', 'STPC', 'TTPC1', 'TTPC2', 'UTPC']
 
-        exc_categories = params['excitatory']
-        inh_categories = params['inhibitory']
+        exc_categories = celltype_params['excitatory']
+        inh_categories = celltype_params['inhibitory']
         bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
 
         # print(exc_categories, inh_categories, bin_cat)
@@ -375,7 +398,8 @@ class RecordingGenerator:
             # print(n_exc, n_inh)
         #print( n_exc, ' excitatory and ', n_inh, ' inhibitory'
 
-        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, bound_x=depth_lim, min_amp=min_amp,
+        # TODO add y_lim and z_lim
+        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, min_amp=min_amp,
                                       min_dist=min_dist, verbose=False)
         template_celltypes = celltypes[idxs_cells]
         template_locs = locs[idxs_cells]
@@ -397,7 +421,6 @@ class RecordingGenerator:
         sampling_ratio = float(up/down)
         # resample spikes
         resample=False
-        pad_len = params['pad_len'] * pq.ms
         pad_samples = [int((pp*fs).magnitude) for pp in pad_len]
         n_resample = int((fs * spike_duration).magnitude)
         if templates.shape[2] != n_resample:
@@ -420,8 +443,6 @@ class RecordingGenerator:
             templates_pad.append(tem)
 
         print('Creating time jittering')
-        n_jitters = params['n_jitters']
-        upsample = params['upsample']
         jitter = 1. / fs
         templates_jitter = []
         for temp in templates_pad:
@@ -478,8 +499,6 @@ class RecordingGenerator:
 
         amp_mod = []
         cons_spikes = []
-        mrand = params['mrand']
-        sdrand = params['sdrand']
         exp = 0.3
         n_isi = 5
         mem_isi = 10*pq.ms
@@ -657,6 +676,8 @@ class RecordingGenerator:
         self.peaks = peak
         self.sources = gt_spikes
 
+        # TODO update info
+
         general_info = {'spiketrain_folder': str(spiketrain_folder), 'template_folder': str(template_folder),
                    'n_neurons': n_neurons, 'electrode_name': str(electrode_name),'fs': float(fs.magnitude),
                    'duration': float(duration.magnitude), 'seed': seed}
@@ -680,7 +701,7 @@ class RecordingGenerator:
             filter_info = {'filter': filter}
 
         # create dictionary for yaml file
-        info = {'General': general_info, 'Templates': templates_info, 'Modulation': modulation_info,
-                'Filter': filter_info, 'Noise': noise_info}
+        info = {'general': general_info, 'templates': templates_info, 'modulation': modulation_info,
+                'filter': filter_info, 'noise': noise_info}
 
         self.info = info

@@ -355,7 +355,7 @@ def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0
 
 ### TEMPLATES OPERATIONS ###
 
-def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=None, min_amp=None, drift=False,
+def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, min_amp=None, drift=False,
                      drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
     '''
 
@@ -367,7 +367,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
     n_exc
     n_inh
     min_dist
-    bound_x
+    x_lim
     min_amp
     drift
     drift_dir_ang
@@ -415,7 +415,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                 else:
                     amp = np.max(np.abs(spikes[id_cell]))
                     if not drift:
-                        if bound_x is None:
+                        if x_lim is None:
                             if amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
@@ -426,7 +426,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                 if verbose:
                                     print('amp violation', amp, iter)
                         else:
-                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                            if loc[id_cell][0] > x_lim[0] and loc[id_cell][0] < x_lim[1] and amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -437,7 +437,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                     print('boundary violation', loc[id_cell], iter)
                     else:
                         # drift
-                        if len(bound_x) == 0:
+                        if len(x_lim) == 0:
                             if amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
@@ -452,7 +452,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                 if verbose:
                                     print('amp violation', amp, iter)
                         else:
-                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                            if loc[id_cell][0] > x_lim[0] and loc[id_cell][0] < x_lim[1] and amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
                                     pos_sel.append(loc[id_cell])
@@ -478,7 +478,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                 else:
                     amp = np.max(np.abs(spikes[id_cell]))
                     if not drift:
-                        if bound_x is None:
+                        if x_lim is None:
                             if amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
@@ -489,7 +489,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                 if verbose:
                                     print('amp violation', amp, iter)
                         else:
-                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                            if loc[id_cell][0] > x_lim[0] and loc[id_cell][0] < x_lim[1] and amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -500,7 +500,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                     print('boundary violation', loc[id_cell], iter)
                     else:
                         # drift
-                        if len(bound_x) == 0:
+                        if len(x_lim) == 0:
                             if amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
@@ -515,7 +515,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
                                 if verbose:
                                     print('amp violation', amp, iter)
                         else:
-                            if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
+                            if loc[id_cell][0] > x_lim[0] and loc[id_cell][0] < x_lim[1] and amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
                                     pos_sel.append(loc[id_cell])

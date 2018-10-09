@@ -193,6 +193,7 @@ def gen_templates(params, **kwargs):
         else:
             fname = kwargs['fname']
         tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+        # TODO update info
         templates, locations, rotations, celltypes, info = load_tmp_eap(tmp_folder)
         save_folder = join(templates_folder, rot, fname)
         if not os.path.isdir(save_folder):
@@ -201,21 +202,26 @@ def gen_templates(params, **kwargs):
         np.save(join(save_folder, 'locations'), locations)
         np.save(join(save_folder, 'rotations'), rotations)
         np.save(join(save_folder, 'celltypes'), celltypes)
-        info.update({'Params': params_dict})
+        info.update({'params': params_dict})
         yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
         shutil.rmtree(tmp_folder)
         print('\nSaved eap templates in', save_folder, '\n')
 
 
+
 @cli.command()
+@click.option('--templates', '-t', default=None,
+              help='eap templates path')
 @click.option('--params', '-prm', default=None,
-              help='path to default_params.yaml (otherwise default default_params are used)')
+              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters can be overwritten with the following options)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
-              help='spike train filename')
+              help='recording filename')
 @click.option('--folder', '-fol', default=None,
-              help='spike train output base folder')
+              help='recording output base folder')
+@click.option('--duration', '-d', default=None, type=float,
+              help='duration in s (default=10)')
 @click.option('--n-exc', '-ne', default=None, type=int,
               help='number of excitatory cells (default=15)')
 @click.option('--n-inh', '-ni', default=None, type=int,
@@ -236,105 +242,24 @@ def gen_templates(params, **kwargs):
               help='process for generating spike trains (default=poisson)')
 @click.option('--tstart', default=None, type=float,
               help='start time in s (default=0)')
-@click.option('--duration', '-d', default=None, type=float,
-              help='duration in s (default=10)')
-def gen_spiketrains(params, **kwargs):
-    """Generates spike trains for recordings"""
-    # Retrieve default_params file
-    this_dir, this_filename = os.path.split(__file__)
-    info, config_folder = getDefaultConfig()
-
-    if params is None:
-        with open(join(config_folder, 'default_params', 'spiketrains_params.yaml'), 'r') as pf:
-            params_dict = yaml.load(pf)
-    else:
-        with open(params, 'r') as pf:
-            params_dict = yaml.load(pf)
-
-    if kwargs['default'] is True:
-        pprint.pprint(params_dict)
-        return
-
-    if kwargs['folder'] is not None:
-        params_dict['spiketrains_folder'] = kwargs['folder']
-    else:
-        params_dict['spiketrains_folder'] = info['spiketrains_folder']
-    spiketrains_folder = params_dict['spiketrains_folder']
-
-    if kwargs['n_exc'] is not None:
-        params_dict['n_exc'] = kwargs['n_exc']
-    if kwargs['n_inh'] is not None:
-        params_dict['n_inh'] = kwargs['n_inh']
-    if kwargs['f_exc'] is not None:
-        params_dict['f_exc'] = kwargs['f_exc']
-    if kwargs['f_inh'] is not None:
-        params_dict['f_inh'] = kwargs['f_inh']
-    if kwargs['st_exc'] is not None:
-        params_dict['st_exc'] = kwargs['st_exc']
-    if kwargs['st_inh'] is not None:
-        params_dict['st_inh'] = kwargs['st_inh']
-    if kwargs['min_rate'] is not None:
-        params_dict['min_rate'] = kwargs['min_rate']
-    if kwargs['ref_per'] is not None:
-        params_dict['ref_per'] = kwargs['ref_per']
-    if kwargs['process'] is not None:
-        params_dict['process'] = kwargs['process']
-    if kwargs['min_rate'] is not None:
-        params_dict['min_rate'] = kwargs['min_rate']
-    if kwargs['tstart'] is not None:
-        params_dict['t_start'] = kwargs['tstart']
-    if kwargs['duration'] is not None:
-        params_dict['duration'] = kwargs['duration']
-
-    info = {'Params': params_dict}
-    yaml.dump(info, open('tmp_info.yaml', 'w'), default_flow_style=False)
-
-    spgen = SpikeTrainGenerator(params_dict)
-    spgen.generate_spikes()
-
-    spiketrains = spgen.all_spiketrains
-    n_neurons = len(spiketrains)
-
-    if kwargs['fname'] is None:
-        fname = 'spiketrains_%d_%s' % (n_neurons, time.strftime("%d-%m-%Y:%H:%M"))
-    else:
-        fname = kwargs['fname']
-    save_folder = join(spiketrains_folder, fname)
-
-    if not os.path.isdir(save_folder):
-        os.makedirs(save_folder)
-    np.save(join(save_folder, 'gtst'), spiketrains)
-    shutil.move('tmp_info.yaml', join(save_folder, 'info.yaml'))
-    print('\nSaved spike trains in', save_folder, '\n')
-
-
-@cli.command()
-@click.option('--templates', '-t', default=None,
-              help='eap templates path')
-@click.option('--spiketrains', '-st', default=None,
-              help='spike trains path')
-@click.option('--params', '-prm', default=None,
-              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters can be overwritten with the following options)')
-@click.option('--default', is_flag=True,
-              help='shows default values for simulation')
-@click.option('--fname', '-fn', default=None,
-              help='recording filename')
-@click.option('--folder', '-fol', default=None,
-              help='recording output base folder')
-@click.option('--fs', default=None, type=float,
-              help='sampling frequency in kHz (default from templates sampling frequency)')
 @click.option('--min-dist', '-md', default=None, type=int,
               help='minumum distance between neuron in um (default=25)')
 @click.option('--min-amp', '-ma', default=None, type=int,
               help='minumum eap amplitude in uV (default=50)')
+@click.option('--fs', default=None, type=float,
+              help='sampling frequency in kHz (default from templates sampling frequency)')
 @click.option('--noise-lev', '-nl', default=None, type=int,
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
               help='modulation type')
 @click.option('--chunk', '-ch', default=None, type=float,
               help='chunk duration in s for chunk processing (default 0)')
-@click.option('--seed', '-s', default=None, type=int,
-              help='random seed (default randint(1,1000))')
+@click.option('--noise-seed', '-nseed', default=None, type=int,
+              help='random seed for noise')
+@click.option('--st-seed', '-stseed', default=None, type=int,
+              help='random seed for spike trains')
+@click.option('--temp-seed', '-tseed', default=None, type=int,
+              help='random seed for template selection')
 @click.option('--no-filt', is_flag=True,
               help='if True no filter is applied')
 @click.option('--overlap', is_flag=True,
@@ -362,41 +287,79 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings_folder'] = info['recordings_folder']
     recordings_folder = params_dict['recordings_folder']
 
-    if kwargs['templates'] is None or kwargs['spiketrains'] is None:
-        print('Provide eap templates and spiketrains paths')
+    if kwargs['templates'] is None:
+        print('Provide eap templates path')
         return
     else:
         templates_folder = kwargs['templates']
-        spiketrains_folder = kwargs['spiketrains']
         templates, locs, rots, celltypes, temp_info = load_templates(templates_folder)
-        spiketrains, spike_info = load_spiketrains(spiketrains_folder)
         print('Number of templates: ', len(templates))
-        print('Number of spike trains: ', len(spiketrains))
+        # print('Number of spike trains: ', len(spiketrains))
+
+    if kwargs['n_exc'] is not None:
+        params_dict['spiketrains']['n_exc'] = kwargs['n_exc']
+    if kwargs['n_inh'] is not None:
+        params_dict['spiketrains']['n_inh'] = kwargs['n_inh']
+    if kwargs['f_exc'] is not None:
+        params_dict['spiketrains']['f_exc'] = kwargs['f_exc']
+    if kwargs['f_inh'] is not None:
+        params_dict['spiketrains']['f_inh'] = kwargs['f_inh']
+    if kwargs['st_exc'] is not None:
+        params_dict['spiketrains']['st_exc'] = kwargs['st_exc']
+    if kwargs['st_inh'] is not None:
+        params_dict['spiketrains']['st_inh'] = kwargs['st_inh']
+    if kwargs['min_rate'] is not None:
+        params_dict['spiketrains']['min_rate'] = kwargs['min_rate']
+    if kwargs['ref_per'] is not None:
+        params_dict['spiketrains']['ref_per'] = kwargs['ref_per']
+    if kwargs['process'] is not None:
+        params_dict['spiketrains']['process'] = kwargs['process']
+    if kwargs['min_rate'] is not None:
+        params_dict['spiketrains']['min_rate'] = kwargs['min_rate']
+    if kwargs['duration'] is not None:
+        params_dict['spiketrains']['duration'] = kwargs['duration']
+    if kwargs['tstart'] is not None:
+        params_dict['spiketrains']['t_start'] = kwargs['t_start']
+    if kwargs['st_seed'] is not None:
+        params_dict['spiketrains']['seed'] = kwargs['seed']
+    else:
+        params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
 
     if kwargs['min_dist'] is not None:
-        params_dict['min_dist'] = kwargs['min_dist']
+        params_dict['templates']['min_dist'] = kwargs['min_dist']
     if kwargs['min_amp'] is not None:
-        params_dict['min_amp'] = kwargs['min_amp']
+        params_dict['templates']['min_amp'] = kwargs['min_amp']
+    if kwargs['temp_seed'] is not None:
+        params_dict['templates']['seed'] = kwargs['seed']
+    else:
+        params_dict['templates']['seed'] = np.random.randint(1, 10000)
+
     if kwargs['noise_lev'] is not None:
-        params_dict['noise_lev'] = kwargs['noise_lev']
+        params_dict['recordings']['noise_lev'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
-        params_dict['modulation'] = kwargs['modulation']
+        params_dict['recordings']['modulation'] = kwargs['modulation']
     if kwargs['chunk'] is not None:
-        params_dict['chunk_duration'] = kwargs['chunk']
+        params_dict['recordings']['chunk_duration'] = kwargs['chunk']
     if kwargs['no_filt'] is True:
-        params_dict['filter'] = False
+        params_dict['recordings']['filter'] = False
     if kwargs['fs'] is not None:
-        params_dict['fs'] = kwargs['fs']
+        params_dict['recordings']['fs'] = kwargs['fs']
     else:
-        params_dict['fs'] = 1. / temp_info['General']['dt']
-    if kwargs['seed'] is not None:
-        params_dict['seed'] = kwargs['seed']
+        params_dict['recordings']['fs'] = 1. / temp_info['General']['dt']
+    if kwargs['noise_seed'] is not None:
+        params_dict['recordings']['seed'] = kwargs['seed']
     else:
-        params_dict['seed'] = np.random.randint(1, 10000)
+        params_dict['recordings']['seed'] = np.random.randint(1, 10000)
 
     overlap = kwargs['overlap']
 
-    recgen = RecordingGenerator(templates_folder, spiketrains_folder, params_dict, overlap)
+    # Generate spike trains
+    spgen = SpikeTrainGenerator(params_dict['spiketrains'])
+    spgen.generate_spikes()
+    spiketrains = spgen.all_spiketrains
+
+    # Generate recordings
+    recgen = RecordingGenerator(templates_folder, spiketrains, params_dict, overlap)
     info = recgen.info
 
     n_neurons = info['General']['n_neurons']
