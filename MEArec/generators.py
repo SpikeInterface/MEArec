@@ -12,6 +12,7 @@ from copy import copy
 from .tools import *
 import threading
 import shutil
+from pprint import pprint
 
 class simulationThread(threading.Thread):
     def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
@@ -59,21 +60,25 @@ class SpikeTrainGenerator:
 
         self.params = copy(params)
 
-        # Check quantities
         if 't_start' not in self.params.keys():
-            self.params['t_start'] = 0 * pq.s
-        else:
-            self.params['t_start'] = self.params['t_start'] * pq.s
-        if 'duration' in self.params.keys():
-            self.params['t_stop'] = self.params['t_start'] + self.params['duration'] * pq.s
+            params['t_start'] = 0
+        self.params['t_start'] = params['t_start'] * pq.s
+        if 'duration' not in self.params.keys():
+            params['duration'] = 10
+        self.params['t_stop'] = self.params['t_start'] + params['duration'] * pq.s
         if 'min_rate' not in self.params.keys():
-            self.params['min_rate'] = 0.1 * pq.Hz
-        else:
-            self.params['min_rate'] = self.params['min_rate'] * pq.Hz
+            params['min_rate'] = 0.1
+        self.params['min_rate'] = params['min_rate'] * pq.Hz
         if 'ref_per' not in self.params.keys():
-            self.params['ref_per'] = 2 * pq.ms
-        else:
-            self.params['ref_per'] = self.params['ref_per'] * pq.ms
+            params['ref_per'] = 2
+        self.params['ref_per'] = params['ref_per'] * pq.ms
+        if 'process' not in self.params.keys():
+            params['process'] = 'poisson'
+        self.params['gamma_shape'] = params['process']
+        if 'gamma_shape' not in self.params.keys() and params['process'] == 'gamma':
+            params['gamma_shape'] = 2
+            self.params['gamma_shape'] = params['gamma_shape']
+
         if 'rates' in self.params.keys():  # all firing rates are provided
             self.params['rates'] = self.params['rates'] * pq.Hz
             self.n_neurons = len(self.params['rates'])
@@ -81,25 +86,23 @@ class SpikeTrainGenerator:
             rates = []
             types = []
             if 'f_exc' not in self.params.keys():
-                self.params['f_exc'] = 5 * pq.Hz
-            else:
-                self.params['f_exc'] = self.params['f_exc'] * pq.Hz
+                params['f_exc'] = 5
+            self.params['f_exc'] = params['f_exc'] * pq.Hz
             if 'f_inh' not in self.params.keys():
-                self.params['f_inh'] = 15 * pq.Hz
-            else:
-                self.params['f_inh'] = self.params['f_inh'] * pq.Hz
+                params['f_inh'] = 15
+            self.params['f_inh'] = params['f_inh'] * pq.Hz
             if 'st_exc' not in self.params.keys():
-                self.params['st_exc'] = 1 * pq.Hz
-            else:
-                self.params['st_exc'] = self.params['st_exc'] * pq.Hz
+                params['st_exc'] = 1
+            self.params['st_exc'] = params['st_exc'] * pq.Hz
             if 'st_inh' not in self.params.keys():
-                self.params['st_inh'] = 3 * pq.Hz
-            else:
-                self.params['st_inh'] = self.params['st_inh'] * pq.Hz
+                params['st_inh'] = 3
+            self.params['st_inh'] = params['st_inh'] * pq.Hz
             if 'n_exc' not in self.params.keys():
-                self.params['n_exc'] = 15
+                params['n_exc'] = 15
+            self.params['n_exc'] = params['n_exc']
             if 'n_inh' not in self.params.keys():
-                self.params['n_inh'] = 5
+                params['n_inh'] = 5
+            self.params['n_inh'] = params['n_inh']
 
             for exc in range(self.params['n_exc']):
                 rate = self.params['st_exc'] * np.random.randn() + self.params['f_exc']
@@ -121,6 +124,16 @@ class SpikeTrainGenerator:
 
         self.changing = False
         self.intermittent = False
+
+        self.info = params
+
+        #TODO add spike synchrony and overlapping synchrony
+        #self.sync_rate = float(sync)
+        #
+        # self.save = save
+        #
+        # #print( 'Modulation: ', self.modulation
+        #
 
         # self.changing = False
         # self.n_add = n_add
@@ -202,7 +215,7 @@ class SpikeTrainGenerator:
                     st = stg.homogeneous_poisson_process(rate,
                                                          self.params['t_start'], self.params['t_stop'])
                 elif self.params['process'] == 'gamma':
-                    st = stg.homogeneous_gamma_process(rate, self.params['rates'][n],
+                    st = stg.homogeneous_gamma_process(self.params['gamma_shape'], rate, self.params['rates'][n],
                                                        self.params['t_start'], self.params['t_stop'])
             else:
                 raise NotImplementedError('Changing and intermittent spiketrains are not impleented yet')
@@ -339,73 +352,123 @@ class RecordingGenerator:
 
         Parameters
         ----------
-        template_folder
-        spiketrain_folder
+        spiketrains
         params
         '''
-        temp_params = params['templates']
-        rec_params = params['recordings']
-        st_params = params['spiketrains']
-        celltype_params = params['cell_types']
+        self.params = copy(params)
 
+        temp_params = self.params['templates']
+        rec_params = self.params['recordings']
+        st_params = self.params['spiketrains']
+        celltype_params = self.params['cell_types']
         templates_folder = temp_params['templates_folder']
+
         eaps, locs, rots, celltypes, temp_info = load_templates(templates_folder)
         n_neurons = len(spiketrains)
         cut_outs = temp_info['params']['cut_out']
-
-        if rec_params['fs'] is None:
-            fs = 1. / temp_info['params']['dt'] * pq.kHz
-        else:
-            fs = rec_params['fs'] * pq.kHz
-        noise_level = rec_params['noise_level']
-        noise_mode = rec_params['noise_mode']
         duration = spiketrains[0].t_stop - spiketrains[0].t_start
-        filter = rec_params['filter']
-        cutoff = rec_params['cutoff'] * pq.Hz
-        modulation = rec_params['modulation']
-        chunk_duration = rec_params['chunk_duration']*pq.s
-        mrand = rec_params['mrand']
-        sdrand = rec_params['sdrand']
-        overlap = rec_params['overlap']
-        if rec_params['seed'] is not None:
-            noise_seed = rec_params['seed']
-        else:
-            rec_params['seed'] = np.random.randint(1,1000)
-            noise_seed = rec_params['seed']
 
-        x_lim = temp_params['x_lim']
-        y_lim = temp_params['y_lim']
-        z_lim = temp_params['z_lim']
-        min_amp = temp_params['min_amp']
-        min_dist = temp_params['min_dist']
-        overlap_threshold = temp_params['overlap_threshold']
-        pad_len = temp_params['pad_len'] * pq.ms
-        n_jitters = temp_params['n_jitters']
-        upsample = temp_params['upsample']
+        if 'fs' not in rec_params.keys():
+            print('ciao')
+            params['recordings']['fs'] = 1. / temp_info['params']['dt']
+        elif params['recordings']['fs'] is None:
+            params['recordings']['fs'] = 1. / temp_info['params']['dt']
+        print(temp_info['params']['dt'], params['recordings']['fs'])
+        fs = params['recordings']['fs'] * pq.kHz
+        print(fs)
 
-        if temp_params['seed'] is not None:
-            noise_seed = temp_params['seed']
-        else:
-            temp_params['seed'] = np.random.randint(1,1000)
-            noise_seed = temp_params['seed']
+        if 'noise_level' not in rec_params.keys():
+            params['recordings']['noise_level'] = 15
+        noise_level =  params['recordings']['noise_level']
 
-        #TODO add spike synchrony and overlapping synchony
-        #self.sync_rate = float(sync)
-        #
-        # self.save = save
-        #
-        # #print( 'Modulation: ', self.modulation
-        #
+        if 'noise_mode' not in rec_params.keys():
+            params['recordings']['noise_mode'] = 'uncorrelated'
+        noise_mode = params['recordings']['noise_mode']
+
+        if 'filter' not in rec_params.keys():
+            params['recordings']['filter'] = True
+        filter = params['recordings']['noise_mode']
+
+        if 'cutoff' not in rec_params.keys():
+            params['recordings']['cutoff'] = [300., 6000.]
+        cutoff = params['recordings']['cutoff'] * pq.Hz
+
+        if 'modulation' not in rec_params.keys():
+            params['recordings']['modulation'] = 'electrode'
+        modulation = params['recordings']['modulation']
+
+        if 'chunk_duration' not in rec_params.keys():
+            params['recordings']['chunk_duration'] = 0
+        chunk_duration = params['recordings']['chunk_duration'] * pq.s
+
+        if 'mrand' not in rec_params.keys():
+            params['recordings']['mrand'] = 1
+        mrand = params['recordings']['mrand']
+
+        if 'sdrand' not in rec_params.keys():
+            params['recordings']['sdrand'] = 0.05
+        sdrand = params['recordings']['sdrand']
+
+        if 'overlap' not in rec_params.keys():
+            params['recordings']['overlap'] = False
+        overlap = params['recordings']['overlap']
+
+        if 'seed' not in rec_params.keys():
+            params['recordings']['seed'] = np.random.randint(1,1000)
+        elif params['recordings']['seed'] is None:
+            params['recordings']['seed'] = np.random.randint(1,1000)
+        noise_seed = params['recordings']['seed']
+
+        if 'x_lim' not in temp_params.keys():
+            params['templates']['x_lim'] = None
+        x_lim =  params['templates']['x_lim']
+
+        if 'y_lim' not in temp_params.keys():
+            params['templates']['y_lim'] = None
+        y_lim = params['templates']['y_lim']
+
+        if 'z_lim' not in temp_params.keys():
+            params['templates']['z_lim'] = None
+        z_lim = params['templates']['z_lim']
+
+        if 'min_amp' not in temp_params.keys():
+            params['templates']['min_amp'] = 50
+        min_amp = params['templates']['min_amp']
+
+        if 'min_dist' not in temp_params.keys():
+            params['templates']['min_dist'] = 25
+        min_dist = params['templates']['min_dist']
+
+        if 'overlap_threshold' not in temp_params.keys():
+            params['templates']['overlap_threshold'] = 0.8
+        overlap_threshold = params['templates']['overlap_threshold']
+
+        if 'pad_len' not in temp_params.keys():
+            params['templates']['pad_len'] = [3., 3.]
+        pad_len = params['templates']['pad_len']
+
+        if 'n_jitters' not in temp_params.keys():
+            params['templates']['n_jitters'] = 10
+        n_jitters = params['templates']['n_jitters']
+
+        if 'upsample' not in temp_params.keys():
+            params['templates']['upsample'] = 8
+        upsample = params['templates']['upsample']
+
+        if 'seed' not in temp_params.keys():
+            params['templates']['seed'] = np.random.randint(1,1000)
+        elif params['templates']['seed'] is None:
+            params['templates']['seed'] = np.random.randint(1,1000)
+        temp_seed = params['templates']['seed']
+
         parallel=False
-        #
-        # all_categories = ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC',
-        #                   'NGC', 'SBC', 'STPC', 'TTPC1', 'TTPC2', 'UTPC']
 
-        exc_categories = celltype_params['excitatory']
-        inh_categories = celltype_params['inhibitory']
-        bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
-
-        # print(exc_categories, inh_categories, bin_cat)
+        if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
+            exc_categories = celltype_params['excitatory']
+            inh_categories = celltype_params['inhibitory']
+            bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
+        else:
+            bin_cat = np.array(['U'] * len(celltypes))
 
         # load MEA info
         electrode_name = temp_info['electrodes']['electrode_name']
@@ -414,6 +477,13 @@ class RecordingGenerator:
         elinfo['offset'] = offset
         mea = MEA.return_mea(info=elinfo)
         mea_pos = mea.positions
+
+        params['recordings'].update({'electrode_name': electrode_name,
+                                     'duration': float(duration.magnitude),
+                                     'fs': float(fs.rescale('Hz').magnitude),
+                                     'n_neurons': n_neurons})
+
+        pprint(params)
 
         n_elec = eaps.shape[1]
         # this is fixed from recordings
@@ -426,8 +496,9 @@ class RecordingGenerator:
             n_inh = n_neurons - n_exc
 
         # TODO add y_lim and z_lim
-        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, min_amp=min_amp,
-                                      min_dist=min_dist, verbose=True)
+        np.random.seed(temp_seed)
+        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
+                                      min_amp=min_amp, min_dist=min_dist, verbose=False)
         template_celltypes = celltypes[idxs_cells]
         template_locs = locs[idxs_cells]
         templates_bin = bin_cat[idxs_cells]
@@ -659,6 +730,7 @@ class RecordingGenerator:
         clean_recordings = copy(recordings)
 
         print('Adding noise')
+        np.random.seed(noise_seed)
         if noise_level > 0:
             if noise_mode == 'uncorrelated':
                 additive_noise = noise_level * np.random.randn(recordings.shape[0],
@@ -700,12 +772,6 @@ class RecordingGenerator:
         self.spiketrains = spiketrains
         self.peaks = peak
         self.sources = gt_spikes
-
-        params['recordings'].update({'electrode_name': electrode_name,
-                                     'duration': float(duration.magnitude),
-                                     'fs': float(fs.rescale('Hz').magnitude),
-                                     'n_neurons': n_neurons})
-
         self.info = params
 
 
@@ -731,6 +797,15 @@ def gen_recordings(templates_folder, params):
     elif isinstance(params, dict):
         params_dict = params
 
+    if 'spiketrains' not in params_dict:
+        params_dict['spiketrains'] = {}
+    if 'templates' not in params_dict:
+        params_dict['templates'] = {}
+    if 'recordings' not in params_dict:
+        params_dict['recordings'] = {}
+    if 'cell_types' not in params_dict:
+        params_dict['cell_types'] = {}
+
     if 'recording_folder' in params_dict['recordings'].keys():
         recordings_folder = params_dict['recordings']['recordings_folder']
     else:
@@ -742,27 +817,39 @@ def gen_recordings(templates_folder, params):
     else:
         raise AttributeError("'templates_folder' is not a folder")
 
-    if params_dict['spiketrains']['seed'] is None:
-        params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
 
-    if params_dict['templates']['seed'] is None:
-        params_dict['templates']['seed'] = np.random.randint(1, 10000)
 
-    if params_dict['recordings']['seed'] is None:
-        params_dict['recordings']['seed'] = np.random.randint(1, 10000)
+    if 'seed' in params_dict['spiketrains']:
+        if params_dict['spiketrains']['seed'] is None:
+            params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
+    else:
+        params_dict['spiketrains'].update({'seed': np.random.randint(1, 10000)})
+
+    if 'seed' in params_dict['templates']:
+        if params_dict['templates']['seed'] is None:
+            params_dict['templates']['seed'] = np.random.randint(1, 10000)
+    else:
+        params_dict['templates'].update({'seed': np.random.randint(1, 10000)})
+
+    if 'seed' in params_dict['recordings']:
+        if params_dict['recordings']['seed'] is None:
+            params_dict['recordings']['seed'] = np.random.randint(1, 10000)
+    else:
+        params_dict['recordings'].update({'recordings': np.random.randint(1, 10000)})
 
     # Generate spike trains
     spgen = SpikeTrainGenerator(params_dict['spiketrains'])
     spgen.generate_spikes()
     spiketrains = spgen.all_spiketrains
 
+    params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spiketrains, params_dict)
 
     return recgen
 
 
-def gen_templates(tmp_params_path, intraonly, parallel, delete_tmp=True):
+def gen_templates(cell_models_folder, params, intraonly=False, parallel=True, delete_tmp=True):
     '''
 
     Parameters
@@ -788,21 +875,76 @@ def gen_templates(tmp_params_path, intraonly, parallel, delete_tmp=True):
         Array containing num_eaps cell-types
 
     '''
-    with open(tmp_params_path, 'r') as f:
-        params = yaml.load(f)
+    if isinstance(params, str):
+        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
+            with open(params, 'r') as pf:
+                params_dict = yaml.load(pf)
+    elif isinstance(params, dict):
+        params_dict = params
 
-    cell_models = params['cell_models']
-    simulate_script = params['simulate_script']
-    cell_models_folder = params['cell_models_folder']
-    templates_folder = params['templates_folder']
-    rot = params['rot']
-    n = params['n']
-    probe = params['probe']
+    this_dir, this_filename = os.path.split(__file__)
+
+    if os.path.isdir(cell_models_folder):
+        cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
+        if len(cell_models) == 0:
+            raise AttributeError(model_folder, ' contains no cell models!')
+    else:
+        raise NotADirectoryError('Cell models folder: does not exist!')
+
+    simulate_script = join(this_dir, 'simulate_cells.py')
+    params_dict['cell_models_folder'] = cell_models_folder
+
+    if 'sim_time' not in params_dict.keys():
+        params_dict['sim_time'] = 1
+    if 'target_spikes' not in params_dict.keys():
+        params_dict['target_spikes'] = [3, 50]
+    if 'cut_out' not in params_dict.keys():
+        params_dict['cut_out'] = [2, 5]
+    if 'dt' not in params_dict.keys():
+        params_dict['dt'] = 2**-5
+    if 'delay' not in params_dict.keys():
+        params_dict['delay'] = 10
+    if 'weights' not in params_dict.keys():
+        params_dict['weights'] = [0.25, 1.75]
+
+    if 'rot' not in params_dict.keys():
+        params_dict['rot'] = 'physrot'
+    if 'probe' not in params_dict.keys():
+        available_mea = MEA.return_mea_list()
+        probe = available_mea[np.random.randint(len(available_mea))]
+        print("Probe randomly set to: %s" % probe)
+        params_dict['probe'] = probe
+    if 'ncontacts' not in params_dict.keys():
+        params_dict['ncontacts'] = 1
+    if 'overhang' not in params_dict.keys():
+        params_dict['overhang'] = 1
+    if 'xlim' not in params_dict.keys():
+        params_dict['xlim'] = [10, 80]
+    if 'ylim' not in params_dict.keys():
+        params_dict['ylim'] = None
+    if 'zlim' not in params_dict.keys():
+        params_dict['zlim'] = None
+    if 'det_thresh' not in params_dict.keys():
+        params_dict['det_thresh'] = 30
+    if 'n' not in params_dict.keys():
+        params_dict['n'] = 50
+    if 'seed' not in params_dict.keys():
+        params_dict['seed'] = np.random.randint(1, 10000)
+    elif params_dict['seed'] is None:
+        params_dict['seed'] = np.random.randint(1, 10000)
+    if 'templates_folder' not in params_dict.keys():
+        params_dict['templates_folder'] = os.getcwd()
+
+    params_dict['cell_models'] = cell_models
+    templates_folder = params_dict['templates_folder']
+    rot = params_dict['rot']
+    n = params_dict['n']
+    probe = params_dict['probe']
     tot = len(cell_models)
 
-    import pprint
-
-    pprint.pprint(params)
+    tmp_params_path = 'tmp_params_path'
+    with open(tmp_params_path, 'w') as f:
+        yaml.dump(params_dict, f)
 
     # Simulate neurons and EAP for different cell models sparately
     if parallel:
@@ -826,12 +968,12 @@ def gen_templates(tmp_params_path, intraonly, parallel, delete_tmp=True):
                       % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
         print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
-    if os.path.isfile(tmp_params_path):
-        os.remove(tmp_params_path)
+
 
     tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
     templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
     if delete_tmp:
         shutil.rmtree(tmp_folder)
+        os.remove(tmp_params_path)
 
     return templates, locations, rotations, celltypes

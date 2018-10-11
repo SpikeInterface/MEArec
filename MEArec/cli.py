@@ -106,13 +106,6 @@ def gen_templates(params, **kwargs):
         seed = np.random.randint(1, 10000)
     params_dict['seed'] = seed
 
-    if os.path.isdir(model_folder):
-        cell_models = [f for f in os.listdir(join(model_folder)) if 'mods' not in f]
-        if len(cell_models) == 0:
-            raise AttributeError(model_folder, ' contains no cell models! '
-                                               'Indicate a new cell models folder with --cellfolder or -cf')
-    else:
-        raise NotADirectoryError('Cell folder: does not exist! Use -cf to indicate an existing cell folder')
 
     if kwargs['folder'] is not None:
         params_dict['templates_folder'] = kwargs['folder']
@@ -137,16 +130,7 @@ def gen_templates(params, **kwargs):
     else:
         intraonly = True
     parallel = kwargs['parallel']
-
-    params_path = 'tmp_params.yaml'
-    simulate_script = join(this_dir, 'simulate_cells.py')
-
-    params_dict.update({'simulate_script': simulate_script})
-    params_dict.update({'cell_models': cell_models})
-    params_dict.update({'templates_folder': templates_folder})
-
-    with open('tmp_params.yaml', 'w') as tf:
-        yaml.dump(params_dict, tf)
+    params_dict['templates_folder'] = templates_folder
 
     # Compile NEURON models (nrnivmodl)
     if not os.path.isdir(join(model_folder, 'mods')):
@@ -154,7 +138,7 @@ def gen_templates(params, **kwargs):
         os.system('python %s compile %s' % (simulate_script, model_folder))
 
     # TODO update info
-    templates, locations, rotations, celltypes = generators.gen_templates(params_path, intraonly, parallel)
+    templates, locations, rotations, celltypes = generators.gen_templates(model_folder, params_dict, intraonly, parallel)
 
     # Merge simulated data and cleanup
     if not intraonly:
