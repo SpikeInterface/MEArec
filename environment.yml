@@ -4,10 +4,11 @@ dependencies:
   - pyyaml
   - matplotlib
   - pip:
-    - neo
+    - LFPy==2.0
+    - pyyaml
+    - matplotlib
     - elephant
     - click
-    - LFPy==2.0
-    - ipython
     - h5py
     - MEAutility
+
