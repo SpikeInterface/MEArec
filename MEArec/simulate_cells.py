@@ -104,9 +104,8 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     os.chdir(cell_folder)
     print("Simulating ", cell_name)
 
-
     if model_type == 'bbp':
-        neuron.load_mechanisms('../mods')
+        neuron.load_mechanisms(mod_folder)
 
         f = open("template.hoc", 'r')
         templatename = get_templatename(f)

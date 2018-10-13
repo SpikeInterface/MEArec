@@ -7,9 +7,9 @@ import numpy as np
 import yaml
 import shutil
 import MEArec.generators as generators
+import MEArec.utils as utils
 import pprint
 import time
-
 
 
 def getDefaultConfig():
@@ -137,8 +137,7 @@ def gen_templates(params, **kwargs):
         print('Compiling NEURON models')
         os.system('python %s compile %s' % (simulate_script, model_folder))
 
-    # TODO update info
-    templates, locations, rotations, celltypes = generators.gen_templates(model_folder, params_dict, intraonly, parallel)
+    tempgen = generators.gen_templates(model_folder, params_dict, intraonly, parallel)
 
     # Merge simulated data and cleanup
     if not intraonly:
@@ -152,13 +151,13 @@ def gen_templates(params, **kwargs):
         save_folder = join(templates_folder, rot, fname)
         if not os.path.isdir(save_folder):
             os.makedirs(save_folder)
-        np.save(join(save_folder, 'templates'), templates)
-        np.save(join(save_folder, 'locations'), locations)
-        np.save(join(save_folder, 'rotations'), rotations)
-        np.save(join(save_folder, 'celltypes'), celltypes)
+        np.save(join(save_folder, 'templates'), tempgen.templates)
+        np.save(join(save_folder, 'locations'), tempgen.locations)
+        np.save(join(save_folder, 'rotations'), tempgen.rotations)
+        np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
         elinfo = MEA.return_mea_info(probe)
 
-        info = {'params': params_dict, 'electrodes': elinfo}
+        info = {'params': tempgen.info, 'electrodes': elinfo}
         yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
         print('\nSaved eap templates in', save_folder, '\n')
 
@@ -333,28 +332,44 @@ def gen_recordings(params, **kwargs):
 
 
 @cli.command()
-@click.option('--type', '-t', type=click.Choice(['t', 's', 'r']),
-              help='template (t), spike train (s), or recording (r)')
-@click.option('--folder', '-f', default=None,
-              help='template/spiketrain/recording folder')
-@click.option('--fname', '-fn', default=None,
-              help='output filename path')
-def tohdf5(type, folder, fname):
-    """Convert templates spike trains, and recordings to hdf5"""
-    pass
+@click.argument('foldername')
+@click.argument('h5file')
+def temptohdf5(foldername, h5file):
+    """Convert templates to hdf5"""
+    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
+        h5file = h5file + '.h5'
+    utils.templates_to_hdf5(foldername, h5file)
+    print("Saved: ", h5file)
 
 @cli.command()
-@click.option('--type', '-t', type=click.Choice(['t', 's', 'r']),
-              help='template (t), spike train (s), or recording (r)')
-@click.option('--h5file', '-h', default=None,
-              help='template/spiketrain/recording hdf5/h5 folder')
-@click.option('--fname', '-fn', default=None,
-              help='output folder path')
-def fromhdf5(type, h5file, fname):
-    """Convert templates spike trains, and recordings from hdf5"""
-    pass
+@click.argument('h5file')
+@click.argument('foldername')
+def tempfromhdf5(h5file, foldername):
+    """Convert templates from hdf5"""
+    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
+        raise AttributeError("'h5file' is not an hdf5 file")
+    utils.hdf5_to_templates(h5file, foldername)
+    print("Saved: ", foldername)
 
+@cli.command()
+@click.argument('foldername')
+@click.argument('h5file')
+def rectohdf5(foldername, h5file):
+    """Convert recordings to hdf5"""
+    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
+        h5file = h5file + '.h5'
+    utils.recordings_to_hdf5(foldername, h5file)
+    print("Saved: ", h5file)
 
+@cli.command()
+@click.argument('h5file')
+@click.argument('foldername')
+def recfromhdf5(h5file, foldername):
+    """Convert recordings from hdf5"""
+    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
+        raise AttributeError("'h5file' is not an hdf5 file")
+    utils.hdf5_to_recordings(h5file, foldername)
+    print("Saved: ", foldername)
 
 @cli.command()
 def default_config():

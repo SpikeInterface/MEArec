@@ -14,6 +14,8 @@ import threading
 import shutil
 from pprint import pprint
 
+from .simulate_cells import run_cell_model, calc_extracellular
+
 class simulationThread(threading.Thread):
     def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
         threading.Thread.__init__(self)
@@ -34,8 +36,124 @@ class simulationThread(threading.Thread):
         print ("Exiting " + self.name)
 
 
+class TemplateGerenator:
+    def __init__(self, *, cell_models_folder=None, temp_dict=None, info=None,
+                 params=None, intraonly=False, parallel=True, delete_tmp=True):
+        if temp_dict is not None and info is not None:
+            self.templates = temp_dict['templates']
+            self.locations = temp_dict['locations']
+            self.rotations = temp_dict['rotations']
+            self.celltypes = temp_dict['celltypes']
+            self.info = info
+
+        else:
+            if cell_models_folder is None:
+                raise AttributeError("Specify cell folder!")
+            if params is None:
+                print("Using default parameters")
+                params = {}
+
+            if os.path.isdir(cell_models_folder):
+                cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
+                if len(cell_models) == 0:
+                    raise AttributeError(cell_models_folder, ' contains no cell models!')
+            else:
+                raise NotADirectoryError('Cell models folder: does not exist!')
+
+            this_dir, this_filename = os.path.split(__file__)
+            simulate_script = join(this_dir, 'simulate_cells.py')
+            params['cell_models_folder'] = cell_models_folder
+
+            if 'sim_time' not in params.keys():
+                params['sim_time'] = 1
+            if 'target_spikes' not in params.keys():
+                params['target_spikes'] = [3, 50]
+            if 'cut_out' not in params.keys():
+                params['cut_out'] = [2, 5]
+            if 'dt' not in params.keys():
+                params['dt'] = 2 ** -5
+            if 'delay' not in params.keys():
+                params['delay'] = 10
+            if 'weights' not in params.keys():
+                params['weights'] = [0.25, 1.75]
+
+            if 'rot' not in params.keys():
+                params['rot'] = 'physrot'
+            if 'probe' not in params.keys():
+                available_mea = MEA.return_mea_list()
+                probe = available_mea[np.random.randint(len(available_mea))]
+                print("Probe randomly set to: %s" % probe)
+                params['probe'] = probe
+            if 'ncontacts' not in params.keys():
+                params['ncontacts'] = 1
+            if 'overhang' not in params.keys():
+                params['overhang'] = 1
+            if 'xlim' not in params.keys():
+                params['xlim'] = [10, 80]
+            if 'ylim' not in params.keys():
+                params['ylim'] = None
+            if 'zlim' not in params.keys():
+                params['zlim'] = None
+            if 'offset' not in params.keys():
+                params['offset'] = 0
+            if 'det_thresh' not in params.keys():
+                params['det_thresh'] = 30
+            if 'n' not in params.keys():
+                params['n'] = 50
+            if 'seed' not in params.keys():
+                params['seed'] = np.random.randint(1, 10000)
+            elif params['seed'] is None:
+                params['seed'] = np.random.randint(1, 10000)
+            if 'templates_folder' not in params.keys():
+                params['templates_folder'] = os.getcwd()
+
+            templates_folder = params['templates_folder']
+            rot = params['rot']
+            n = params['n']
+            probe = params['probe']
+            tot = len(cell_models)
+
+            tmp_params_path = 'tmp_params_path'
+            with open(tmp_params_path, 'w') as f:
+                yaml.dump(params, f)
+
+            # Simulate neurons and EAP for different cell models sparately
+            if parallel:
+                start_time = time.time()
+                print('Parallel')
+                tot = len(cell_models)
+                threads = []
+                for numb, cell_model in enumerate(cell_models):
+                    threads.append(simulationThread(numb, "Thread-" + str(numb), simulate_script,
+                                                    numb, tot, cell_model, cell_models_folder, intraonly, tmp_params_path))
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+                print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+            else:
+                start_time = time.time()
+                for numb, cell_model in enumerate(cell_models):
+                    print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
+                    os.system('python %s %s %s %s' \
+                              % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
+                print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+
+            tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+            templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+            if delete_tmp:
+                shutil.rmtree(tmp_folder)
+                os.remove(tmp_params_path)
+
+            self.templates = templates
+            self.locations = locations
+            self.rotations = rotations
+            self.celltypes = celltypes
+            self.info = params
+
+
 class SpikeTrainGenerator:
-    def __init__(self, params):
+    def __init__(self, params=None):
         '''
         Spike Train Generator: class to create poisson or gamma spike trains
 
@@ -57,7 +175,9 @@ class SpikeTrainGenerator:
         n_remove: number of units to remove at t_remove time
         t_remove: time to remove units
         '''
-
+        if params is None:
+            print("Using default parameters")
+            params = {}
         self.params = copy(params)
 
         if 't_start' not in self.params.keys():
@@ -74,7 +194,7 @@ class SpikeTrainGenerator:
         self.params['ref_per'] = params['ref_per'] * pq.ms
         if 'process' not in self.params.keys():
             params['process'] = 'poisson'
-        self.params['gamma_shape'] = params['process']
+        self.params['process'] = params['process']
         if 'gamma_shape' not in self.params.keys() and params['process'] == 'gamma':
             params['gamma_shape'] = 2
             self.params['gamma_shape'] = params['gamma_shape']
@@ -347,7 +467,7 @@ class SpikeTrainGenerator:
         pass
 
 class RecordingGenerator:
-    def __init__(self, spiketrains, params):
+    def __init__(self, spgen, tempgen, params=None):
         '''
 
         Parameters
@@ -355,15 +475,27 @@ class RecordingGenerator:
         spiketrains
         params
         '''
+        if params is None:
+            print("Using default parameters")
+            params = {'spiketrains': {},
+                      'celltypes': {},
+                      'templates': {},
+                      'recordings': {}}
         self.params = copy(params)
 
         temp_params = self.params['templates']
         rec_params = self.params['recordings']
         st_params = self.params['spiketrains']
         celltype_params = self.params['cell_types']
-        templates_folder = temp_params['templates_folder']
 
-        eaps, locs, rots, celltypes, temp_info = load_templates(templates_folder)
+        eaps = tempgen.templates
+        locs = tempgen.locations
+        rots = tempgen.rotations
+        celltypes = tempgen.celltypes
+        temp_info = tempgen.info
+
+        spiketrains = spgen.all_spiketrains
+
         n_neurons = len(spiketrains)
         cut_outs = temp_info['params']['cut_out']
         duration = spiketrains[0].t_stop - spiketrains[0].t_start
@@ -495,7 +627,6 @@ class RecordingGenerator:
             n_exc = [st.annotations['type'] for st in spiketrains].count('E')
             n_inh = n_neurons - n_exc
 
-        # TODO add y_lim and z_lim
         np.random.seed(temp_seed)
         idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
                                       min_amp=min_amp, min_dist=min_dist, verbose=False)
@@ -774,8 +905,7 @@ class RecordingGenerator:
         self.sources = gt_spikes
         self.info = params
 
-
-def gen_recordings(templates_folder, params):
+def gen_recordings(params=None, templates_folder=None, tempgen=None):
     '''
 
     Parameters
@@ -796,6 +926,8 @@ def gen_recordings(templates_folder, params):
                 params_dict = yaml.load(pf)
     elif isinstance(params, dict):
         params_dict = params
+    else:
+        params_dict = {}
 
     if 'spiketrains' not in params_dict:
         params_dict['spiketrains'] = {}
@@ -812,12 +944,15 @@ def gen_recordings(templates_folder, params):
         print("'recording_folder' not specified: using cwd")
         recordings_folder = os.getcwd()
 
-    if os.path.isdir(templates_folder):
-        params_dict['templates'].update({'templates_folder': templates_folder})
-    else:
-        raise AttributeError("'templates_folder' is not a folder")
+    if tempgen is None and templates_folder is None:
+        raise AttributeError("Provide either 'templates_folder' or 'tempgen' TemplateGenerator object")
 
-
+    if tempgen is None:
+        if os.path.isdir(templates_folder):
+            temp_dict, temp_info = load_templates(templates_folder, verbose=False)
+            tempgen = TemplateGerenator(temp_dict=temp_dict, info=temp_info)
+        else:
+            raise AttributeError("'templates_folder' is not a folder")
 
     if 'seed' in params_dict['spiketrains']:
         if params_dict['spiketrains']['seed'] is None:
@@ -844,12 +979,12 @@ def gen_recordings(templates_folder, params):
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
-    recgen = RecordingGenerator(spiketrains, params_dict)
+    recgen = RecordingGenerator(spgen, tempgen, params_dict)
 
     return recgen
 
 
-def gen_templates(cell_models_folder, params, intraonly=False, parallel=True, delete_tmp=True):
+def gen_templates(cell_models_folder, params=None, intraonly=False, parallel=True, delete_tmp=True):
     '''
 
     Parameters
@@ -882,98 +1017,104 @@ def gen_templates(cell_models_folder, params, intraonly=False, parallel=True, de
     elif isinstance(params, dict):
         params_dict = params
 
-    this_dir, this_filename = os.path.split(__file__)
+    tempgen = TemplateGerenator(cell_models_folder=cell_models_folder,
+                                params=params_dict,
+                                intraonly=intraonly,
+                                parallel=parallel,
+                                delete_tmp=delete_tmp)
 
-    if os.path.isdir(cell_models_folder):
-        cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
-        if len(cell_models) == 0:
-            raise AttributeError(model_folder, ' contains no cell models!')
-    else:
-        raise NotADirectoryError('Cell models folder: does not exist!')
+    # this_dir, this_filename = os.path.split(__file__)
+    #
+    # if os.path.isdir(cell_models_folder):
+    #     cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
+    #     if len(cell_models) == 0:
+    #         raise AttributeError(model_folder, ' contains no cell models!')
+    # else:
+    #     raise NotADirectoryError('Cell models folder: does not exist!')
+    #
+    # simulate_script = join(this_dir, 'simulate_cells.py')
+    # params_dict['cell_models_folder'] = cell_models_folder
+    #
+    # if 'sim_time' not in params_dict.keys():
+    #     params_dict['sim_time'] = 1
+    # if 'target_spikes' not in params_dict.keys():
+    #     params_dict['target_spikes'] = [3, 50]
+    # if 'cut_out' not in params_dict.keys():
+    #     params_dict['cut_out'] = [2, 5]
+    # if 'dt' not in params_dict.keys():
+    #     params_dict['dt'] = 2**-5
+    # if 'delay' not in params_dict.keys():
+    #     params_dict['delay'] = 10
+    # if 'weights' not in params_dict.keys():
+    #     params_dict['weights'] = [0.25, 1.75]
+    #
+    # if 'rot' not in params_dict.keys():
+    #     params_dict['rot'] = 'physrot'
+    # if 'probe' not in params_dict.keys():
+    #     available_mea = MEA.return_mea_list()
+    #     probe = available_mea[np.random.randint(len(available_mea))]
+    #     print("Probe randomly set to: %s" % probe)
+    #     params_dict['probe'] = probe
+    # if 'ncontacts' not in params_dict.keys():
+    #     params_dict['ncontacts'] = 1
+    # if 'overhang' not in params_dict.keys():
+    #     params_dict['overhang'] = 1
+    # if 'xlim' not in params_dict.keys():
+    #     params_dict['xlim'] = [10, 80]
+    # if 'ylim' not in params_dict.keys():
+    #     params_dict['ylim'] = None
+    # if 'zlim' not in params_dict.keys():
+    #     params_dict['zlim'] = None
+    # if 'det_thresh' not in params_dict.keys():
+    #     params_dict['det_thresh'] = 30
+    # if 'n' not in params_dict.keys():
+    #     params_dict['n'] = 50
+    # if 'seed' not in params_dict.keys():
+    #     params_dict['seed'] = np.random.randint(1, 10000)
+    # elif params_dict['seed'] is None:
+    #     params_dict['seed'] = np.random.randint(1, 10000)
+    # if 'templates_folder' not in params_dict.keys():
+    #     params_dict['templates_folder'] = os.getcwd()
+    #
+    # params_dict['cell_models'] = cell_models
+    # templates_folder = params_dict['templates_folder']
+    # rot = params_dict['rot']
+    # n = params_dict['n']
+    # probe = params_dict['probe']
+    # tot = len(cell_models)
+    #
+    # tmp_params_path = 'tmp_params_path'
+    # with open(tmp_params_path, 'w') as f:
+    #     yaml.dump(params_dict, f)
+    #
+    # # Simulate neurons and EAP for different cell models sparately
+    # if parallel:
+    #     start_time = time.time()
+    #     print('Parallel')
+    #     tot = len(cell_models)
+    #     threads = []
+    #     for numb, cell_model in enumerate(cell_models):
+    #         threads.append(simulationThread(numb, "Thread-"+str(numb), simulate_script,
+    #                                         numb, tot, cell_model, cell_models_folder, intraonly, tmp_params_path))
+    #     for t in threads:
+    #         t.start()
+    #     for t in threads:
+    #         t.join()
+    #     print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+    # else:
+    #     start_time = time.time()
+    #     for numb, cell_model in enumerate(cell_models):
+    #         print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
+    #         os.system('python %s %s %s %s'\
+    #                   % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
+    #     print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+    #
+    #
+    #
+    # tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+    # templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+    # if delete_tmp:
+    #     shutil.rmtree(tmp_folder)
+    #     os.remove(tmp_params_path)
 
-    simulate_script = join(this_dir, 'simulate_cells.py')
-    params_dict['cell_models_folder'] = cell_models_folder
-
-    if 'sim_time' not in params_dict.keys():
-        params_dict['sim_time'] = 1
-    if 'target_spikes' not in params_dict.keys():
-        params_dict['target_spikes'] = [3, 50]
-    if 'cut_out' not in params_dict.keys():
-        params_dict['cut_out'] = [2, 5]
-    if 'dt' not in params_dict.keys():
-        params_dict['dt'] = 2**-5
-    if 'delay' not in params_dict.keys():
-        params_dict['delay'] = 10
-    if 'weights' not in params_dict.keys():
-        params_dict['weights'] = [0.25, 1.75]
-
-    if 'rot' not in params_dict.keys():
-        params_dict['rot'] = 'physrot'
-    if 'probe' not in params_dict.keys():
-        available_mea = MEA.return_mea_list()
-        probe = available_mea[np.random.randint(len(available_mea))]
-        print("Probe randomly set to: %s" % probe)
-        params_dict['probe'] = probe
-    if 'ncontacts' not in params_dict.keys():
-        params_dict['ncontacts'] = 1
-    if 'overhang' not in params_dict.keys():
-        params_dict['overhang'] = 1
-    if 'xlim' not in params_dict.keys():
-        params_dict['xlim'] = [10, 80]
-    if 'ylim' not in params_dict.keys():
-        params_dict['ylim'] = None
-    if 'zlim' not in params_dict.keys():
-        params_dict['zlim'] = None
-    if 'det_thresh' not in params_dict.keys():
-        params_dict['det_thresh'] = 30
-    if 'n' not in params_dict.keys():
-        params_dict['n'] = 50
-    if 'seed' not in params_dict.keys():
-        params_dict['seed'] = np.random.randint(1, 10000)
-    elif params_dict['seed'] is None:
-        params_dict['seed'] = np.random.randint(1, 10000)
-    if 'templates_folder' not in params_dict.keys():
-        params_dict['templates_folder'] = os.getcwd()
-
-    params_dict['cell_models'] = cell_models
-    templates_folder = params_dict['templates_folder']
-    rot = params_dict['rot']
-    n = params_dict['n']
-    probe = params_dict['probe']
-    tot = len(cell_models)
-
-    tmp_params_path = 'tmp_params_path'
-    with open(tmp_params_path, 'w') as f:
-        yaml.dump(params_dict, f)
-
-    # Simulate neurons and EAP for different cell models sparately
-    if parallel:
-        start_time = time.time()
-        print('Parallel')
-        tot = len(cell_models)
-        threads = []
-        for numb, cell_model in enumerate(cell_models):
-            threads.append(simulationThread(numb, "Thread-"+str(numb), simulate_script,
-                                            numb, tot, cell_model, cell_models_folder, intraonly, tmp_params_path))
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
-    else:
-        start_time = time.time()
-        for numb, cell_model in enumerate(cell_models):
-            print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-            os.system('python %s %s %s %s'\
-                      % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
-        print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
-
-
-
-    tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
-    templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
-    if delete_tmp:
-        shutil.rmtree(tmp_folder)
-        os.remove(tmp_params_path)
-
-    return templates, locations, rotations, celltypes
+    return tempgen

@@ -87,10 +87,10 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
     if verbose:
         print("Done loading spike data ...")
-    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str, verbose=False)
+    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
-def load_templates(template_folder, verbose=False):
+def load_templates(templates_folder, verbose=False):
     '''
     Load generated eap templates (from template_gen.py)
 
@@ -107,17 +107,31 @@ def load_templates(template_folder, verbose=False):
     if verbose:
         print("Loading templates...")
 
-    templates = np.load(join(template_folder, 'templates.npy'))
-    locs = np.load(join(template_folder, 'locations.npy'))
-    rots = np.load(join(template_folder, 'rotations.npy'))
-    celltypes = np.load(join(template_folder, 'celltypes.npy'))
+    temp_dict = {}
 
-    with open(join(template_folder, 'info.yaml'), 'r') as f:
+    if os.path.isfile(join(templates_folder, 'templates.npy')):
+        templates = np.load(join(templates_folder, 'templates.npy'))
+        temp_dict.update({'templates': templates})
+    if os.path.isfile(join(templates_folder, 'locations.npy')):
+        locations = np.load(join(templates_folder, 'locations.npy'))
+        temp_dict.update({'locations': locations})
+    if os.path.isfile(join(templates_folder, 'rotations.npy')):
+        rotations = np.load(join(templates_folder, 'rotations.npy'))
+        temp_dict.update({'rotations': rotations})
+    if os.path.isfile(join(templates_folder, 'celltypes.npy')):
+        celltypes = np.load(join(templates_folder, 'celltypes.npy'))
+        temp_dict.update({'celltypes': celltypes})
+    # templates = np.load(join(template_folder, 'templates.npy'))
+    # locs = np.load(join(template_folder, 'locations.npy'))
+    # rots = np.load(join(template_folder, 'rotations.npy'))
+    # celltypes = np.load(join(template_folder, 'celltypes.npy'))
+
+    with open(join(templates_folder, 'info.yaml'), 'r') as f:
         info = yaml.load(f)
 
     if verbose:
         print("Done loading templates...")
-    return templates, locs, rots, celltypes, info
+    return temp_dict, info
 
 
 def load_recordings(recording_folder, verbose=False):
@@ -1523,32 +1537,3 @@ def plot_waveforms(spiketrains, mea):
         MEA.plot_mea_recording(w.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=2)
 
     return fig_w
-
-
-# Save recording to hdf5 file -- by jfm 9/24/2018
-def recording_to_hdf5(recording_folder,output_fname):
-    F=h5py.File(output_fname,'w')
-
-    with open(recording_folder+'/info.yaml', 'r') as f:
-        info = yaml.load(f)
-        
-    for key in info['General']:
-        F.attrs[key]=info['General'][key] # this includes spiketrain_folder, fs, template_folder, duration, n_neurons, seed, electrode_name
-
-    peaks=np.load(recording_folder+'/peaks.npy')
-    F.create_dataset('peaks',data=peaks)
-    positions=np.load(recording_folder+'/positions.npy')
-    F.create_dataset('positions',data=positions)
-    recordings=np.load(recording_folder+'/recordings.npy')
-    F.create_dataset('recordings',data=recordings)
-    sources=np.load(recording_folder+'/sources.npy')
-    F.create_dataset('sources',data=sources)
-    spiketrains=np.load(recording_folder+'/spiketrains.npy')
-    for ii in range(len(spiketrains)):
-        st=spiketrains[ii]
-        F.create_dataset('spiketrains/{}/times'.format(ii),data=st.times)
-    templates=np.load(recording_folder+'/templates.npy')
-    F.create_dataset('templates',data=templates)
-    templates=np.load(recording_folder+'/times.npy')
-    F.create_dataset('times',data=templates)
-    F.close()
