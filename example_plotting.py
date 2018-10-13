@@ -5,8 +5,8 @@ import matplotlib.pylab as plt
 from MEArec import tools
 import MEAutility as MEA
 
-template_folder = '/home/alessio/Documents/Codes/MEArec/data/templates/physrot/templates_30_Neuronexus-32_13-10-2018' # insert here the template path
-recording_folder = '/home/alessio/Documents/Codes/MEArec/data/recordings/recordings_20cells_Neuronexus-32_10.0_10.0uV_13-10-2018:10:55' # insert here the recording path
+template_folder = None # insert here the template folder path
+recording_folder = None # insert here the recording folder path
 
 if template_folder is not None:
     temp_dict, temp_info = tools.load_templates(template_folder)
