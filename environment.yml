@@ -1,6 +1,8 @@
 name: mearec
 dependencies:
-  - python=3
+  - python=3.6.5
+  - pyyaml
+  - matplotlib
   - pip:
     - LFPy==2.0
     - pyyaml
@@ -8,4 +10,5 @@ dependencies:
     - elephant
     - click
     - h5py
-    - ipython
+    - MEAutility
+

@@ -1,8 +1,5 @@
 # Default parameters for template generation (template_gen.py)
 
-# general
-cell_folder: cell_models/bbp
-template_folder: templates
 
 # intracellular simulation settings
 sim_time: 1 # intracellular simulation time in s
@@ -17,8 +14,11 @@ weights: [0.25, 1.75]  # weights to multiply stimulus amplitude if number of spi
 rot: physrot # random rotation to apply to cell models (norot, physrot, 3drot)
 probe: null # extracellular probe (if None probes are listed)
 ncontacts: 1 # number of contacts per recording site
-overhang: 30 # extension in un beyond MEA boundaries for neuron locations
-xplane: 0 # x_plane (um) coordinate for MEA
-xlim: [10, 80] # limits ( low high ) for neuron locations in the x-axis (depth)
+overhang: 30 # extension in un beyond MEA boundaries for neuron locations (if lim is null)
+offset: 0 # plane offset (um) for MEA
+xlim: [10,80] # limits ( low high ) for neuron locations in the x-axis (depth)
+ylim: null # limits ( low high ) for neuron locations in the y-axis
+zlim: null # limits ( low high ) for neuron locations in the z-axis
 det_thresh: 30 # detection threshold for EAPs
-n: 1000 # number of EAPs per cell model
+n: 50 # number of EAPs per cell model
+seed: null # random seed for positions and rotations

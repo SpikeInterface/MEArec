@@ -1,6 +1,6 @@
 LFPy==2.0
-MEAutility
 pyyaml
+MEAutility
 matplotlib
 elephant
 click

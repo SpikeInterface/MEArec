@@ -1,9 +1,8 @@
 from __future__ import print_function
 
 '''Examples on how to load and plot templates, spike trains, recordings'''
-import numpy as np
 import matplotlib.pylab as plt
-import tools
+from MEArec.MEArec import tools
 import MEAutility as MEA
 
 template_folder = None # insert here the template path

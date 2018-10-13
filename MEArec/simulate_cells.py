@@ -39,7 +39,6 @@ def get_templatename(f):
     for line in f.readlines():
         if 'begintemplate' in line.split():
             templatename = line.split()[-1]
-            print('template {} found!'.format(templatename))
             continue
     return templatename
 
@@ -105,9 +104,8 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     os.chdir(cell_folder)
     print("Simulating ", cell_name)
 
-
     if model_type == 'bbp':
-        neuron.load_mechanisms('../mods')
+        neuron.load_mechanisms(mod_folder)
 
         f = open("template.hoc", 'r')
         templatename = get_templatename(f)
@@ -126,13 +124,9 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
         synapses = get_templatename(f)
         f.close()
 
-        print('Loading constants')
         neuron.h.load_file('constants.hoc')
-        print('...done.')
         if not hasattr(neuron.h, morphology):
-            print('loading morpho...')
             neuron.h.load_file(1, "morphology.hoc")
-            print('done.')
 
         if not hasattr(neuron.h, biophysics):
             neuron.h.load_file(1, "biophysics.hoc")
@@ -142,14 +136,11 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
             neuron.h.load_file(1, join('synapses', 'synapses.hoc'))
 
         if not hasattr(neuron.h, templatename):
-            print('Loading template...')
             neuron.h.load_file(1, "template.hoc")
-            print('done.')
 
         morphologyfile = os.listdir('morphology')[0]#glob('morphology\\*')[0]
 
         # Instantiate the cell(s) using LFPy
-        print('Initialize cell...')
         cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
                          templatefile=join('template.hoc'),
                          templatename=templatename,
@@ -161,7 +152,6 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
                          pt3d=True,
                          delete_sections=True,
                          verbose=True)
-        print('...done.')
 
     else:
         raise NotImplementedError('Cell model %s is not implemented'\
@@ -268,7 +258,6 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
     if not os.path.isdir(sim_folder):
         os.makedirs(sim_folder)
-    print(sim_folder)
 
     imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
     vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
@@ -298,7 +287,6 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
             t = cell.tvec
             v = cell.somav
-            print(cell.imem.shape)
             t = t
             v = v
 
@@ -371,10 +359,13 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     nobs =  kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
-    x_plane = kwargs['xplane']
+    offset = kwargs['offset']
     x_lim = kwargs['xlim']
+    y_lim = kwargs['ylim']
+    z_lim = kwargs['zlim']
     det_thresh = kwargs['det_thresh']
     MEAname = kwargs['probe']
+    offset = kwargs['offset']
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
@@ -392,114 +383,94 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     save_offs = []
     target_num_spikes = int(nobs)
 
-
     # load MEA info
     elinfo = MEA.return_mea_info(electrode_name=MEAname)
-    # specify number of points for average EAP on each site
-    elinfo.update({'n_points': ncontacts})
+    elinfo['offset'] = offset
 
     # Create save folder
-    # Create directory with target_spikes and date
     save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
 
     if not os.path.isdir(save_folder):
         os.makedirs(save_folder)
 
-    # Check if already existing
-    if os.path.isfile(join(save_folder, 'eap-%s.npy' % cell_save_name)) and \
-        os.path.isfile(join(save_folder, 'pos-%s.npy' % cell_save_name)) and \
-        os.path.isfile(join(save_folder, 'rot-%s.npy' % cell_save_name)):
-        print('Cell ', cell_save_name, ' extracellular spikes have already been simulated and saved')
+    print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
+
+    mea = MEA.return_mea(info=elinfo)
+    pos = mea.positions
+
+    elec_x = pos[:, 0]
+    elec_y = pos[:, 1]
+    elec_z = pos[:, 2]
+
+    N = np.empty((pos.shape[0], 3))
+    for i in np.arange(N.shape[0]):
+        N[i, ] = [1, 0, 0]  # normal vec. of contacts
+
+    # Add square electrodes (instead of circles)
+    if ncontacts > 1:
+        electrode_parameters = {
+            'sigma': 0.3,  # extracellular conductivity
+            'x': elec_x,  # x,y,z-coordinates of contact points
+            'y': elec_y,
+            'z': elec_z,
+            'n': ncontacts,
+            'r': elinfo['size'],
+            'N': N,
+            'contact_shape': elinfo['shape']
+        }
     else:
-        print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
+        electrode_parameters = {
+            'sigma': 0.3,  # extracellular conductivity
+            'x': elec_x,  # x,y,z-coordinates of contact points
+            'y': elec_y,
+            'z': elec_z
+        }
 
-        x_plane = 0.
-        mea = MEA.return_mea(electrode_name=MEAname)
-        pos = mea.positions
+    if x_lim is None:
+        x_lim = [float(np.min(elec_x) - overhang),
+                 float(np.max(elec_x) + overhang)]
+    if y_lim is None:
+        y_lim = [float(np.min(elec_y) - overhang),
+                 float(np.max(elec_y) + overhang)]
+    if z_lim is None:
+        z_lim = [float(np.min(elec_z) - overhang),
+                 float(np.max(elec_z) + overhang)]
 
-        elec_x = pos[:, 0]
-        elec_y = pos[:, 1]
-        elec_z = pos[:, 2]
+    ignored=0
+    saved = 0
+    i = 0
 
-        N = np.empty((pos.shape[0], 3))
-        for i in np.arange(N.shape[0]):
-            N[i, ] = [1, 0, 0]  # normal vec. of contacts
+    while len(save_spikes) < target_num_spikes:
+        if i > 1000 * target_num_spikes:
+            print("Gave up finding spikes above noise level for %s" % cell_name)
+            break
+        spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
+        cell.imem = i_spikes[spike_idx, :, :]
+        cell.somav = v_spikes[spike_idx, :]
 
-        # Add square electrodes (instead of circles)
-        if ncontacts > 1:
-            electrode_parameters = {
-                'sigma': 0.3,  # extracellular conductivity
-                'x': elec_x,  # x,y,z-coordinates of contact points
-                'y': elec_y,
-                'z': elec_z,
-                'n': ncontacts,
-                'r': elinfo['size'],
-                'N': N,
-                'contact_shape': elinfo['shape']
-            }
+        espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
+                                                             [x_lim, y_lim, z_lim], rotation, pos=position)
+        if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+            save_spikes.append(espikes)
+            save_pos.append(pos)
+            save_rot.append(rot)
+            save_offs.append(offs)
+            plot_spike = False
+            print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
+            saved += 1
         else:
-            electrode_parameters = {
-                'sigma': 0.3,  # extracellular conductivity
-                'x': elec_x,  # x,y,z-coordinates of contact points
-                'y': elec_y,
-                'z': elec_z
-            }
+            pass
 
-        y_lim = [float(min(elec_y) - elinfo['size'] - overhang),
-                 float(max(elec_y) + elinfo['size'] + overhang)]
-        z_lim = [float(min(elec_z) - elinfo['size'] - overhang),
-                 float(max(elec_z) + elinfo['size'] + overhang)]
+        i += 1
 
-        ignored=0
-        saved = 0
-        i = 0
+    save_spikes = np.array(save_spikes)
+    save_pos = np.array(save_pos)
+    save_rot = np.array(save_rot)
+    save_offs = np.array(save_offs)
 
-        while len(save_spikes) < target_num_spikes:
-            if i > 1000 * target_num_spikes:
-                print("Gave up finding spikes above noise level for %s" % cell_name)
-                break
-            spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
-            cell.imem = i_spikes[spike_idx, :, :]
-            cell.somav = v_spikes[spike_idx, :]
-
-            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
-                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
-            if (np.ptp(espikes, axis=1) >= det_thresh).any():
-                save_spikes.append(espikes)
-                save_pos.append(pos)
-                save_rot.append(rot)
-                save_offs.append(offs)
-                plot_spike = False
-                print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
-                saved += 1
-            else:
-                pass
-
-            i += 1
-
-        save_spikes = np.array(save_spikes)
-        save_pos = np.array(save_pos)
-        save_rot = np.array(save_rot)
-        save_offs = np.array(save_offs)
-
-        if not os.path.isfile(join(save_folder, 'e_elpts_%d.npy' % target_num_spikes)):
-            np.save(join(save_folder, 'e_elpts_%d.npy' % target_num_spikes),
-                    save_offs)
-
-        # Log information: (consider xml)
-        with open(join(save_folder, 'info_%s.yaml' % cell_save_name),'w') as f:
-            # create dictionary for yaml file
-            data_yaml = {'General': {'cell name': cell_name, 'target spikes': target_num_spikes,
-                                     'detect threshold': det_thresh, 'NEURON': neuron.h.nrnversion(1),
-                                     'LFPy': LFPy.__version__ , 'dt': dt},
-                        'Electrodes': elinfo,
-                        'Location': {'z_lim': list(z_lim),'y_lim': list(y_lim), 'x_lim': list(x_lim), 'rotation': rotation}
-                        }
-            yaml.dump(data_yaml, f, default_flow_style=False)
-
-        np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
-        np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
-        np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
+    np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
+    np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
+    np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
 
 
 def get_physrot_specs(cell_name, model):
@@ -550,8 +521,8 @@ def get_physrot_specs(cell_name, model):
         raise NotImplementedError('Cell model %s is not implemented'\
                                   % model_type)
 
-def return_extracellular_spike(cell, cell_name, model_type,\
-                            electrode_parameters, limits, rotation, pos=None):
+def return_extracellular_spike(cell, cell_name, model_type,
+                               electrode_parameters, limits, rotation, pos=None):
     """    Calculate extracellular spike on MEA 
            at random position relative to cell
 
@@ -649,23 +620,54 @@ def return_extracellular_spike(cell, cell_name, model_type,\
     electrodes = LFPy.RecExtElectrode(cell, **electrode_parameters)
 
     '''Rotate neuron'''
-    if rotation == 'Norot':
-        # orientate cells in z direction
+    if rotation == 'norot':
         if model_type == 'bbp':
-            x_rot = np.pi / 2.
-            y_rot = 0
-            z_rot = 0
+            # orientate cells in z direction
+            x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        x_rot = x_rot_offset
+        y_rot = y_rot_offset
+        z_rot = z_rot_offset
+    elif rotation == 'xrot':
+        if model_type == 'bbp':
+            # orientate cells in z direction
+            x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        x_rot, _, _ = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
+        x_rot = x_rot + x_rot_offset
+        y_rot = y_rot_offset
+        z_rot = z_rot_offset
+    elif rotation == 'yrot':
+        if model_type == 'bbp':
+            # orientate cells in z direction
+            x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        _, y_rot, _ = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
+        x_rot = x_rot_offset
+        y_rot = y_rot + y_rot_offset
+        z_rot = z_rot_offset
+    elif rotation == 'zrot':
+        if model_type == 'bbp':
+            # orientate cells in z direction
+            x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        _, _, z_rot = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
+        x_rot = x_rot_offset
+        y_rot = y_rot_offset
+        z_rot = z_rot + z_rot_offset
     elif rotation == '3drot':
         if model_type == 'bbp':
             x_rot_offset = np.pi / 2. # align neuron with z axis
             y_rot_offset = 0 # align neuron with z axis
             z_rot_offset = 0 # align neuron with z axis
-
         x_rot, y_rot, z_rot = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
         x_rot = x_rot + x_rot_offset
         y_rot = y_rot + y_rot_offset
         z_rot = z_rot + z_rot_offset
-
     elif rotation == 'physrot':
         polarlim, pref_orient  = get_physrot_specs(cell_name, model_type)
         if model_type == 'bbp':
@@ -742,15 +744,15 @@ if __name__ == '__main__':
         with open(params_path, 'r') as f:
             params = yaml.load(f)
 
-        sim_folder = params['template_folder']
-        cell_folder = params['cell_folder']
+        sim_folder = params['templates_folder']
+        cell_folder = params['cell_models_folder']
         rot = params['rot']
 
-        extra_sim_folder = join(params['template_folder'])
-        vm_im_sim_folder = join(params['template_folder'], 'intracellular')
+        extra_sim_folder = params['templates_folder']
+        vm_im_sim_folder = join(params['templates_folder'], 'intracellular')
 
-        run_cell_model(cell_model, vm_im_sim_folder, np.random.randint(1, 1000), **params)
+        run_cell_model(cell_model, vm_im_sim_folder, **params)
         if not intraonly:
-            calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, np.random.randint(1, 1000), **params)
+            calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, **params)
 
 

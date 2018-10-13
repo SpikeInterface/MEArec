@@ -14,7 +14,7 @@ import h5py
 
 ### LOAD FUNCTIONS ###
 
-def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
+def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
     '''
     Loads EAP from temporary folder
 
@@ -26,14 +26,14 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
 
     Returns
     -------
-    templates, locations, rotations, celltypes, info
+    templates, locations, rotations, celltypes
 
     '''
-    print("Loading spike data ...")
+    if verbose:
+        print("Loading spike data ...")
     spikelist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
     loclist = [f for f in os.listdir(templates_folder) if f.startswith('pos')]
     rotlist = [f for f in os.listdir(templates_folder) if f.startswith('rot')]
-    infolist = [f for f in os.listdir(templates_folder) if f.startswith('info')]
 
     spikes_list = []
     loc_list = []
@@ -43,15 +43,14 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
     spikelist = sorted(spikelist)
     loclist = sorted(loclist)
     rotlist = sorted(rotlist)
-    infolist = sorted(infolist)
 
     loaded_categories = set()
     ignored_categories = set()
 
     for idx, f in enumerate(spikelist):
         celltype = f.split('-')[1][:-4]
-
-        print('loading cell type: ', f)
+        if verbose:
+            print('loading cell type: ', f)
         if celltypes is not None:
             if celltype in celltypes:
                 spikes = np.load(join(templates_folder, f))
@@ -86,16 +85,12 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None):
             cat_list.extend([celltype] * samples_to_read)
             loaded_categories.add(celltype)
 
-    # load info
-    with open(join(templates_folder, infolist[0]), 'r') as fl:
-        info = yaml.load(fl)
-        info['General'].pop('cell name', None)
-
-    print("Done loading spike data ...")
-    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str), info
+    if verbose:
+        print("Done loading spike data ...")
+    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
-def load_templates(template_folder):
+def load_templates(templates_folder, verbose=False):
     '''
     Load generated eap templates (from template_gen.py)
 
@@ -109,45 +104,37 @@ def load_templates(template_folder):
     info - dict
 
     '''
-    print("Loading templates...")
+    if verbose:
+        print("Loading templates...")
 
-    templates = np.load(join(template_folder, 'templates.npy'))
-    locs = np.load(join(template_folder, 'locations.npy'))
-    rots = np.load(join(template_folder, 'rotations.npy'))
-    celltypes = np.load(join(template_folder, 'celltypes.npy'))
+    temp_dict = {}
 
-    with open(join(template_folder, 'info.yaml'), 'r') as f:
+    if os.path.isfile(join(templates_folder, 'templates.npy')):
+        templates = np.load(join(templates_folder, 'templates.npy'))
+        temp_dict.update({'templates': templates})
+    if os.path.isfile(join(templates_folder, 'locations.npy')):
+        locations = np.load(join(templates_folder, 'locations.npy'))
+        temp_dict.update({'locations': locations})
+    if os.path.isfile(join(templates_folder, 'rotations.npy')):
+        rotations = np.load(join(templates_folder, 'rotations.npy'))
+        temp_dict.update({'rotations': rotations})
+    if os.path.isfile(join(templates_folder, 'celltypes.npy')):
+        celltypes = np.load(join(templates_folder, 'celltypes.npy'))
+        temp_dict.update({'celltypes': celltypes})
+    # templates = np.load(join(template_folder, 'templates.npy'))
+    # locs = np.load(join(template_folder, 'locations.npy'))
+    # rots = np.load(join(template_folder, 'rotations.npy'))
+    # celltypes = np.load(join(template_folder, 'celltypes.npy'))
+
+    with open(join(templates_folder, 'info.yaml'), 'r') as f:
         info = yaml.load(f)
 
-    print("Done loading templates...")
-    return templates, locs, rots, celltypes, info
+    if verbose:
+        print("Done loading templates...")
+    return temp_dict, info
 
 
-def load_spiketrains(spiketrain_folder):
-    '''
-    Load generated spike trains (from spiketrain_gen.py)
-
-    Parameters
-    ----------
-    spiketrain_folder: spiketrain folder
-
-    Returns
-    -------
-    spiketrains - list of neo.Spiketrain
-    info - dict
-
-    '''
-    print("Loading spike trains...")
-
-    spiketrains = np.load(join(spiketrain_folder, 'gtst.npy'))
-
-    with open(join(spiketrain_folder, 'info.yaml'), 'r') as f:
-        info = yaml.load(f)
-
-    print("Done loading spike trains...")
-    return spiketrains, info
-
-def load_recordings(recording_folder):
+def load_recordings(recording_folder, verbose=False):
     '''
     Load generated recordings (from template_gen.py)
 
@@ -161,24 +148,40 @@ def load_recordings(recording_folder):
     info - dict
 
     '''
-    print("Loading recordings...")
+    if verbose:
+        print("Loading recordings...")
 
-    recordings = np.load(join(recording_folder, 'recordings.npy'))
-    positions = np.load(join(recording_folder, 'positions.npy'))
-    times = np.load(join(recording_folder, 'times.npy'))
-    templates = np.load(join(recording_folder, 'templates.npy'))
-    spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
-    sources = np.load(join(recording_folder, 'sources.npy'))
-    peaks = np.load(join(recording_folder, 'peaks.npy'))
+    rec_dict = {}
+
+    if os.path.isfile(join(recording_folder, 'recordings.npy')):
+        recordings = np.load(join(recording_folder, 'recordings.npy'))
+        rec_dict.update({'recordings': recordings})
+    if os.path.isfile(join(recording_folder, 'positions.npy')):
+        positions = np.load(join(recording_folder, 'positions.npy'))
+        rec_dict.update({'positions': positions})
+    if os.path.isfile(join(recording_folder, 'times.npy')):
+        times = np.load(join(recording_folder, 'times.npy'))
+        rec_dict.update({'times': times})
+    if os.path.isfile(join(recording_folder, 'templates.npy')):
+        templates = np.load(join(recording_folder, 'templates.npy'))
+        rec_dict.update({'templates': templates})
+    if os.path.isfile(join(recording_folder, 'spiketrains.npy')):
+        spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
+        rec_dict.update({'spiketrains': spiketrains})
+    if os.path.isfile(join(recording_folder, 'sources.npy')):
+        sources = np.load(join(recording_folder, 'sources.npy'))
+        rec_dict.update({'sources': sources})
+    if os.path.isfile(join(recording_folder, 'peaks.npy')):
+        peaks = np.load(join(recording_folder, 'peaks.npy'))
+        rec_dict.update({'peaks': peaks})
 
     with open(join(recording_folder, 'info.yaml'), 'r') as f:
         info = yaml.load(f)
 
-    if not isinstance(times, pq.Quantity):
-        times = times * pq.ms
+    if verbose:
+        print("Done loading recordings...")
 
-    print("Done loading recordings...")
-    return recordings, times, positions, templates, spiketrains, sources, peaks, info
+    return rec_dict, info
 
 ### TEMPLATES INFO ###
 
@@ -355,8 +358,35 @@ def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0
 
 ### TEMPLATES OPERATIONS ###
 
-def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=None, min_amp=None, drift=False,
-                     drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
+def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
+    '''
+
+    Parameters
+    ----------
+    position
+    x_lim
+    y_lim
+    z_lim
+
+    Returns
+    -------
+
+    '''
+    valid_position = True
+    if x_lim is not None:
+        if position[0] < x_lim[0] or position[0] > x_lim[1]:
+            valid_position = False
+    if y_lim is not None:
+        if position[1] < y_lim[0] or position[1] > y_lim[1]:
+            valid_position = False
+    if z_lim is not None:
+        if position[2] < z_lim[0] or position[2] > z_lim[1]:
+            valid_position = False
+    return valid_position
+
+
+def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
+                     min_amp=None, drift=False, drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
     '''
 
     Parameters
@@ -367,7 +397,9 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
     n_exc
     n_inh
     min_dist
-    bound_x
+    x_lim
+    y_lim
+    z_lim
     min_amp
     drift
     drift_dir_ang
@@ -381,8 +413,17 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
     '''
     pos_sel = []
     idxs_sel = []
-    exc_idxs = np.where(bin_cat == 'E')[0]
-    inh_idxs = np.where(bin_cat == 'I')[0]
+    categories = np.unique(bin_cat)
+    if 'E' in categories and 'I' in categories:
+        if verbose:
+            print('Selecting Excitatory and Inhibitory cells')
+        excinh = True
+    else:
+        if verbose:
+            print('Selecting random templates (cell types not specified)')
+        excinh = False
+    permuted_idxs = np.random.permutation(len(bin_cat))
+    permuted_bin_cats = bin_cat[permuted_idxs]
 
     if not min_amp:
         min_amp = 0
@@ -391,69 +432,124 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, bound_x=No
         if len(drift_dir_ang) == 0 or preferred_dir == None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
-    for (idxs, num) in zip([exc_idxs, inh_idxs], [n_exc, n_inh]):
-        n_sel = 0
-        iter = 0
-        while n_sel < num:
-            # randomly draw a cell
-            id_cell = idxs[np.random.permutation(len(idxs))[0]]
+    placed_exc = 0
+    placed_inh = 0
+    n_sel = 0
+    n_sel_exc = 0
+    n_sel_inh = 0
+    iter = 0
+
+    for (id_cell, bcat) in zip(permuted_idxs, permuted_bin_cats):
+        placed = False
+        iter += 1
+        if n_sel == n_exc + n_inh:
+            break
+        if excinh:
+            if bcat == 'E':
+                if n_sel_exc < n_exc:
+                    dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                    if np.any(dist < min_dist):
+                        if verbose:
+                            print('Distance violation', dist, iter)
+                        pass
+                    else:
+                        amp = np.max(np.abs(spikes[id_cell]))
+                        if not drift:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                                    # save cell
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                            else:
+                                if verbose:
+                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                        else:
+                            # drift
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                                    # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('Drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                    if placed:
+                        n_sel_exc += 1
+            elif bcat == 'I':
+                if n_sel_inh < n_inh:
+                    dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                    if np.any(dist < min_dist):
+                        if verbose:
+                            print('Distance violation', dist, iter)
+                        pass
+                    else:
+                        amp = np.max(np.abs(spikes[id_cell]))
+                        if not drift:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                                    # save cell
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                            else:
+                                if verbose:
+                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                        else:
+                            # drift
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                                    # save cell
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                    pos_sel.append(loc[id_cell])
+                                    idxs_sel.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if verbose:
+                                        print('Drift violation', loc[id_cell], iter)
+                            else:
+                                if verbose:
+                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                    if placed:
+                        n_sel_inh += 1
+        else:
             dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
-
-            iter += 1
-
             if np.any(dist < min_dist):
                 if verbose:
-                    print('distance violation', dist, iter)
+                    print('Distance violation', dist, iter)
                 pass
             else:
                 amp = np.max(np.abs(spikes[id_cell]))
                 if not drift:
-                    if bound_x is None:
-                        if amp > min_amp:
-                            # save cell
-                            pos_sel.append(loc[id_cell])
-                            idxs_sel.append(id_cell)
-                            n_sel += 1
-                        else:
-                            if verbose:
-                                print('amp violation', amp, iter)
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                        # save cell
+                        pos_sel.append(loc[id_cell])
+                        idxs_sel.append(id_cell)
+                        placed = True
                     else:
-                        if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
-                            # save cell
-                            pos_sel.append(loc[id_cell])
-                            idxs_sel.append(id_cell)
-                            n_sel += 1
-                        else:
-                            if verbose:
-                                print('boundary violation', loc[id_cell], iter)
+                        if verbose:
+                            print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
                     # drift
-                    if len(bound_x) == 0:
-                        if amp > min_amp:
-                            # save cell
-                            if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
-                                pos_sel.append(loc[id_cell])
-                                idxs_sel.append(id_cell)
-                                n_sel += 1
-                            else:
-                                if verbose:
-                                    print('drift violation', loc[id_cell], iter)
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                        # save cell
+                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                            pos_sel.append(loc[id_cell])
+                            idxs_sel.append(id_cell)
+                            placed = True
                         else:
                             if verbose:
-                                print('amp violation', amp, iter)
+                                print('Drift violation', loc[id_cell], iter)
                     else:
-                        if loc[id_cell][0] > bound_x[0] and loc[id_cell][0] < bound_x[1] and amp > min_amp:
-                            # save cell
-                            if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
-                                pos_sel.append(loc[id_cell])
-                                idxs_sel.append(id_cell)
-                                n_sel += 1
-                            else:
-                                if verbose:
-                                    print('drift violation', loc[id_cell], iter)
-                        else:
-                            if verbose:
-                                print('boundary violation', loc[id_cell], iter)
+                        if verbose:
+                            print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+            if placed:
+                n_sel += 1
     return idxs_sel
 
 
@@ -1441,32 +1537,3 @@ def plot_waveforms(spiketrains, mea):
         MEA.plot_mea_recording(w.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=2)
 
     return fig_w
-
-
-# Save recording to hdf5 file -- by jfm 9/24/2018
-def recording_to_hdf5(recording_folder,output_fname):
-    F=h5py.File(output_fname,'w')
-
-    with open(recording_folder+'/info.yaml', 'r') as f:
-        info = yaml.load(f)
-        
-    for key in info['General']:
-        F.attrs[key]=info['General'][key] # this includes spiketrain_folder, fs, template_folder, duration, n_neurons, seed, electrode_name
-
-    peaks=np.load(recording_folder+'/peaks.npy')
-    F.create_dataset('peaks',data=peaks)
-    positions=np.load(recording_folder+'/positions.npy')
-    F.create_dataset('positions',data=positions)
-    recordings=np.load(recording_folder+'/recordings.npy')
-    F.create_dataset('recordings',data=recordings)
-    sources=np.load(recording_folder+'/sources.npy')
-    F.create_dataset('sources',data=sources)
-    spiketrains=np.load(recording_folder+'/spiketrains.npy')
-    for ii in range(len(spiketrains)):
-        st=spiketrains[ii]
-        F.create_dataset('spiketrains/{}/times'.format(ii),data=st.times)
-    templates=np.load(recording_folder+'/templates.npy')
-    F.create_dataset('templates',data=templates)
-    templates=np.load(recording_folder+'/times.npy')
-    F.create_dataset('times',data=templates)
-    F.close()
