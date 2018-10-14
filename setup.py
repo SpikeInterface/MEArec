@@ -28,7 +28,8 @@ setup(
         'elephant',
         'h5py',
         'mpi4py',
-        'LFPy'
+        'LFPy',
+        'MEAutility'
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )
