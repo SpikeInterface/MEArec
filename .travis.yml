@@ -14,6 +14,7 @@ addons:
     - gfortran
 install:
 - source continuous_integration/install.sh
+- pip install matplotlib
 - pip install .
 - pip install pytest
 script: pytest
