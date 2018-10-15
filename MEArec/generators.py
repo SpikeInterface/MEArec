@@ -36,8 +36,8 @@ class simulationThread(threading.Thread):
         print ("Exiting " + self.name)
 
 
-class TemplateGerenator:
-    def __init__(self, *, cell_models_folder=None, temp_dict=None, info=None,
+class TemplateGenerator:
+    def __init__(self, *, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
                  params=None, intraonly=False, parallel=True, delete_tmp=True):
         if temp_dict is not None and info is not None:
             self.templates = temp_dict['templates']
@@ -104,10 +104,11 @@ class TemplateGerenator:
                 params['seed'] = np.random.randint(1, 10000)
             elif params['seed'] is None:
                 params['seed'] = np.random.randint(1, 10000)
-            if 'templates_folder' not in params.keys():
+            if templates_folder is None:
                 params['templates_folder'] = os.getcwd()
+            else:
+                params['templates_folder'] = templates_folder
 
-            templates_folder = params['templates_folder']
             rot = params['rot']
             n = params['n']
             probe = params['probe']
@@ -145,11 +146,14 @@ class TemplateGerenator:
                 shutil.rmtree(tmp_folder)
                 os.remove(tmp_params_path)
 
+            self.info = {}
+
             self.templates = templates
             self.locations = locations
             self.rotations = rotations
             self.celltypes = celltypes
-            self.info = params
+            self.info['params'] = params
+            self.info['electrodes'] = MEA.return_mea_info(probe)
 
 
 class SpikeTrainGenerator:
@@ -501,13 +505,10 @@ class RecordingGenerator:
         duration = spiketrains[0].t_stop - spiketrains[0].t_start
 
         if 'fs' not in rec_params.keys():
-            print('ciao')
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
         elif params['recordings']['fs'] is None:
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
-        print(temp_info['params']['dt'], params['recordings']['fs'])
         fs = params['recordings']['fs'] * pq.kHz
-        print(fs)
 
         if 'noise_level' not in rec_params.keys():
             params['recordings']['noise_level'] = 15
@@ -615,7 +616,6 @@ class RecordingGenerator:
                                      'fs': float(fs.rescale('Hz').magnitude),
                                      'n_neurons': n_neurons})
 
-        pprint(params)
 
         n_elec = eaps.shape[1]
         # this is fixed from recordings
@@ -905,7 +905,7 @@ class RecordingGenerator:
         self.sources = gt_spikes
         self.info = params
 
-def gen_recordings(params=None, templates_folder=None, tempgen=None):
+def gen_recordings(params=None, templates_folder=None, tempgen=None, recording_folder=None):
     '''
 
     Parameters
@@ -938,11 +938,12 @@ def gen_recordings(params=None, templates_folder=None, tempgen=None):
     if 'cell_types' not in params_dict:
         params_dict['cell_types'] = {}
 
-    if 'recording_folder' in params_dict['recordings'].keys():
-        recordings_folder = params_dict['recordings']['recordings_folder']
-    else:
-        print("'recording_folder' not specified: using cwd")
-        recordings_folder = os.getcwd()
+    if recording_folder is None:
+        if 'recording_folder' in params_dict['recordings'].keys():
+            recordings_folder = params_dict['recordings']['recordings_folder']
+        else:
+            print("'recording_folder' not specified: using cwd")
+            recordings_folder = os.getcwd()
 
     if tempgen is None and templates_folder is None:
         raise AttributeError("Provide either 'templates_folder' or 'tempgen' TemplateGenerator object")
@@ -984,7 +985,8 @@ def gen_recordings(params=None, templates_folder=None, tempgen=None):
     return recgen
 
 
-def gen_templates(cell_models_folder, params=None, intraonly=False, parallel=True, delete_tmp=True):
+def gen_templates(cell_models_folder, params=None, templates_folder=None,
+                  intraonly=False, parallel=True, delete_tmp=True):
     '''
 
     Parameters
@@ -1016,9 +1018,16 @@ def gen_templates(cell_models_folder, params=None, intraonly=False, parallel=Tru
                 params_dict = yaml.load(pf)
     elif isinstance(params, dict):
         params_dict = params
+    else:
+        params_dict=None
 
-    tempgen = TemplateGerenator(cell_models_folder=cell_models_folder,
+    if templates_folder is not None:
+        if not os.path.isdir(templates_folder):
+            os.makedirs(templates_folder)
+
+    tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
                                 params=params_dict,
+                                templates_folder=templates_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
                                 delete_tmp=delete_tmp)

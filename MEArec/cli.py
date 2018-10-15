@@ -155,9 +155,7 @@ def gen_templates(params, **kwargs):
         np.save(join(save_folder, 'locations'), tempgen.locations)
         np.save(join(save_folder, 'rotations'), tempgen.rotations)
         np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
-        elinfo = MEA.return_mea_info(probe)
-
-        info = {'params': tempgen.info, 'electrodes': elinfo}
+        info = tempgen.info
         yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
         print('\nSaved eap templates in', save_folder, '\n')
 
