@@ -10,7 +10,6 @@ from os.path import join
 import MEAutility as MEA
 import h5py
 
-
 ### LOAD FUNCTIONS ###
 
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
@@ -89,7 +88,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
-def load_templates(templates_folder, verbose=False):
+def load_templates(templates, verbose=False):
     '''
     Load generated eap templates (from template_gen.py)
 
@@ -103,37 +102,46 @@ def load_templates(templates_folder, verbose=False):
     info - dict
 
     '''
+    from MEArec import TemplateGenerator
     if verbose:
         print("Loading templates...")
 
     temp_dict = {}
 
-    if os.path.isfile(join(templates_folder, 'templates.npy')):
-        templates = np.load(join(templates_folder, 'templates.npy'))
-        temp_dict.update({'templates': templates})
-    if os.path.isfile(join(templates_folder, 'locations.npy')):
-        locations = np.load(join(templates_folder, 'locations.npy'))
-        temp_dict.update({'locations': locations})
-    if os.path.isfile(join(templates_folder, 'rotations.npy')):
-        rotations = np.load(join(templates_folder, 'rotations.npy'))
-        temp_dict.update({'rotations': rotations})
-    if os.path.isfile(join(templates_folder, 'celltypes.npy')):
-        celltypes = np.load(join(templates_folder, 'celltypes.npy'))
-        temp_dict.update({'celltypes': celltypes})
-    # templates = np.load(join(template_folder, 'templates.npy'))
-    # locs = np.load(join(template_folder, 'locations.npy'))
-    # rots = np.load(join(template_folder, 'rotations.npy'))
-    # celltypes = np.load(join(template_folder, 'celltypes.npy'))
-
-    with open(join(templates_folder, 'info.yaml'), 'r') as f:
-        info = yaml.load(f)
+    if os.path.isdir(templates):
+        templates_folder = templates
+        if os.path.isfile(join(templates_folder, 'templates.npy')):
+            templates = np.load(join(templates_folder, 'templates.npy'))
+            temp_dict.update({'templates': templates})
+        if os.path.isfile(join(templates_folder, 'locations.npy')):
+            locations = np.load(join(templates_folder, 'locations.npy'))
+            temp_dict.update({'locations': locations})
+        if os.path.isfile(join(templates_folder, 'rotations.npy')):
+            rotations = np.load(join(templates_folder, 'rotations.npy'))
+            temp_dict.update({'rotations': rotations})
+        if os.path.isfile(join(templates_folder, 'celltypes.npy')):
+            celltypes = np.load(join(templates_folder, 'celltypes.npy'))
+            temp_dict.update({'celltypes': celltypes})
+        with open(join(templates_folder, 'info.yaml'), 'r') as f:
+            info = yaml.load(f)
+    elif templates.endswith('h5') or templates.endswith('hdf5'):
+        with h5py.File(templates, 'r') as F:
+            info = json.loads(str(F['info'][()]))
+            celltypes = np.array(F.get('celltypes'))
+            temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
+            temp_dict['locations'] = np.array(F.get('locations'))
+            temp_dict['rotations'] = np.array(F.get('rotations'))
+            temp_dict['templates'] = np.array(F.get('templates'))
 
     if verbose:
         print("Done loading templates...")
-    return temp_dict, info
+
+    tempgen = TemplateGenerator(temp_dict=temp_dict, info=info)
+
+    return tempgen
 
 
-def load_recordings(recording_folder, verbose=False):
+def load_recordings(recordings, verbose=False):
     '''
     Load generated recordings (from template_gen.py)
 
@@ -147,43 +155,171 @@ def load_recordings(recording_folder, verbose=False):
     info - dict
 
     '''
+    from MEArec import RecordingGenerator
     if verbose:
         print("Loading recordings...")
 
     rec_dict = {}
 
-    if os.path.isfile(join(recording_folder, 'recordings.npy')):
-        recordings = np.load(join(recording_folder, 'recordings.npy'))
-        rec_dict.update({'recordings': recordings})
-    if os.path.isfile(join(recording_folder, 'positions.npy')):
-        positions = np.load(join(recording_folder, 'positions.npy'))
-        rec_dict.update({'positions': positions})
-    if os.path.isfile(join(recording_folder, 'times.npy')):
-        times = np.load(join(recording_folder, 'times.npy'))
-        rec_dict.update({'times': times})
-    if os.path.isfile(join(recording_folder, 'templates.npy')):
-        templates = np.load(join(recording_folder, 'templates.npy'))
-        rec_dict.update({'templates': templates})
-    if os.path.isfile(join(recording_folder, 'spiketrains.npy')):
-        spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
-        rec_dict.update({'spiketrains': spiketrains})
-    if os.path.isfile(join(recording_folder, 'sources.npy')):
-        sources = np.load(join(recording_folder, 'sources.npy'))
-        rec_dict.update({'sources': sources})
-    if os.path.isfile(join(recording_folder, 'peaks.npy')):
-        peaks = np.load(join(recording_folder, 'peaks.npy'))
-        rec_dict.update({'peaks': peaks})
-
-    with open(join(recording_folder, 'info.yaml'), 'r') as f:
-        info = yaml.load(f)
+    if os.path.isdir(recordings):
+        recording_folder = recordings
+        if os.path.isfile(join(recording_folder, 'recordings.npy')):
+            recordings = np.load(join(recording_folder, 'recordings.npy'))
+            rec_dict.update({'recordings': recordings})
+        if os.path.isfile(join(recording_folder, 'positions.npy')):
+            positions = np.load(join(recording_folder, 'positions.npy'))
+            rec_dict.update({'positions': positions})
+        if os.path.isfile(join(recording_folder, 'times.npy')):
+            times = np.load(join(recording_folder, 'times.npy'))
+            rec_dict.update({'times': times})
+        if os.path.isfile(join(recording_folder, 'templates.npy')):
+            templates = np.load(join(recording_folder, 'templates.npy'))
+            rec_dict.update({'templates': templates})
+        if os.path.isfile(join(recording_folder, 'spiketrains.npy')):
+            spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
+            rec_dict.update({'spiketrains': spiketrains})
+        if os.path.isfile(join(recording_folder, 'sources.npy')):
+            sources = np.load(join(recording_folder, 'sources.npy'))
+            rec_dict.update({'sources': sources})
+        if os.path.isfile(join(recording_folder, 'peaks.npy')):
+            peaks = np.load(join(recording_folder, 'peaks.npy'))
+            rec_dict.update({'peaks': peaks})
+        with open(join(recording_folder, 'info.yaml'), 'r') as f:
+            info = yaml.load(f)
+    elif recordings.endswith('h5') or recordings.endswith('hdf5'):
+        with h5py.File(recordings, 'r') as F:
+            info = json.loads(str(F['info'][()]))
+            rec_dict['peaks'] = np.array(F.get('peaks'))
+            rec_dict['positions'] = np.array(F.get('positions'))
+            rec_dict['recordings'] = np.array(F.get('recordings'))
+            rec_dict['sources'] = np.array(F.get('sources'))
+            rec_dict['templates'] = np.array(F.get('templates'))
+            rec_dict['times'] = np.array(F.get('times'))
+            spiketrains = []
+            for ii in range(info['recordings']['n_neurons']):
+                times = np.array(F.get('spiketrains/{}/times'.format(ii)))
+                t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
+                annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
+                annotations = json.loads(annotations_str)
+                st = neo.core.SpikeTrain(
+                    times,
+                    t_stop=t_stop,
+                    units=pq.s
+                )
+                st.annotations = annotations
+                spiketrains.append(st)
+            rec_dict['spiketrains'] = spiketrains
 
     if verbose:
         print("Done loading recordings...")
 
-    return rec_dict, info
+    recgen = RecordingGenerator(rec_dict=rec_dict, info=info)
+
+    return recgen
+
+
+def save_template_generator(tempgen, filename=None):
+    if filename.endswith('h5') or filename.endswith('hdf5'):
+        F = h5py.File(filename, 'w')
+        F.create_dataset('info', data=json.dumps(tempgen.info))
+        celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
+        F.create_dataset('celltypes', data=celltypes)
+        F.create_dataset('locations', data=tempgen.locations)
+        F.create_dataset('rotations', data=tempgen.rotations)
+        F.create_dataset('templates', data=tempgen.templates)
+        F.close()
+        print('\nSaved template generator templates in', filename, '\n')
+    elif filename is not None:
+        save_folder = filename
+        if not os.path.isdir(save_folder):
+            os.makedirs(save_folder)
+        np.save(join(save_folder, 'templates'), tempgen.templates)
+        np.save(join(save_folder, 'locations'), tempgen.locations)
+        np.save(join(save_folder, 'rotations'), tempgen.rotations)
+        np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
+        info = tempgen.info
+        yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
+        print('\nSaved template generator templates in', save_folder, ' folder\n')
+    else:
+        rot = tempgen.info['params']['rot']
+        n = tempgen.info['params']['n']
+        probe = tempgen.info['params']['probe']
+        fname = 'templates_%d_%s_%s' % (n, probe, time.strftime("%d-%m-%Y"))
+        save_folder = join(os.getcwd(), fname)
+        if not os.path.isdir(save_folder):
+            os.makedirs(save_folder)
+        np.save(join(save_folder, 'templates'), tempgen.templates)
+        np.save(join(save_folder, 'locations'), tempgen.locations)
+        np.save(join(save_folder, 'rotations'), tempgen.rotations)
+        np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
+        info = tempgen.info
+        yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
+        print('\nSaved template generator templates in', save_folder, '\n')
+
+
+def save_recording_generator(recgen, filename=None):
+    if filename.endswith('h5') or filename.endswith('hdf5'):
+        F = h5py.File(filename, 'w')
+        F.create_dataset('info', data=json.dumps(recgen.info))
+        F.create_dataset('peaks', data=recgen.peaks)
+        F.create_dataset('positions', data=recgen.positions)
+        F.create_dataset('recordings', data=recgen.recordings)
+        F.create_dataset('sources', data=recgen.sources)
+        for ii in range(len(recgen.spiketrains)):
+            st = recgen.spiketrains[ii]
+            F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
+            F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
+            annotations_no_pq = {}
+            for k, v in st.annotations.items():
+                if isinstance(v, pq.Quantity):
+                    annotations_no_pq[k] = float(v.magnitude)
+                elif isinstance(v, np.ndarray):
+                    annotations_no_pq[k] = list(v)
+                else:
+                    annotations_no_pq[k] = str(v)
+            annotations_str = json.dumps(annotations_no_pq)
+            F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
+        F.create_dataset('templates', data=recgen.templates)
+        F.create_dataset('times', data=recgen.templates)
+        F.close()
+        print('\nSaved recordings in', filename, '\n')
+    elif filename is not None:
+        save_folder = filename
+        if not os.path.isdir(save_folder):
+            os.makedirs(save_folder)
+        np.save(join(save_folder, 'recordings'), recgen.recordings)
+        np.save(join(save_folder, 'times'), recgen.times)
+        np.save(join(save_folder, 'positions'), recgen.positions)
+        np.save(join(save_folder, 'templates'), recgen.templates)
+        np.save(join(save_folder, 'spiketrains'), recgen.spiketrains)
+        np.save(join(save_folder, 'sources'), recgen.sources)
+        np.save(join(save_folder, 'peaks'), recgen.peaks)
+        with open(join(save_folder, 'info.yaml'), 'w') as f:
+            yaml.dump(recgen.info, f, default_flow_style=False)
+        print('\nSaved recordings in', save_folder, ' folder\n')
+    else:
+        info = recgen.info
+        n_neurons = info['recordings']['n_neurons']
+        electrode_name = info['recordings']['electrode_name']
+        duration = info['recordings']['duration']
+        noise_level = info['recordings']['noise_level']
+        fname = 'recordings_%dcells_%s_%s_%.1fuV_%s' % (n_neurons, electrode_name, duration,
+                                                        noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+        save_folder = fname
+        if not os.path.isdir(save_folder):
+            os.makedirs(save_folder)
+        np.save(join(save_folder, 'recordings'), recgen.recordings)
+        np.save(join(save_folder, 'times'), recgen.times)
+        np.save(join(save_folder, 'positions'), recgen.positions)
+        np.save(join(save_folder, 'templates'), recgen.templates)
+        np.save(join(save_folder, 'spiketrains'), recgen.spiketrains)
+        np.save(join(save_folder, 'sources'), recgen.sources)
+        np.save(join(save_folder, 'peaks'), recgen.peaks)
+        with open(join(save_folder, 'info.yaml'), 'w') as f:
+            yaml.dump(info, f, default_flow_style=False)
+        print('\nSaved recordings in', save_folder, ' folder\n')
 
 ### H5 TOOLS ###
-
 
 def hdf5_to_recordings(input_file, output_folder):
   if os.path.exists(output_folder):
@@ -237,12 +373,12 @@ def hdf5_to_templates(input_file, output_folder):
 
     celltypes=np.array(F.get('celltypes'))
     np.save(output_folder+'/celltypes.npy',celltypes)
-    celltypes=np.array(F.get('locations'))
-    np.save(output_folder+'/locations.npy',celltypes)
-    celltypes=np.array(F.get('rotations'))
-    np.save(output_folder+'/rotations.npy',celltypes)
-    celltypes=np.array(F.get('templates'))
-    np.save(output_folder+'/templates.npy',celltypes)
+    locations=np.array(F.get('locations'))
+    np.save(output_folder+'/locations.npy',locations)
+    rotations=np.array(F.get('rotations'))
+    np.save(output_folder+'/rotations.npy',rotations)
+    templates=np.array(F.get('templates'))
+    np.save(output_folder+'/templates.npy',templates)
 
 
 def recordings_to_hdf5(recording_folder, output_fname):
@@ -560,7 +696,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     n_sel_inh = 0
     iter = 0
 
-    for (id_cell, bcat) in zip(permuted_idxs, permuted_bin_cats):
+    for i, (id_cell, bcat) in enumerate(zip(permuted_idxs, permuted_bin_cats)):
         placed = False
         iter += 1
         if n_sel == n_exc + n_inh:
@@ -671,6 +807,11 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
             if placed:
                 n_sel += 1
+                print(i, len(permuted_idxs), n_sel)
+    if i == len(permuted_idxs)-1 and n_sel < n_exc + n_inh:
+        raise RuntimeError("Templates could not be selected. \n"
+                           "Decrease number of spiketrains, decrease 'min-dist', or use more templates.")
+
     return idxs_sel
 
 

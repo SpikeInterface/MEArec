@@ -9,7 +9,7 @@ import scipy.signal as ss
 import time
 import multiprocessing
 from copy import copy
-from .tools import *
+from MEArec.tools import *
 import threading
 import shutil
 from pprint import pprint
@@ -45,7 +45,6 @@ class TemplateGenerator:
             self.rotations = temp_dict['rotations']
             self.celltypes = temp_dict['celltypes']
             self.info = info
-
         else:
             if cell_models_folder is None:
                 raise AttributeError("Specify cell folder!")
@@ -65,7 +64,7 @@ class TemplateGenerator:
             params['cell_models_folder'] = cell_models_folder
 
             # Compile NEURON models (nrnivmodl)
-            if not os.path.isdir(join(model_folder, 'mods')):
+            if not os.path.isdir(join(cell_models_folder, 'mods')):
                 print('Compiling NEURON models')
                 os.system('python %s compile %s' % (simulate_script, cell_models_folder))
 
@@ -111,6 +110,7 @@ class TemplateGenerator:
                 params['seed'] = np.random.randint(1, 10000)
             if templates_folder is None:
                 params['templates_folder'] = os.getcwd()
+                templates_folder = params['templates_folder']
             else:
                 params['templates_folder'] = templates_folder
 
@@ -476,446 +476,461 @@ class SpikeTrainGenerator:
         pass
 
 class RecordingGenerator:
-    def __init__(self, spgen, tempgen, params=None):
+    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None):
         '''
 
         Parameters
         ----------
-        spiketrains
+        spgen
+        tempgen
         params
+        rec_dict
+        info
         '''
-        if params is None:
-            print("Using default parameters")
-            params = {'spiketrains': {},
-                      'celltypes': {},
-                      'templates': {},
-                      'recordings': {}}
-        self.params = copy(params)
-
-        temp_params = self.params['templates']
-        rec_params = self.params['recordings']
-        st_params = self.params['spiketrains']
-        celltype_params = self.params['cell_types']
-
-        eaps = tempgen.templates
-        locs = tempgen.locations
-        rots = tempgen.rotations
-        celltypes = tempgen.celltypes
-        temp_info = tempgen.info
-
-        spiketrains = spgen.all_spiketrains
-
-        n_neurons = len(spiketrains)
-        cut_outs = temp_info['params']['cut_out']
-        duration = spiketrains[0].t_stop - spiketrains[0].t_start
-
-        if 'fs' not in rec_params.keys():
-            params['recordings']['fs'] = 1. / temp_info['params']['dt']
-        elif params['recordings']['fs'] is None:
-            params['recordings']['fs'] = 1. / temp_info['params']['dt']
-        fs = params['recordings']['fs'] * pq.kHz
-
-        if 'noise_level' not in rec_params.keys():
-            params['recordings']['noise_level'] = 15
-        noise_level =  params['recordings']['noise_level']
-
-        if 'noise_mode' not in rec_params.keys():
-            params['recordings']['noise_mode'] = 'uncorrelated'
-        noise_mode = params['recordings']['noise_mode']
-
-        if 'filter' not in rec_params.keys():
-            params['recordings']['filter'] = True
-        filter = params['recordings']['noise_mode']
-
-        if 'cutoff' not in rec_params.keys():
-            params['recordings']['cutoff'] = [300., 6000.]
-        cutoff = params['recordings']['cutoff'] * pq.Hz
-
-        if 'modulation' not in rec_params.keys():
-            params['recordings']['modulation'] = 'electrode'
-        modulation = params['recordings']['modulation']
-
-        if 'chunk_duration' not in rec_params.keys():
-            params['recordings']['chunk_duration'] = 0
-        chunk_duration = params['recordings']['chunk_duration'] * pq.s
-
-        if 'mrand' not in rec_params.keys():
-            params['recordings']['mrand'] = 1
-        mrand = params['recordings']['mrand']
-
-        if 'sdrand' not in rec_params.keys():
-            params['recordings']['sdrand'] = 0.05
-        sdrand = params['recordings']['sdrand']
-
-        if 'overlap' not in rec_params.keys():
-            params['recordings']['overlap'] = False
-        overlap = params['recordings']['overlap']
-
-        if 'seed' not in rec_params.keys():
-            params['recordings']['seed'] = np.random.randint(1,1000)
-        elif params['recordings']['seed'] is None:
-            params['recordings']['seed'] = np.random.randint(1,1000)
-        noise_seed = params['recordings']['seed']
-
-        if 'x_lim' not in temp_params.keys():
-            params['templates']['x_lim'] = None
-        x_lim =  params['templates']['x_lim']
-
-        if 'y_lim' not in temp_params.keys():
-            params['templates']['y_lim'] = None
-        y_lim = params['templates']['y_lim']
-
-        if 'z_lim' not in temp_params.keys():
-            params['templates']['z_lim'] = None
-        z_lim = params['templates']['z_lim']
-
-        if 'min_amp' not in temp_params.keys():
-            params['templates']['min_amp'] = 50
-        min_amp = params['templates']['min_amp']
-
-        if 'min_dist' not in temp_params.keys():
-            params['templates']['min_dist'] = 25
-        min_dist = params['templates']['min_dist']
-
-        if 'overlap_threshold' not in temp_params.keys():
-            params['templates']['overlap_threshold'] = 0.8
-        overlap_threshold = params['templates']['overlap_threshold']
-
-        if 'pad_len' not in temp_params.keys():
-            params['templates']['pad_len'] = [3., 3.]
-        pad_len = params['templates']['pad_len']
-
-        if 'n_jitters' not in temp_params.keys():
-            params['templates']['n_jitters'] = 10
-        n_jitters = params['templates']['n_jitters']
-
-        if 'upsample' not in temp_params.keys():
-            params['templates']['upsample'] = 8
-        upsample = params['templates']['upsample']
-
-        if 'seed' not in temp_params.keys():
-            params['templates']['seed'] = np.random.randint(1,1000)
-        elif params['templates']['seed'] is None:
-            params['templates']['seed'] = np.random.randint(1,1000)
-        temp_seed = params['templates']['seed']
-
-        parallel=False
-
-        if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
-            exc_categories = celltype_params['excitatory']
-            inh_categories = celltype_params['inhibitory']
-            bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
+        if rec_dict is not None and info is not None:
+            self.recordings = rec_dict['recordings']
+            self.spiketrains = rec_dict['spiketrains']
+            self.templates = rec_dict['templates']
+            self.positions = rec_dict['positions']
+            self.times = rec_dict['times']
+            self.peaks = rec_dict['peaks']
+            self.sources = rec_dict['sources']
+            self.info = info
         else:
-            bin_cat = np.array(['U'] * len(celltypes))
+            if spgen is None or tempgen is None:
+                raise AttributeError("Specify SpikeGenerator and TemplateGenerator objects!")
+            if params is None:
+                print("Using default parameters")
+                params = {'spiketrains': {},
+                          'celltypes': {},
+                          'templates': {},
+                          'recordings': {}}
+            self.params = copy(params)
 
-        # load MEA info
-        electrode_name = temp_info['electrodes']['electrode_name']
-        elinfo = MEA.return_mea_info(electrode_name)
-        offset = temp_info['params']['offset']
-        elinfo['offset'] = offset
-        mea = MEA.return_mea(info=elinfo)
-        mea_pos = mea.positions
+            temp_params = self.params['templates']
+            rec_params = self.params['recordings']
+            st_params = self.params['spiketrains']
+            celltype_params = self.params['cell_types']
 
-        params['recordings'].update({'electrode_name': electrode_name,
-                                     'duration': float(duration.magnitude),
-                                     'fs': float(fs.rescale('Hz').magnitude),
-                                     'n_neurons': n_neurons})
+            eaps = tempgen.templates
+            locs = tempgen.locations
+            rots = tempgen.rotations
+            celltypes = tempgen.celltypes
+            temp_info = tempgen.info
 
+            spiketrains = spgen.all_spiketrains
 
-        n_elec = eaps.shape[1]
-        # this is fixed from recordings
-        spike_duration = np.sum(temp_info['params']['cut_out'])*pq.ms
-        spike_fs = 1./temp_info['params']['dt']*pq.kHz
+            n_neurons = len(spiketrains)
+            cut_outs = temp_info['params']['cut_out']
+            duration = spiketrains[0].t_stop - spiketrains[0].t_start
 
-        print('Selecting cells')
-        if 'type' in spiketrains[0].annotations.keys():
-            n_exc = [st.annotations['type'] for st in spiketrains].count('E')
-            n_inh = n_neurons - n_exc
+            if 'fs' not in rec_params.keys():
+                params['recordings']['fs'] = 1. / temp_info['params']['dt']
+            elif params['recordings']['fs'] is None:
+                params['recordings']['fs'] = 1. / temp_info['params']['dt']
+            fs = params['recordings']['fs'] * pq.kHz
 
-        np.random.seed(temp_seed)
-        idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
-                                      min_amp=min_amp, min_dist=min_dist, verbose=False)
-        template_celltypes = celltypes[idxs_cells]
-        template_locs = locs[idxs_cells]
-        templates_bin = bin_cat[idxs_cells]
-        templates = eaps[idxs_cells]
+            if 'noise_level' not in rec_params.keys():
+                params['recordings']['noise_level'] = 15
+            noise_level =  params['recordings']['noise_level']
 
-        # peak images
-        peak = []
-        for tem in templates:
-            dt = 2 ** -5
-            feat = get_EAP_features(tem, ['Na'], dt=dt)
-            peak.append(-np.squeeze(feat['na']))
-        peak = np.array(peak)
+            if 'noise_mode' not in rec_params.keys():
+                params['recordings']['noise_mode'] = 'uncorrelated'
+            noise_mode = params['recordings']['noise_mode']
 
-        up = fs
-        down = spike_fs
-        sampling_ratio = float(up/down)
-        # resample spikes
-        resample=False
-        pad_samples = [int((pp*fs).magnitude) for pp in pad_len]
-        n_resample = int((fs * spike_duration).magnitude)
-        if templates.shape[2] != n_resample:
-            templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-            print('Resampling spikes')
-            for t, tem in enumerate(templates):
-                tem_pad = np.pad(tem, [(0,0), pad_samples], 'edge')
-                tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
-                templates_pol[t, :] = tem_poly[:, int(sampling_ratio*pad_samples[0]):int(sampling_ratio*pad_samples[0])
-                                                                                     +n_resample]
-            resample=True
-        else:
-            templates_pol = templates
+            if 'filter' not in rec_params.keys():
+                params['recordings']['filter'] = True
+            filter = params['recordings']['noise_mode']
 
-        templates_pad = []
-        templates_spl = []
-        print('Padding template edges')
-        for t, tem in enumerate(templates_pol):
-            tem, _ = cubic_padding(tem, pad_len, fs)
-            templates_pad.append(tem)
+            if 'cutoff' not in rec_params.keys():
+                params['recordings']['cutoff'] = [300., 6000.]
+            cutoff = params['recordings']['cutoff'] * pq.Hz
 
-        print('Creating time jittering')
-        jitter = 1. / fs
-        templates_jitter = []
-        for temp in templates_pad:
-            temp_up = ss.resample_poly(temp, upsample, 1., axis=1)
-            nsamples_up = temp_up.shape[1]
-            temp_jitt = []
-            for n in range(n_jitters):
-                # align waveform
-                shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
-                if shift > 0:
-                    t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-                elif shift < 0:
-                    t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-                else:
-                    t_jitt = temp_up
-                temp_down = ss.decimate(t_jitt, upsample, axis=1)
-                temp_jitt.append(temp_down)
-            templates_jitter.append(temp_jitt)
-        templates = np.array(templates_jitter)
+            if 'modulation' not in rec_params.keys():
+                params['recordings']['modulation'] = 'electrode'
+            modulation = params['recordings']['modulation']
 
-        cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
+            if 'chunk_duration' not in rec_params.keys():
+                params['recordings']['chunk_duration'] = 0
+            chunk_duration = params['recordings']['chunk_duration'] * pq.s
 
-    #
-        # if self.sync_rate != 0:
-        #     #print( 'Adding synchrony on overlapping spikes'
-        #     self.overlapping = find_overlapping_spikes(self.templates, thresh=self.overlap_threshold)
-        #
-        #     for over in self.overlapping:
-        #         self.spgen.add_synchrony(over, rate=self.sync_rate)
-        # else:
-        #     self.overlapping = []
+            if 'mrand' not in rec_params.keys():
+                params['recordings']['mrand'] = 1
+            mrand = params['recordings']['mrand']
 
-        # find SNR and annotate
-        print('Computing spike train SNR')
-        for t_i, temp in enumerate(templates):
-            min_peak = np.min(temp)
-            snr = np.abs(min_peak/float(noise_level))
-            spiketrains[t_i].annotate(snr=snr)
-            # print( min_peak, snr)
-    #
-    #
-    #     if self.plot_figures and self.sync_rate != 0:
-    #         ax = self.spgen.raster_plots()
-    #         ax.set_title('After synchrony')
-    #
-        print('Adding spiketrain annotations')
-        for i, st in enumerate(spiketrains):
-            st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], loc=template_locs[i])
-        if overlap:
-            print('Finding temporally overlapping spikes')
-            overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
-            annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
+            if 'sdrand' not in rec_params.keys():
+                params['recordings']['sdrand'] = 0.05
+            sdrand = params['recordings']['sdrand']
 
+            if 'overlap' not in rec_params.keys():
+                params['recordings']['overlap'] = False
+            overlap = params['recordings']['overlap']
 
-        amp_mod = []
-        cons_spikes = []
-        exp = 0.3
-        n_isi = 5
-        mem_isi = 10*pq.ms
-        if modulation == 'isi':
-            print('ISI modulation')
-            for st in spiketrains:
-                amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                     n_spikes=n_isi, exp=exp, mem_ISI=mem_isi)
-                amp_mod.append(amp)
-                cons_spikes.append(cons)
-        elif modulation == 'template':
-            print('Template modulation')
-            for st in spiketrains:
-                amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                     n_spikes=0, exp=exp, mem_ISI=mem_isi)
-                amp_mod.append(amp)
-                cons_spikes.append(cons)
-        elif modulation == 'electrode':
-            print('electrode')
-            for st in spiketrains:
-                amp, cons = ISI_amplitude_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                     n_spikes=0, exp=exp, mem_ISI=mem_isi)
-                amp_mod.append(amp)
-                cons_spikes.append(cons)
+            if 'seed' not in rec_params.keys():
+                params['recordings']['seed'] = np.random.randint(1,1000)
+            elif params['recordings']['seed'] is None:
+                params['recordings']['seed'] = np.random.randint(1,1000)
+            noise_seed = params['recordings']['seed']
 
-        spike_matrix = resample_spiketrains(spiketrains, fs=fs)
-        n_samples = spike_matrix.shape[1]
+            if 'x_lim' not in temp_params.keys():
+                params['templates']['x_lim'] = None
+            x_lim =  params['templates']['x_lim']
 
-        #print( 'Generating clean recordings'
-        recordings = np.zeros((n_elec, n_samples))
-        times = np.arange(recordings.shape[1]) / fs
+            if 'y_lim' not in temp_params.keys():
+                params['templates']['y_lim'] = None
+            y_lim = params['templates']['y_lim']
 
+            if 'z_lim' not in temp_params.keys():
+                params['templates']['z_lim'] = None
+            z_lim = params['templates']['z_lim']
 
-        # modulated convolution
-        pool = multiprocessing.Pool(n_neurons)
-        t_start = time.time()
-        gt_spikes = []
+            if 'min_amp' not in temp_params.keys():
+                params['templates']['min_amp'] = 50
+            min_amp = params['templates']['min_amp']
 
-        # divide in chunks
-        chunks = []
-        if duration > chunk_duration and chunk_duration != 0:
-            start = 0*pq.s
-            finished = False
-            while not finished:
-                chunks.append([start, start+chunk_duration])
-                start=start+chunk_duration
-                if start >= duration:
-                    finished = True
-            print('Chunks: ', chunks)
+            if 'min_dist' not in temp_params.keys():
+                params['templates']['min_dist'] = 25
+            min_dist = params['templates']['min_dist']
 
+            if 'overlap_threshold' not in temp_params.keys():
+                params['templates']['overlap_threshold'] = 0.8
+            overlap_threshold = params['templates']['overlap_threshold']
 
-        if len(chunks) > 0:
-            recording_chunks = []
-            for ch, chunk in enumerate(chunks):
-                #print( 'Generating chunk ', ch+1, ' of ', len(chunks)
-                idxs = np.where((times>=chunk[0]) & (times<chunk[1]))[0]
-                spike_matrix_chunk = spike_matrix[:, idxs]
-                rec_chunk=np.zeros((n_elec, len(idxs)))
-                amp_chunk = []
-                for i, st in enumerate(spiketrains):
-                    idxs = np.where((st >= chunk[0]) & (st < chunk[1]))[0]
-                    if modulation != 'none':
-                        amp_chunk.append(amp_mod[i][idxs])
+            if 'pad_len' not in temp_params.keys():
+                params['templates']['pad_len'] = [3., 3.]
+            pad_len = params['templates']['pad_len']
 
-                if not parallel:
-                    for st, spike_bin in enumerate(spike_matrix_chunk):
-                        #print( 'Convolving with spike ', st, ' out of ', spike_matrix_chunk.shape[0]
-                        if modulation == 'none':
-                            rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
-                                                                        cut_out=cut_outs_samples)
-                        else:
-                            rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
-                                                                        cut_out=cut_outs_samples,
-                                                                                   modulation=True,
-                                                                                   amp_mod=amp_chunk[st])
-                else:
-                    if modulation == 'none':
-                        results = [pool.apply_async(convolve_templates_spiketrains, (st, spike_bin, templates[st],))
-                                   for st, spike_bin in enumerate(spike_matrix_chunk)]
-                    else:
-                        results = [pool.apply_async(convolve_templates_spiketrains,
-                                                    (st, spike_bin, templates[st], True, amp))
-                                   for st, (spike_bin, amp) in enumerate(zip(spike_matrix_chunk, amp_chunk))]
-                    for r in results:
-                        rec_chunk += r.get()
+            if 'n_jitters' not in temp_params.keys():
+                params['templates']['n_jitters'] = 10
+            n_jitters = params['templates']['n_jitters']
 
-                recording_chunks.append(rec_chunk)
-            recordings = np.hstack(recording_chunks)
-        else:
-            for st, spike_bin in enumerate(spike_matrix):
-                print('Convolving with spike ', st, ' out of ', spike_matrix.shape[0])
-                if modulation == 'none':
-                    # reset random seed to keep sampling of jitter spike same
-                    seed = np.random.randint(10000)
-                    np.random.seed(seed)
+            if 'upsample' not in temp_params.keys():
+                params['templates']['upsample'] = 8
+            upsample = params['templates']['upsample']
 
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
-                                                                 cut_out=cut_outs_samples)
-                    np.random.seed(seed)
-                    gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                              templates[st, :, np.argmax(peak[st])],
-                                                              cut_out=cut_outs_samples))
-                elif modulation == 'electrode':
-                    seed = np.random.randint(10000)
-                    np.random.seed(seed)
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
-                                                                      modulation=True,
-                                                                      amp_mod=amp_mod[st])
-                    np.random.seed(seed)
-                    gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                              templates[st, :, np.argmax(peak[st])],
-                                                              cut_out=cut_outs_samples,
-                                                              modulation=True,
-                                                              amp_mod=amp_mod[st][:,
-                                                                      np.argmax(peak[st])]))
-                elif modulation == 'template' or modulation == 'all':
-                    seed = np.random.randint(10000)
-                    np.random.seed(seed)
-                    recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
-                                                                      modulation=True,
-                                                                      amp_mod=amp_mod[st])
-                    np.random.seed(seed)
-                    gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                              templates[st, :, np.argmax(peak[st])],
-                                                              cut_out=cut_outs_samples,
-                                                              modulation=True,
-                                                              amp_mod=amp_mod[st]))
+            if 'seed' not in temp_params.keys():
+                params['templates']['seed'] = np.random.randint(1,1000)
+            elif params['templates']['seed'] is None:
+                params['templates']['seed'] = np.random.randint(1,1000)
+            temp_seed = params['templates']['seed']
 
-        pool.close()
-        gt_spikes = np.array(gt_spikes)
+            parallel=False
 
-        print('Elapsed time ', time.time() - t_start)
-        clean_recordings = copy(recordings)
-
-        print('Adding noise')
-        np.random.seed(noise_seed)
-        if noise_level > 0:
-            if noise_mode == 'uncorrelated':
-                additive_noise = noise_level * np.random.randn(recordings.shape[0],
-                                                                         recordings.shape[1])
-                recordings += additive_noise
-            elif noise_mode == 'correlated-dist':
-                # TODO divide in chunks
-                cov_dist = np.zeros((n_elec, n_elec))
-                for i, el in enumerate(mea_pos):
-                    for j, p in enumerate(mea_pos):
-                        if i != j:
-                            cov_dist[i, j] = (0.5*np.min(mea_pitch))/np.linalg.norm(el - p)
-                        else:
-                            cov_dist[i, j] = 1
-
-                additive_noise = np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                               size=(recordings.shape[0], recordings.shape[1]))
-                recordings += additive_noise
-            elif noise_level == 'experimental':
-                pass
-                #print( 'experimental noise model'
-        else:
-            print('Noise level is set to 0')
-
-        if filter:
-            print('Filtering signals')
-            if fs/2. < cutoff[1]:
-                recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs, filter_type='highpass')
+            if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
+                exc_categories = celltype_params['excitatory']
+                inh_categories = celltype_params['inhibitory']
+                bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
             else:
-                recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
+                bin_cat = np.array(['U'] * len(celltypes))
 
-        print('Extracting spike waveforms')
-        extract_wf(spiketrains, recordings, times, fs)
+            # load MEA info
+            electrode_name = temp_info['electrodes']['electrode_name']
+            elinfo = MEA.return_mea_info(electrode_name)
+            offset = temp_info['params']['offset']
+            elinfo['offset'] = offset
+            mea = MEA.return_mea(info=elinfo)
+            mea_pos = mea.positions
 
-        self.recordings = recordings
-        self.times = times
-        self.positions = mea_pos
-        self.templates = templates
-        self.spiketrains = spiketrains
-        self.peaks = peak
-        self.sources = gt_spikes
-        self.info = params
+            params['recordings'].update({'electrode_name': electrode_name,
+                                         'duration': float(duration.magnitude),
+                                         'fs': float(fs.rescale('Hz').magnitude),
+                                         'n_neurons': n_neurons})
 
-def gen_recordings(params=None, templates_folder=None, tempgen=None, recording_folder=None):
+
+            n_elec = eaps.shape[1]
+            # this is fixed from recordings
+            spike_duration = np.sum(temp_info['params']['cut_out'])*pq.ms
+            spike_fs = 1./temp_info['params']['dt']*pq.kHz
+
+            print('Selecting cells')
+            if 'type' in spiketrains[0].annotations.keys():
+                n_exc = [st.annotations['type'] for st in spiketrains].count('E')
+                n_inh = n_neurons - n_exc
+
+            np.random.seed(temp_seed)
+            idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
+                                          min_amp=min_amp, min_dist=min_dist, verbose=False)
+            template_celltypes = celltypes[idxs_cells]
+            template_locs = locs[idxs_cells]
+            templates_bin = bin_cat[idxs_cells]
+            templates = eaps[idxs_cells]
+
+            # peak images
+            peak = []
+            for tem in templates:
+                dt = 2 ** -5
+                feat = get_EAP_features(tem, ['Na'], dt=dt)
+                peak.append(-np.squeeze(feat['na']))
+            peak = np.array(peak)
+
+            up = fs
+            down = spike_fs
+            sampling_ratio = float(up/down)
+            # resample spikes
+            resample=False
+            pad_samples = [int((pp*fs).magnitude) for pp in pad_len]
+            n_resample = int((fs * spike_duration).magnitude)
+            if templates.shape[2] != n_resample:
+                templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+                print('Resampling spikes')
+                for t, tem in enumerate(templates):
+                    tem_pad = np.pad(tem, [(0,0), pad_samples], 'edge')
+                    tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
+                    templates_pol[t, :] = tem_poly[:, int(sampling_ratio*pad_samples[0]):int(sampling_ratio*pad_samples[0])
+                                                                                         +n_resample]
+                resample=True
+            else:
+                templates_pol = templates
+
+            templates_pad = []
+            templates_spl = []
+            print('Padding template edges')
+            for t, tem in enumerate(templates_pol):
+                tem, _ = cubic_padding(tem, pad_len, fs)
+                templates_pad.append(tem)
+
+            print('Creating time jittering')
+            jitter = 1. / fs
+            templates_jitter = []
+            for temp in templates_pad:
+                temp_up = ss.resample_poly(temp, upsample, 1., axis=1)
+                nsamples_up = temp_up.shape[1]
+                temp_jitt = []
+                for n in range(n_jitters):
+                    # align waveform
+                    shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
+                    if shift > 0:
+                        t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                    elif shift < 0:
+                        t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                    else:
+                        t_jitt = temp_up
+                    temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                    temp_jitt.append(temp_down)
+                templates_jitter.append(temp_jitt)
+            templates = np.array(templates_jitter)
+
+            cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
+
+        #
+            # if self.sync_rate != 0:
+            #     #print( 'Adding synchrony on overlapping spikes'
+            #     self.overlapping = find_overlapping_spikes(self.templates, thresh=self.overlap_threshold)
+            #
+            #     for over in self.overlapping:
+            #         self.spgen.add_synchrony(over, rate=self.sync_rate)
+            # else:
+            #     self.overlapping = []
+
+            # find SNR and annotate
+            print('Computing spike train SNR')
+            for t_i, temp in enumerate(templates):
+                min_peak = np.min(temp)
+                snr = np.abs(min_peak/float(noise_level))
+                spiketrains[t_i].annotate(snr=snr)
+                # print( min_peak, snr)
+        #
+        #
+        #     if self.plot_figures and self.sync_rate != 0:
+        #         ax = self.spgen.raster_plots()
+        #         ax.set_title('After synchrony')
+        #
+            print('Adding spiketrain annotations')
+            for i, st in enumerate(spiketrains):
+                st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], loc=template_locs[i])
+            if overlap:
+                print('Finding temporally overlapping spikes')
+                overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
+                annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
+
+
+            amp_mod = []
+            cons_spikes = []
+            exp = 0.3
+            n_isi = 5
+            mem_isi = 10*pq.ms
+            if modulation == 'isi':
+                print('ISI modulation')
+                for st in spiketrains:
+                    amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
+                                                         n_spikes=n_isi, exp=exp, mem_ISI=mem_isi)
+                    amp_mod.append(amp)
+                    cons_spikes.append(cons)
+            elif modulation == 'template':
+                print('Template modulation')
+                for st in spiketrains:
+                    amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
+                                                         n_spikes=0, exp=exp, mem_ISI=mem_isi)
+                    amp_mod.append(amp)
+                    cons_spikes.append(cons)
+            elif modulation == 'electrode':
+                print('Electrode modulaton')
+                for st in spiketrains:
+                    amp, cons = ISI_amplitude_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
+                                                         n_spikes=0, exp=exp, mem_ISI=mem_isi)
+                    amp_mod.append(amp)
+                    cons_spikes.append(cons)
+
+            spike_matrix = resample_spiketrains(spiketrains, fs=fs)
+            n_samples = spike_matrix.shape[1]
+
+            #print( 'Generating clean recordings'
+            recordings = np.zeros((n_elec, n_samples))
+            times = np.arange(recordings.shape[1]) / fs
+
+
+            # modulated convolution
+            pool = multiprocessing.Pool(n_neurons)
+            t_start = time.time()
+            gt_spikes = []
+
+            # divide in chunks
+            chunks = []
+            if duration > chunk_duration and chunk_duration != 0:
+                start = 0*pq.s
+                finished = False
+                while not finished:
+                    chunks.append([start, start+chunk_duration])
+                    start=start+chunk_duration
+                    if start >= duration:
+                        finished = True
+                print('Chunks: ', chunks)
+
+
+            if len(chunks) > 0:
+                recording_chunks = []
+                for ch, chunk in enumerate(chunks):
+                    #print( 'Generating chunk ', ch+1, ' of ', len(chunks)
+                    idxs = np.where((times>=chunk[0]) & (times<chunk[1]))[0]
+                    spike_matrix_chunk = spike_matrix[:, idxs]
+                    rec_chunk=np.zeros((n_elec, len(idxs)))
+                    amp_chunk = []
+                    for i, st in enumerate(spiketrains):
+                        idxs = np.where((st >= chunk[0]) & (st < chunk[1]))[0]
+                        if modulation != 'none':
+                            amp_chunk.append(amp_mod[i][idxs])
+
+                    if not parallel:
+                        for st, spike_bin in enumerate(spike_matrix_chunk):
+                            #print( 'Convolving with spike ', st, ' out of ', spike_matrix_chunk.shape[0]
+                            if modulation == 'none':
+                                rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                            cut_out=cut_outs_samples)
+                            else:
+                                rec_chunk += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                            cut_out=cut_outs_samples,
+                                                                                       modulation=True,
+                                                                                       amp_mod=amp_chunk[st])
+                    else:
+                        if modulation == 'none':
+                            results = [pool.apply_async(convolve_templates_spiketrains, (st, spike_bin, templates[st],))
+                                       for st, spike_bin in enumerate(spike_matrix_chunk)]
+                        else:
+                            results = [pool.apply_async(convolve_templates_spiketrains,
+                                                        (st, spike_bin, templates[st], True, amp))
+                                       for st, (spike_bin, amp) in enumerate(zip(spike_matrix_chunk, amp_chunk))]
+                        for r in results:
+                            rec_chunk += r.get()
+
+                    recording_chunks.append(rec_chunk)
+                recordings = np.hstack(recording_chunks)
+            else:
+                for st, spike_bin in enumerate(spike_matrix):
+                    print('Convolving with spike ', st, ' out of ', spike_matrix.shape[0])
+                    if modulation == 'none':
+                        # reset random seed to keep sampling of jitter spike same
+                        seed = np.random.randint(10000)
+                        np.random.seed(seed)
+
+                        recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
+                                                                     cut_out=cut_outs_samples)
+                        np.random.seed(seed)
+                        gt_spikes.append(convolve_single_template(st, spike_bin,
+                                                                  templates[st, :, np.argmax(peak[st])],
+                                                                  cut_out=cut_outs_samples))
+                    elif modulation == 'electrode':
+                        seed = np.random.randint(10000)
+                        np.random.seed(seed)
+                        recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
+                                                                          modulation=True,
+                                                                          amp_mod=amp_mod[st])
+                        np.random.seed(seed)
+                        gt_spikes.append(convolve_single_template(st, spike_bin,
+                                                                  templates[st, :, np.argmax(peak[st])],
+                                                                  cut_out=cut_outs_samples,
+                                                                  modulation=True,
+                                                                  amp_mod=amp_mod[st][:,
+                                                                          np.argmax(peak[st])]))
+                    elif modulation == 'template' or modulation == 'all':
+                        seed = np.random.randint(10000)
+                        np.random.seed(seed)
+                        recordings += convolve_templates_spiketrains(st, spike_bin, templates[st], cut_out=cut_outs_samples,
+                                                                          modulation=True,
+                                                                          amp_mod=amp_mod[st])
+                        np.random.seed(seed)
+                        gt_spikes.append(convolve_single_template(st, spike_bin,
+                                                                  templates[st, :, np.argmax(peak[st])],
+                                                                  cut_out=cut_outs_samples,
+                                                                  modulation=True,
+                                                                  amp_mod=amp_mod[st]))
+
+            pool.close()
+            gt_spikes = np.array(gt_spikes)
+
+            print('Elapsed time ', time.time() - t_start)
+            clean_recordings = copy(recordings)
+
+            print('Adding noise')
+            np.random.seed(noise_seed)
+            if noise_level > 0:
+                if noise_mode == 'uncorrelated':
+                    additive_noise = noise_level * np.random.randn(recordings.shape[0],
+                                                                             recordings.shape[1])
+                    recordings += additive_noise
+                elif noise_mode == 'correlated-dist':
+                    # TODO divide in chunks
+                    cov_dist = np.zeros((n_elec, n_elec))
+                    for i, el in enumerate(mea_pos):
+                        for j, p in enumerate(mea_pos):
+                            if i != j:
+                                cov_dist[i, j] = (0.5*np.min(mea_pitch))/np.linalg.norm(el - p)
+                            else:
+                                cov_dist[i, j] = 1
+
+                    additive_noise = np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
+                                                                   size=(recordings.shape[0], recordings.shape[1]))
+                    recordings += additive_noise
+                elif noise_level == 'experimental':
+                    pass
+                    #print( 'experimental noise model'
+            else:
+                print('Noise level is set to 0')
+
+            if filter:
+                print('Filtering signals')
+                if fs/2. < cutoff[1]:
+                    recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs, filter_type='highpass')
+                else:
+                    recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
+
+            print('Extracting spike waveforms')
+            extract_wf(spiketrains, recordings, times, fs)
+
+            self.recordings = recordings
+            self.times = times
+            self.positions = mea_pos
+            self.templates = templates
+            self.spiketrains = spiketrains
+            self.peaks = peak
+            self.sources = gt_spikes
+            self.info = params
+
+def gen_recordings(params=None, templates=None, tempgen=None):
     '''
 
     Parameters
     ----------
-    templates_folder: str
+    templates: str
         Path to generated templates
     params: dict OR str
         Dictionary containing recording parameters OR path to yaml file containing parameters
@@ -943,24 +958,17 @@ def gen_recordings(params=None, templates_folder=None, tempgen=None, recording_f
     if 'cell_types' not in params_dict:
         params_dict['cell_types'] = {}
 
-    if recording_folder is None:
-        if 'recording_folder' in params_dict['recordings'].keys():
-            recordings_folder = params_dict['recordings']['recordings_folder']
-        else:
-            print("'recording_folder' not specified: using cwd")
-            recordings_folder = os.getcwd()
-    elif not os.path.isfolder(recordings_folder):
-        os.makedirs(recordings_folder)
 
-    if tempgen is None and templates_folder is None:
-        raise AttributeError("Provide either 'templates_folder' or 'tempgen' TemplateGenerator object")
+    if tempgen is None and templates is None:
+        raise AttributeError("Provide either 'templates' or 'tempgen' TemplateGenerator object")
 
     if tempgen is None:
-        if os.path.isdir(templates_folder):
-            temp_dict, temp_info = load_templates(templates_folder, verbose=False)
-            tempgen = TemplateGerenator(temp_dict=temp_dict, info=temp_info)
+        if os.path.isdir(templates):
+            tempgen = load_templates(templates, verbose=False)
+        elif templates.endswith('h5') or templates.endswith('hdf5'):
+            tempgen = load_templates(templates, verbose=False)
         else:
-            raise AttributeError("'templates_folder' is not a folder")
+            raise AttributeError("'templates' is not a folder or an hdf5 file")
 
     if 'seed' in params_dict['spiketrains']:
         if params_dict['spiketrains']['seed'] is None:
