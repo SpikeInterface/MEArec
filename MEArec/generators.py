@@ -944,6 +944,8 @@ def gen_recordings(params=None, templates_folder=None, tempgen=None, recording_f
         else:
             print("'recording_folder' not specified: using cwd")
             recordings_folder = os.getcwd()
+    elif not os.path.isfolder(recordings_folder):
+        os.makedirs(recordings_folder)
 
     if tempgen is None and templates_folder is None:
         raise AttributeError("Provide either 'templates_folder' or 'tempgen' TemplateGenerator object")
