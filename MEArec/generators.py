@@ -64,6 +64,11 @@ class TemplateGenerator:
             simulate_script = join(this_dir, 'simulate_cells.py')
             params['cell_models_folder'] = cell_models_folder
 
+            # Compile NEURON models (nrnivmodl)
+            if not os.path.isdir(join(model_folder, 'mods')):
+                print('Compiling NEURON models')
+                os.system('python %s compile %s' % (simulate_script, cell_models_folder))
+
             if 'sim_time' not in params.keys():
                 params['sim_time'] = 1
             if 'target_spikes' not in params.keys():
