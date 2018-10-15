@@ -7,7 +7,7 @@ import numpy as np
 import yaml
 import shutil
 import MEArec.generators as generators
-import MEArec.utils as utils
+from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates
 import pprint
 import time
 
@@ -297,7 +297,7 @@ def gen_recordings(params, **kwargs):
     if kwargs['noise_seed'] is not None:
         params_dict['recordings']['seed'] = kwargs['seed']
 
-    recgen = generators.gen_recordings(templates_folder=kwargs['templates'], params=params_dict)
+    recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict)
     info = recgen.info
 
     n_neurons = info['recordings']['n_neurons']
@@ -336,7 +336,7 @@ def temptohdf5(foldername, h5file):
     """Convert templates to hdf5"""
     if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
         h5file = h5file + '.h5'
-    utils.templates_to_hdf5(foldername, h5file)
+    templates_to_hdf5(foldername, h5file)
     print("Saved: ", h5file)
 
 @cli.command()
@@ -346,7 +346,7 @@ def tempfromhdf5(h5file, foldername):
     """Convert templates from hdf5"""
     if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
         raise AttributeError("'h5file' is not an hdf5 file")
-    utils.hdf5_to_templates(h5file, foldername)
+    hdf5_to_templates(h5file, foldername)
     print("Saved: ", foldername)
 
 @cli.command()
@@ -356,7 +356,7 @@ def rectohdf5(foldername, h5file):
     """Convert recordings to hdf5"""
     if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
         h5file = h5file + '.h5'
-    utils.recordings_to_hdf5(foldername, h5file)
+    recordings_to_hdf5(foldername, h5file)
     print("Saved: ", h5file)
 
 @cli.command()
@@ -366,7 +366,7 @@ def recfromhdf5(h5file, foldername):
     """Convert recordings from hdf5"""
     if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
         raise AttributeError("'h5file' is not an hdf5 file")
-    utils.hdf5_to_recordings(h5file, foldername)
+    hdf5_to_recordings(h5file, foldername)
     print("Saved: ", foldername)
 
 @cli.command()
