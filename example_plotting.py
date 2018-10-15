@@ -8,6 +8,7 @@ import MEAutility as MEA
 template_folder = None # insert here the template path
 recording_folder = None # insert here the recording path
 
+
 if template_folder is not None:
     temp_dict, temp_info = tools.load_templates(template_folder)
     electrode_name = temp_info['electrodes']['electrode_name']

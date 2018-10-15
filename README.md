@@ -40,15 +40,17 @@ Options:
 
 Commands:
   default-config          Print default configurations
-  fromhdf5                Convert templates spike trains, and recordings...
   gen-recordings          Generates recordings from TEMPLATES and...
-  gen-spiketrains         Generates spike trains for recordings
   gen-templates           Generates EAP templates on multi-electrode arrays...
+  recfromhdf5             Convert recordings from hdf5
+  rectohdf5               Convert recordings to hdf5
   set-cell-models-folder  Set default cell_models folder
   set-recordings-folder   Set default recordings output folder
-  set-spiketrains-folder  Set default spiketrains output folder
+  set-recordings-params   Set default templates output folder
   set-templates-folder    Set default templates output folder
-  tohdf5                  Convert templates spike trains, and recordings to...
+  set-templates-params    Set default templates output folder
+  tempfromhdf5            Convert templates from hdf5
+  temptohdf5              Convert templates to hdf5
 ```
 
 ## Configure simulations
@@ -61,13 +63,19 @@ The cell models folder can be set with:
 
 `mearec set-cell-models-folder folder` (e.g. `mearec set-cell-models-folder MEArec/cell_models/bbp`)
 
-Moreover, the user can set the default folders for templates, spike trains, and recording outputs with:
+Moreover, the user can set the default folders and params yaml files for templates, spike trains, and recording outputs with:
 
 `mearec set-templates-folder folder`
 
 `mearec set-spiketrains-folder folder`
 
 `mearec set-recordings-folder folder`
+
+`mearec set-templates-params folder`
+
+`mearec set-spiketrains-params folder`
+
+`mearec set-recordings-params folder`
 
 (by default in `$HOME/.config/mearec/templates`, `$HOME/.config/mearec/spiketrains`, and `$HOME/.config/mearec/recordings`)
 
@@ -82,18 +90,8 @@ Run it with `--help` to show available arguments.
 
 In order to check available MEA probes, just run `mearec gen_templates`, or do not provide the `--probe` option.
 During the first run of the scripts, the NEURON model in the `cell_models/bbp/` will be first compiled. Simulation parameters can be changed from the `params/template_params.yaml` file, provided with an external yaml file (with the `--params` option) or overwritten with command line argument. 
+
 EAP templates will be generated and saved in `templates\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model) and they can be loaded with the `tools.load_eaps(path-to-recordings)` function.
-
-
-## Spike trains generation
-
-The command to generate spike trains is:
-```
-mearec gen_spiketrains
-```
-Run it with `--help` to show available arguments.
-Simulation parameters can be viewed and changed in the `params/spiketrain_params.yaml`.
-Spike trains and info are saved in `spiketrains\spiketrains_<neurons>_<date>` folder (neurons is the number of neurons) and they can be loaded with the `tools.load_spiketrains(path-to-spiketrains)` function.
 
 
 ## Recordings generation
@@ -104,13 +102,30 @@ mearec gen_recordings
 ```
 Run it with `--help` to show available arguments.
 
-Run the command with `--template` or `-t` option to point to the templates path and the `--spiketrain` or `-st` for the spike trains path. In brief, the templates are selected based onthe number of available spike trains and other parameters (see `params/recording_params.yaml` for details). Then, templates are convoluted in time with the spikes to create clean recordings. During convolution, single eap can be modulated either at the template level, or at the single electrode level (eith the `--modulation` ot `-m` option - none | template | electrode). Finally, a gaussian noise is added to the clean recordings (`--noise-lev` or `-nl` allows to change the noise sd in uV) and the recordings are filtered (unless the `--no-filter` option is used).
+Run the command with `--template` or `-t` option to point to the templates path. In brief, first spike trains are generated with the `SpikeTrainGenerator` class based on the `spiketrain` parameters in the `recording_params`. Then, the templates are selected based on the number of simulated spike trains and other parameters (`templates` parameters in the `recording_params`). Then, templates are convoluted in time with the spikes to create clean recordings. During convolution, single eap can be modulated either at the template level, or at the single electrode level (eith the `--modulation` ot `-m` option - none | template | electrode). Finally, a gaussian noise is added to the clean recordings (`--noise-lev` or `-nl` allows to change the noise sd in uV) and the recordings are filtered (unless the `--no-filter` option is used). All parameters for convolution and noise can be set in the `recordings` parameters in the `recording_params`.
+
 Recordings are saved in `recordings\recording_<neurons>cells_<meaname>_<duration>s_<noise-level>uV_<date>` and they can be loaded with the `tools.load_recordings(path-to-recordings)` function.
 
 ## Save and load in hdf5 format
 
-`mearec tohdf5` and `mearec fromhdf5` allow the user to convert the output folders to and from hdf5.
+`mearec temptohdf5 | tempfromhdf5 | rectohdf5 | recfromhdf5` allow the user to convert the output folders to and from hdf5.
 
 ## Loading the simulated data
 
 The `example_plotting.py` script shows how to load eap templates, spike trains, and recordings. It also shows how to use some plotting functions in `tools.py`.
+
+# Running the simulations in Python (without command line interface)
+
+It is also possible to run the simulation in the python environment.
+
+```
+import MEArec as mr
+
+# Generate templates
+temp_gen = mr.gen_templates('path-to-cell-models-folder')
+rec_gen = mr.gen_recordings(tempgen = temp_gen)
+```
+`temp_gen` is a `TemplateGenerator` object that has `templates`, `locations`, `rotations`, `celltypes`, and `info` fields.
+`rec_gen` is a `RecordingGenerator` object that has `recordings`, `positions`, `spiketrains`, `locations`, `peaks`, `sources`, and `info` fields.
+
+The user can pass a `params` argument (either a `dict` or a path to a yaml file) to both `gen_templates` and `gen_recordings` to overwrite default simulation parameters (see `MEArec/default_params/templates_params.yaml` and `MEArec/default_params/recordings_params.yaml` for default values and explanation).

@@ -4,7 +4,7 @@ long_description = open("README.md").read()
 
 setup(
     name="MEArec",
-    version="0.1",
+    version="1.0.0",
     author="Alessio Buccino",
     author_email="alessiob@ifi.uio.no",
     description="Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays.",
@@ -28,7 +28,8 @@ setup(
         'elephant',
         'h5py',
         'mpi4py',
-        'LFPy'
+        'LFPy',
+        'MEAutility'
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )
