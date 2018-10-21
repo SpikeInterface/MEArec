@@ -132,12 +132,7 @@ def gen_templates(params, **kwargs):
     parallel = kwargs['parallel']
     params_dict['templates_folder'] = templates_folder
 
-    # Compile NEURON models (nrnivmodl)
-    if not os.path.isdir(join(model_folder, 'mods')):
-        print('Compiling NEURON models')
-        os.system('python %s compile %s' % (simulate_script, model_folder))
-
-    tempgen = generators.gen_templates(model_folder, params_dict, intraonly, parallel)
+    tempgen = generators.gen_templates(model_folder, params_dict, templates_folder, intraonly, parallel)
 
     # Merge simulated data and cleanup
     if not intraonly:
