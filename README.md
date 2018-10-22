@@ -8,13 +8,19 @@ To clone this repo open your terminal and run:
 
 ## Pre-requisites and Installation
 
-The neural simulations rely on NEURON 7.5 (https://www.neuron.yale.edu/neuron/) (it can be downloaded from https://neuron.yale.edu/ftp/neuron/versions/) and the LFPy 2.0. NEURON should be installed manually (I you are running a Linux system add `export PYTHONPATH="/usr/local/nrn/lib/python/:$PYTHONPATH"` to your `.bashrc`. On Linux systems you also install libncurses: `sudo apt install lib32ncurses5-dev`
+The neural simulations rely on NEURON 7.5 (https://www.neuron.yale.edu/neuron/) (it can be downloaded from https://neuron.yale.edu/ftp/neuron/versions/) and the LFPy 2.0. NEURON should be installed manually (I you are running a Linux system add `export PYTHONPATH="/usr/local/nrn/lib/python/:$PYTHONPATH"` to your `.bashrc`. On Linux systems you also install libncurses: `sudo apt install lib32ncurses5-dev`. MEArec also uses LFPy (https://github.com/LFPy/LFPy), which requires mpi installation. On linux distributions, run: `sudo apt install libopenmpi-dev`.
 
-After installing NEURON, the MEArec package can be installed with:
+After installing NEURON and openmpi, the MEArec package can be installed with:
+```
+pip install MEArec
+```
+or, from the cloned folder:
+
 ```
 python setup.py develop
 ```
-In addition, we recommend creating an conda (https://www.anaconda.com/download/) environment using the environment files. Open your terminal and run:
+
+You could also create a conda environment (https://www.anaconda.com/download/) using the environment file. Open your terminal and run:
 
 For Anaconda
 `conda env create -f environment.yml`
