@@ -675,6 +675,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
         if verbose:
             print('Selecting Excitatory and Inhibitory cells')
         excinh = True
+        selected_cat = []
     else:
         if verbose:
             print('Selecting random templates (cell types not specified)')
@@ -738,6 +739,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                     if placed:
                         n_sel_exc += 1
+                        selected_cat.append('E')
             elif bcat == 'I':
                 if n_sel_inh < n_inh:
                     dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
@@ -774,6 +776,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                     if placed:
                         n_sel_inh += 1
+                        selected_cat.append('I')
         else:
             dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
             if np.any(dist < min_dist):
@@ -808,11 +811,13 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
             if placed:
                 n_sel += 1
                 print(i, len(permuted_idxs), n_sel)
+                selected_cat.append('U')
+
     if i == len(permuted_idxs)-1 and n_sel < n_exc + n_inh:
         raise RuntimeError("Templates could not be selected. \n"
                            "Decrease number of spiketrains, decrease 'min-dist', or use more templates.")
 
-    return idxs_sel
+    return idxs_sel, selected_cat
 
 
 def cubic_padding(spike, pad_len, fs, percent_mean=0.2):
@@ -1595,7 +1600,7 @@ def extract_wf(spiketrains, recordings, times, fs, n_pad=2):
         first_spike = True
 
         for t in st:
-            idx = np.where(times > t)[0][0]
+            idx = np.where(times >= t)[0][0]
             # find single waveforms crossing thresholds
             if idx - n_pad > 0 and idx + n_pad < nPts:
                 t_spike = times[idx - n_pad:idx + n_pad]

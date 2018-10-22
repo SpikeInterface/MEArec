@@ -137,7 +137,8 @@ def gen_templates(params, **kwargs):
         print('Compiling NEURON models')
         os.system('python %s compile %s' % (simulate_script, model_folder))
 
-    tempgen = generators.gen_templates(model_folder, params_dict, intraonly, parallel)
+    tempgen = generators.gen_templates(model_folder,
+                                       params_dict, templates_folder, intraonly, parallel)
 
     # Merge simulated data and cleanup
     if not intraonly:
@@ -243,9 +244,11 @@ def gen_recordings(params, **kwargs):
         print('Provide eap templates path')
         return
     else:
-        if os.path.isdir(kwargs['templates']):
-            params_dict['templates'].update({'templates_folder': kwargs['templates']})
+        if os.path.isdir(kwargs['templates']) or kwargs['templates'].endswith('h5') \
+                or kwargs['templates'].endswith('hdf5'):
+            params_dict['templates'].update({'templates': kwargs['templates']})
         else:
+            print(kwargs['templates'])
             raise AttributeError("'templates' is not a folder")
 
     if kwargs['n_exc'] is not None:

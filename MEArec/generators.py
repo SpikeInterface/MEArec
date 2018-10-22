@@ -648,8 +648,10 @@ class RecordingGenerator:
                 n_inh = n_neurons - n_exc
 
             np.random.seed(temp_seed)
-            idxs_cells = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
-                                          min_amp=min_amp, min_dist=min_dist, verbose=False)
+            idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim, z_lim=z_lim,
+                                                        min_amp=min_amp, min_dist=min_dist, verbose=False)
+
+            idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
             template_celltypes = celltypes[idxs_cells]
             template_locs = locs[idxs_cells]
             templates_bin = bin_cat[idxs_cells]
