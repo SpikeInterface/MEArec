@@ -55,5 +55,8 @@ recordings:
                         # electrode (each electrode is modulated separately)]
   mrand: 1 # mean of gaussian modulation (should be 1)
   sdrand:  0.05 # standard deviation of gaussian modulation
-  chunk_duration: 0 # chunk duration in s for chunk processing (if 0 the entire recordings are generated at once)
+  chunk_conv_duration: 0 # chunk duration in s for convolution processing (if 0 the entire recordings are generated at once)
+  chunk_noise_duration: 0 # chunk duration for noise addition
+  chunk_filter_duration: 0 # chunk duration for filtering
   overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+  extract_waveforms: True

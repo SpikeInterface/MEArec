@@ -680,6 +680,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
         if verbose:
             print('Selecting random templates (cell types not specified)')
         excinh = False
+        selected_cat = []
     permuted_idxs = np.random.permutation(len(bin_cat))
     permuted_bin_cats = bin_cat[permuted_idxs]
 
@@ -1656,7 +1657,7 @@ def filter_analog_signals(anas, freq, fs, filter_type='bandpass', order=3, copy_
     b, a = butter(order, band, btype=filter_type)
 
     if np.all(np.abs(np.roots(a)) < 1) and np.all(np.abs(np.roots(a)) < 1):
-        print('Filtering signals with ', filter_type, ' filter at ', freq, '...')
+        # print('Filtering signals with ', filter_type, ' filter at ', freq, '...')
         if len(anas.shape) == 2:
             anas_filt = filtfilt(b, a, anas, axis=1)
         elif len(anas.shape) == 1:

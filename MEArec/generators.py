@@ -550,9 +550,17 @@ class RecordingGenerator:
                 params['recordings']['modulation'] = 'electrode'
             modulation = params['recordings']['modulation']
 
-            if 'chunk_duration' not in rec_params.keys():
-                params['recordings']['chunk_duration'] = 0
-            chunk_duration = params['recordings']['chunk_duration'] * pq.s
+            if 'chunk_conv_duration' not in rec_params.keys():
+                params['recordings']['chunk_conv_duration'] = 0
+            chunk_duration = params['recordings']['chunk_conv_duration'] * pq.s
+
+            if 'chunk_noise_duration' not in rec_params.keys():
+                params['recordings']['chunk_noise_duration'] = 0
+            chunk_noise_duration = params['recordings']['chunk_noise_duration'] * pq.s
+
+            if 'chunk_filter_duration' not in rec_params.keys():
+                params['recordings']['chunk_filter_duration'] = 0
+            chunk_filter_duration = params['recordings']['chunk_filter_duration'] * pq.s
 
             if 'mrand' not in rec_params.keys():
                 params['recordings']['mrand'] = 1
@@ -565,6 +573,10 @@ class RecordingGenerator:
             if 'overlap' not in rec_params.keys():
                 params['recordings']['overlap'] = False
             overlap = params['recordings']['overlap']
+
+            if 'extract_waveforms' not in rec_params.keys():
+                params['recordings']['extract_waveforms'] = False
+            extract_waveforms = params['recordings']['extract_waveforms']
 
             if 'seed' not in rec_params.keys():
                 params['recordings']['seed'] = np.random.randint(1,1000)
@@ -787,21 +799,21 @@ class RecordingGenerator:
             gt_spikes = []
 
             # divide in chunks
-            chunks = []
+            chunks_conv = []
             if duration > chunk_duration and chunk_duration != 0:
                 start = 0*pq.s
                 finished = False
                 while not finished:
-                    chunks.append([start, start+chunk_duration])
-                    start=start+chunk_duration
+                    chunks_conv.append([start, start+chunks_conv_duration])
+                    start=start+chunks_conv_duration
                     if start >= duration:
                         finished = True
-                print('Chunks: ', chunks)
+                print('Chunks: ', chunks_conv)
 
 
-            if len(chunks) > 0:
+            if len(chunks_conv) > 0:
                 recording_chunks = []
-                for ch, chunk in enumerate(chunks):
+                for ch, chunk in enumerate(chunks_conv):
                     #print( 'Generating chunk ', ch+1, ' of ', len(chunks)
                     idxs = np.where((times>=chunk[0]) & (times<chunk[1]))[0]
                     spike_matrix_chunk = spike_matrix[:, idxs]
@@ -880,15 +892,34 @@ class RecordingGenerator:
             gt_spikes = np.array(gt_spikes)
 
             print('Elapsed time ', time.time() - t_start)
-            clean_recordings = copy(recordings)
+            # clean_recordings = copy(recordings)
 
             print('Adding noise')
+            # divide in chunks
+            chunks_noise = []
+            if duration > chunk_noise_duration and chunk_noise_duration != 0:
+                start = 0 * pq.s
+                finished = False
+                while not finished:
+                    chunks_noise.append([start, start + chunk_noise_duration])
+                    start = start + chunk_noise_duration
+                    if start >= duration:
+                        finished = True
+
             np.random.seed(noise_seed)
             if noise_level > 0:
                 if noise_mode == 'uncorrelated':
-                    additive_noise = noise_level * np.random.randn(recordings.shape[0],
-                                                                             recordings.shape[1])
-                    recordings += additive_noise
+                    if len(chunks_noise) > 0:
+                        for ch, chunk in enumerate(chunks_noise):
+                            print('Generating noise in: ', start, duration, chunk_noise_duration, ' chunk')
+                            idxs = np.where((times >= chunk[0]) & (times < chunk[1]))[0]
+                            additive_noise = noise_level * np.random.randn(recordings.shape[0],
+                                                                           len(idxs))
+                            recordings[:, idxs] += additive_noise
+                    else:
+                        additive_noise = noise_level * np.random.randn(recordings.shape[0],
+                                                                                 recordings.shape[1])
+                        recordings += additive_noise
                 elif noise_mode == 'correlated-dist':
                     # TODO divide in chunks
                     cov_dist = np.zeros((n_elec, n_elec))
@@ -909,14 +940,35 @@ class RecordingGenerator:
                 print('Noise level is set to 0')
 
             if filter:
-                print('Filtering signals')
-                if fs/2. < cutoff[1]:
-                    recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs, filter_type='highpass')
+                chunks_filter = []
+                if duration > chunk_filter_duration and chunk_filter_duration != 0:
+                    start = 0 * pq.s
+                    finished = False
+                    while not finished:
+                        print(start, duration, chunk_filter_duration)
+                        chunks_filter.append([start, start + chunk_filter_duration])
+                        start = start + chunk_filter_duration
+                        if start >= duration:
+                            finished = True
+                if len(chunks_noise) > 0:
+                    for ch, chunk in enumerate(chunks_noise):
+                        print('Filtering in: ', start, duration, chunk_noise_duration, ' chunk')
+                        # print( 'Generating chunk ', ch+1, ' of ', len(chunks)
+                        idxs = np.where((times >= chunk[0]) & (times < chunk[1]))[0]
+                        if fs / 2. < cutoff[1]:
+                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
+                                                               filter_type='highpass')
+                        else:
+                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
                 else:
-                    recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
+                    if fs/2. < cutoff[1]:
+                        recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs, filter_type='highpass')
+                    else:
+                        recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
 
             print('Extracting spike waveforms')
-            extract_wf(spiketrains, recordings, times, fs)
+            if extract_waveforms:
+                extract_wf(spiketrains, recordings, times, fs)
 
             self.recordings = recordings
             self.times = times
