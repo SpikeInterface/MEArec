@@ -643,11 +643,10 @@ class RecordingGenerator:
             mea = MEA.return_mea(info=elinfo)
             mea_pos = mea.positions
 
-            params['recordings'].update({'electrode_name': electrode_name,
-                                         'duration': float(duration.magnitude),
+            params['recordings'].update({'duration': float(duration.magnitude),
                                          'fs': float(fs.rescale('Hz').magnitude),
                                          'n_neurons': n_neurons})
-
+            params['electrodes'] = temp_info['electrodes']
 
             n_elec = eaps.shape[1]
             # this is fixed from recordings

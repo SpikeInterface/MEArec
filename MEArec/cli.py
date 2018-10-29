@@ -298,7 +298,7 @@ def gen_recordings(params, **kwargs):
     info = recgen.info
 
     n_neurons = info['recordings']['n_neurons']
-    electrode_name = info['recordings']['electrode_name']
+    electrode_name = info['electrodes']['electrode_name']
     duration = info['recordings']['duration']
     noise_level = info['recordings']['noise_level']
 
