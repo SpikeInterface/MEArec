@@ -286,7 +286,7 @@ def gen_recordings(params, **kwargs):
         params_dict['templates']['seed'] = kwargs['seed']
 
     if kwargs['noise_lev'] is not None:
-        params_dict['recordings']['noise_lev'] = kwargs['noise_lev']
+        params_dict['recordings']['noise_level'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
         params_dict['recordings']['modulation'] = kwargs['modulation']
     if kwargs['chunk_conv'] is not None:

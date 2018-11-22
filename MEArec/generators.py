@@ -533,6 +533,7 @@ class RecordingGenerator:
             if 'noise_level' not in rec_params.keys():
                 params['recordings']['noise_level'] = 15
             noise_level =  params['recordings']['noise_level']
+            print('Noise Level ', noise_level)
 
             if 'noise_mode' not in rec_params.keys():
                 params['recordings']['noise_mode'] = 'uncorrelated'
