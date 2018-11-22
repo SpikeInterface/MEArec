@@ -910,7 +910,7 @@ class RecordingGenerator:
                 if noise_mode == 'uncorrelated':
                     if len(chunks_noise) > 0:
                         for ch, chunk in enumerate(chunks_noise):
-                            print('Generating noise in: ', start, duration, chunk_noise_duration, ' chunk')
+                            print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                             idxs = np.where((times >= chunk[0]) & (times < chunk[1]))[0]
                             additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                            len(idxs))
@@ -940,18 +940,18 @@ class RecordingGenerator:
 
             if filter:
                 chunks_filter = []
+                print(chunk_filter_duration)
                 if duration > chunk_filter_duration and chunk_filter_duration != 0:
                     start = 0 * pq.s
                     finished = False
                     while not finished:
-                        print(start, duration, chunk_filter_duration)
                         chunks_filter.append([start, start + chunk_filter_duration])
                         start = start + chunk_filter_duration
                         if start >= duration:
                             finished = True
-                if len(chunks_noise) > 0:
-                    for ch, chunk in enumerate(chunks_noise):
-                        print('Filtering in: ', start, duration, chunk_noise_duration, ' chunk')
+                if len(chunks_filter) > 0:
+                    for ch, chunk in enumerate(chunks_filter):
+                        print('Filtering in: ', chunk[0], chunk[1], ' chunk')
                         # print( 'Generating chunk ', ch+1, ' of ', len(chunks)
                         idxs = np.where((times >= chunk[0]) & (times < chunk[1]))[0]
                         if fs / 2. < cutoff[1]:
@@ -965,8 +965,8 @@ class RecordingGenerator:
                     else:
                         recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
 
-            print('Extracting spike waveforms')
             if extract_waveforms:
+                print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, times, fs)
 
             self.recordings = recordings

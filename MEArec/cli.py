@@ -199,8 +199,12 @@ def gen_templates(params, **kwargs):
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
               help='modulation type')
-@click.option('--chunk', '-ch', default=None, type=float,
-              help='chunk duration in s for chunk processing (default 0)')
+@click.option('--chunk-conv', '-chc', default=None, type=float,
+              help='chunk duration in s for chunk convolution (default 0)')
+@click.option('--chunk-noise', '-chn', default=None, type=float,
+              help='chunk duration in s for chunk noise (default 0)')
+@click.option('--chunk-filt', '-chf', default=None, type=float,
+              help='chunk duration in s for chunk filter (default 0)')
 @click.option('--noise-seed', '-nseed', default=None, type=int,
               help='random seed for noise')
 @click.option('--st-seed', '-stseed', default=None, type=int,
@@ -210,6 +214,8 @@ def gen_templates(params, **kwargs):
 @click.option('--no-filt', is_flag=True,
               help='if True no filter is applied')
 @click.option('--overlap', is_flag=True,
+              help='if True it annotates overlapping spikes')
+@click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
 def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATES and SPIKETRAINS"""
@@ -283,8 +289,12 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['noise_lev'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
         params_dict['recordings']['modulation'] = kwargs['modulation']
-    if kwargs['chunk'] is not None:
-        params_dict['recordings']['chunk_duration'] = kwargs['chunk']
+    if kwargs['chunk_conv'] is not None:
+        params_dict['recordings']['chunk_conv_duration'] = kwargs['chunk_conv']
+    if kwargs['chunk_noise'] is not None:
+        params_dict['recordings']['chunk_noise_duration'] = kwargs['chunk_noise']
+    if kwargs['chunk_filt'] is not None:
+        params_dict['recordings']['chunk_filter_duration'] = kwargs['chunk_filt']
     if kwargs['no_filt'] is True:
         params_dict['recordings']['filter'] = False
     if kwargs['fs'] is not None:
@@ -293,6 +303,10 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['fs'] = None
     if kwargs['noise_seed'] is not None:
         params_dict['recordings']['seed'] = kwargs['seed']
+    if kwargs['overlap']:
+        params_dict['recordings']['overlap'] = True
+    if kwargs['extract_wf']:
+        params_dict['recordings']['extract_wf'] = Truex
 
     recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict)
     info = recgen.info
