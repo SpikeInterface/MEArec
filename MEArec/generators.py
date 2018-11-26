@@ -14,8 +14,6 @@ import threading
 import shutil
 from pprint import pprint
 
-from .simulate_cells import run_cell_model, calc_extracellular
-
 
 class simulationThread(threading.Thread):
     def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
@@ -41,6 +39,7 @@ class simulationThread(threading.Thread):
 class TemplateGenerator:
     def __init__(self, *, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
                  params=None, intraonly=False, parallel=True, delete_tmp=True):
+        from .simulate_cells import run_cell_model, calc_extracellular
         if temp_dict is not None and info is not None:
             self.templates = temp_dict['templates']
             self.locations = temp_dict['locations']
