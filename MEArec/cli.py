@@ -7,7 +7,8 @@ import numpy as np
 import yaml
 import shutil
 import MEArec.generators as generators
-from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates
+from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates, \
+    save_template_generator, save_recording_generator
 import pprint
 import time
 
@@ -30,6 +31,7 @@ def getDefaultConfig():
         with open(join(mearec_home, 'mearec.conf'), 'r') as f:
             default_info = yaml.load(f)
     return default_info, mearec_home
+
 
 @click.group()
 def cli():
@@ -63,11 +65,11 @@ def cli():
               help='extension (um) beyond MEA boundaries for neuron locations (default=30.)')
 @click.option('--offset', '-off', default=None, type=float,
               help='x_plane (um) coordinate for MEA (default=0)')
-@click.option('--xlim', '-xl', default=None,  nargs=2, type=float,
+@click.option('--xlim', '-xl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the x-axis (depth) (default=[10.,80.])')
-@click.option('--ylim', '-yl', default=None,  nargs=2, type=float,
+@click.option('--ylim', '-yl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the y-axis (default=None)')
-@click.option('--xlim', '-xl', default=None,  nargs=2, type=float,
+@click.option('--xlim', '-xl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the z-axis (default=None)')
 @click.option('--det-thresh', '-dt', default=None, type=float,
               help='detection threshold for EAPs (default=30)')
@@ -106,7 +108,6 @@ def gen_templates(params, **kwargs):
         seed = np.random.randint(1, 10000)
     params_dict['seed'] = seed
 
-
     if kwargs['folder'] is not None:
         params_dict['templates_folder'] = kwargs['folder']
     else:
@@ -140,20 +141,20 @@ def gen_templates(params, **kwargs):
         n = params_dict['n']
         probe = params_dict['probe']
         if kwargs['fname'] is None:
-            fname = 'templates_%d_%s_%s' % (n, probe, time.strftime("%d-%m-%Y"))
+            fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
         else:
             fname = kwargs['fname']
-        save_folder = join(templates_folder, rot, fname)
-        if not os.path.isdir(save_folder):
-            os.makedirs(save_folder)
-        np.save(join(save_folder, 'templates'), tempgen.templates)
-        np.save(join(save_folder, 'locations'), tempgen.locations)
-        np.save(join(save_folder, 'rotations'), tempgen.rotations)
-        np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
-        info = tempgen.info
-        yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
-        print('\nSaved eap templates in', save_folder, '\n')
-
+        save_fname = join(templates_folder, rot, fname)
+        # if not os.path.isdir(save_folder):
+        #     os.makedirs(save_folder)
+        # np.save(join(save_folder, 'templates'), tempgen.templates)
+        # np.save(join(save_folder, 'locations'), tempgen.locations)
+        # np.save(join(save_folder, 'rotations'), tempgen.rotations)
+        # np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
+        # info = tempgen.info
+        # yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
+        save_template_generator(tempgen, save_fname)
+        print('\nSaved eap templates in', save_fname, '\n')
 
 
 @cli.command()
@@ -317,27 +318,28 @@ def gen_recordings(params, **kwargs):
     noise_level = info['recordings']['noise_level']
 
     if kwargs['fname'] is None:
-        fname = 'recordings_%dcells_%s_%s_%.1fuV_%s' % (n_neurons, electrode_name, duration,
-                                                        noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+        fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
+                                                           noise_level, time.strftime("%d-%m-%Y:%H:%M"))
     else:
         fname = kwargs['fname']
 
     rec_path = join(recordings_folder, fname)
-    if not os.path.isdir(rec_path):
-        os.makedirs(rec_path)
+    save_recording_generator(recgen, rec_path)
+    # if not os.path.isdir(rec_path):
+    #     os.makedirs(rec_path)
+    #
+    # np.save(join(rec_path, 'recordings'), recgen.recordings)
+    # np.save(join(rec_path, 'times'), recgen.times)
+    # np.save(join(rec_path, 'positions'), recgen.positions)
+    # np.save(join(rec_path, 'templates'), recgen.templates)
+    # np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
+    # np.save(join(rec_path, 'sources'), recgen.sources)
+    # np.save(join(rec_path, 'peaks'), recgen.peaks)
+    #
+    # with open(join(rec_path, 'info.yaml'), 'w') as f:
+    #     yaml.dump(info, f, default_flow_style=False)
 
-    np.save(join(rec_path, 'recordings'), recgen.recordings)
-    np.save(join(rec_path, 'times'), recgen.times)
-    np.save(join(rec_path, 'positions'), recgen.positions)
-    np.save(join(rec_path, 'templates'), recgen.templates)
-    np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
-    np.save(join(rec_path, 'sources'), recgen.sources)
-    np.save(join(rec_path, 'peaks'), recgen.peaks)
-
-    with open(join(rec_path, 'info.yaml'), 'w') as f:
-        yaml.dump(info, f, default_flow_style=False)
-
-    print('\nSaved recordings in', rec_path, '\n')
+    # print('\nSaved recordings in', rec_path, '\n')
 
 
 @cli.command()
@@ -350,6 +352,7 @@ def temptohdf5(foldername, h5file):
     templates_to_hdf5(foldername, h5file)
     print("Saved: ", h5file)
 
+
 @cli.command()
 @click.argument('h5file')
 @click.argument('foldername')
@@ -359,6 +362,7 @@ def tempfromhdf5(h5file, foldername):
         raise AttributeError("'h5file' is not an hdf5 file")
     hdf5_to_templates(h5file, foldername)
     print("Saved: ", foldername)
+
 
 @cli.command()
 @click.argument('foldername')
@@ -370,6 +374,7 @@ def rectohdf5(foldername, h5file):
     recordings_to_hdf5(foldername, h5file)
     print("Saved: ", h5file)
 
+
 @cli.command()
 @click.argument('h5file')
 @click.argument('foldername')
@@ -380,12 +385,14 @@ def recfromhdf5(h5file, foldername):
     hdf5_to_recordings(h5file, foldername)
     print("Saved: ", foldername)
 
+
 @cli.command()
 def default_config():
     """Print default configurations"""
     info, config = getDefaultConfig()
     import pprint
     pprint.pprint(info)
+
 
 @cli.command()
 @click.argument('cell-models-folder')
@@ -399,6 +406,7 @@ def set_cell_models_folder(cell_models_folder):
         print('Set default cell_models_folder to: ', cell_models_folder)
     else:
         print(cell_models_folder, ' is not a folder!')
+
 
 @cli.command()
 @click.argument('templates-folder')
@@ -420,6 +428,7 @@ def set_templates_folder(templates_folder, create):
         print('Set default templates_folder to: ', templates_folder)
     else:
         print(templates_folder, ' is not a folder!')
+
 
 @cli.command()
 @click.argument('recordings-folder')
@@ -471,4 +480,3 @@ def set_recordings_params(recordings_params):
         print('Set default recordings_params to: ', recordings_params)
     else:
         print(recordings_params, ' is not a yaml!')
-
