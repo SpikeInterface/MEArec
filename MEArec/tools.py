@@ -198,12 +198,12 @@ def load_recordings(recordings, verbose=False):
             rec_dict['timestamps'] = np.array(F.get('timestamps'))
             spiketrains = []
             for ii in range(info['recordings']['n_neurons']):
-                timestamps = np.array(F.get('spiketrains/{}/timestamps'.format(ii)))
+                times = np.array(F.get('spiketrains/{}/times'.format(ii)))
                 t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
                 annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
                 annotations = json.loads(annotations_str)
                 st = neo.core.SpikeTrain(
-                    timestamps,
+                    times,
                     t_stop=t_stop,
                     units=pq.s
                 )
@@ -268,7 +268,7 @@ def save_recording_generator(recgen, filename=None):
         F.create_dataset('spike_traces', data=recgen.spike_traces)
         for ii in range(len(recgen.spiketrains)):
             st = recgen.spiketrains[ii]
-            F.create_dataset('spiketrains/{}/timestamps'.format(ii), data=st.times.rescale('s').magnitude)
+            F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
             F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
             annotations_no_pq = {}
             for k, v in st.annotations.items():
@@ -281,7 +281,7 @@ def save_recording_generator(recgen, filename=None):
             annotations_str = json.dumps(annotations_no_pq)
             F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
         F.create_dataset('templates', data=recgen.templates)
-        F.create_dataset('timestamps', data=recgen.templates)
+        F.create_dataset('timestamps', data=recgen.timestamps)
         F.close()
         print('\nSaved recordings in', filename, '\n')
     elif filename is not None:
@@ -348,7 +348,7 @@ def hdf5_to_recordings(input_file, output_folder):
         np.save(output_folder + '/timestamps.npy', timestamps)
         spiketrains = []
         for ii in range(info['recordings']['n_neurons']):
-            timestamps = np.array(F.get('spiketrains/{}/timestamps'.format(ii)))
+            times = np.array(F.get('spiketrains/{}/times'.format(ii)))
             t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
             annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
             annotations = json.loads(annotations_str)
@@ -402,7 +402,7 @@ def recordings_to_hdf5(recording_folder, output_fname):
     spiketrains = np.load(recording_folder + '/spiketrains.npy')
     for ii in range(len(spiketrains)):
         st = spiketrains[ii]
-        F.create_dataset('spiketrains/{}/timestamps'.format(ii), data=st.times.rescale('s').magnitude)
+        F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
         F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
         annotations_no_pq = {}
         for k, v in st.annotations.items():
@@ -417,7 +417,7 @@ def recordings_to_hdf5(recording_folder, output_fname):
     templates = np.load(recording_folder + '/templates.npy')
     F.create_dataset('templates', data=templates)
     templates = np.load(recording_folder + '/timestamps.npy')
-    F.create_dataset('timestamps', data=templates)
+    F.create_dataset('timestamps', data=timestamps)
     F.close()
 
 

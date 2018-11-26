@@ -495,7 +495,7 @@ class RecordingGenerator:
             self.spiketrains = rec_dict['spiketrains']
             self.templates = rec_dict['templates']
             self.channel_positions = rec_dict['channel_positions']
-            self.times = rec_dict['times']
+            self.times = rec_dict['timestamps']
             self.voltage_peaks = rec_dict['voltage_peaks']
             self.spike_traces = rec_dict['spike_traces']
             self.info = info
