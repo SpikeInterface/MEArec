@@ -307,7 +307,7 @@ def gen_recordings(params, **kwargs):
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
     if kwargs['extract_wf']:
-        params_dict['recordings']['extract_wf'] = Truex
+        params_dict['recordings']['extract_wf'] = True
 
     recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict)
     info = recgen.info
