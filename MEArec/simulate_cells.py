@@ -1,7 +1,6 @@
 from __future__ import division
 from __future__ import print_function
 
-
 '''
 Test implementation using cell models of the Blue Brain Project with LFPy.
 The example assumes that cell models available from
@@ -20,6 +19,7 @@ import neuron
 import MEAutility as MEA
 import yaml
 import time
+
 
 def get_templatename(f):
     '''
@@ -119,7 +119,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
         morphology = get_templatename(f)
         f.close()
 
-        #get synapses template name
+        # get synapses template name
         f = open(join("synapses", "synapses.hoc"), 'r')
         synapses = get_templatename(f)
         f.close()
@@ -138,23 +138,23 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
         if not hasattr(neuron.h, templatename):
             neuron.h.load_file(1, "template.hoc")
 
-        morphologyfile = os.listdir('morphology')[0]#glob('morphology\\*')[0]
+        morphologyfile = os.listdir('morphology')[0]  # glob('morphology\\*')[0]
 
         # Instantiate the cell(s) using LFPy
         cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
-                         templatefile=join('template.hoc'),
-                         templatename=templatename,
-                         templateargs=0,
-                         tstop=end_T,
-                         tstart=start_T,
-                         dt=dt,
-                         v_init=-70,
-                         pt3d=True,
-                         delete_sections=True,
-                         verbose=True)
+                                 templatefile=join('template.hoc'),
+                                 templatename=templatename,
+                                 templateargs=0,
+                                 tstop=end_T,
+                                 tstart=start_T,
+                                 dt=dt,
+                                 v_init=-70,
+                                 pt3d=True,
+                                 delete_sections=True,
+                                 verbose=True)
 
     else:
-        raise NotImplementedError('Cell model %s is not implemented'\
+        raise NotImplementedError('Cell model %s is not implemented' \
                                   % model_type)
 
     os.chdir(cwd)
@@ -181,8 +181,8 @@ def find_spike_idxs(v, thresh=-30, find_max=30):
     spikes_th = [idx for idx in range(len(v) - 1) if v[idx] < thresh < v[idx + 1]]
     spikes = []
     for sp in spikes_th:
-        max_idx =  np.argmax(v[sp:sp+find_max])
-        spikes.append(sp+max_idx)
+        max_idx = np.argmax(v[sp:sp + find_max])
+        spikes.append(sp + max_idx)
     return spikes
 
 
@@ -217,7 +217,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     tot_ntsteps = int(round(T / dt + 1))
 
     I = np.ones(tot_ntsteps) * weight
-    #I[stim_idxs] = weight
+    # I[stim_idxs] = weight
     noiseVec = neuron.h.Vector(I)
     syn = None
     for sec in cell.allseclist:
@@ -306,8 +306,8 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
         t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
         # discard first spike
-        i_spikes = np.zeros((num_spikes-1, cell.totnsegs, len(t)))
-        v_spikes = np.zeros((num_spikes-1, len(t)))
+        i_spikes = np.zeros((num_spikes - 1, cell.totnsegs, len(t)))
+        v_spikes = np.zeros((num_spikes - 1, len(t)))
 
         for idx, spike_idx in enumerate(spikes[1:]):
             spike_idx = int(spike_idx)
@@ -318,11 +318,12 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
 
         if not os.path.isdir(sim_folder):
             os.makedirs(sim_folder)
-        np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes-1, cell_name)), i_spikes)
-        np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes-1, cell_name)), v_spikes)
+        np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes - 1, cell_name)), i_spikes)
+        np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes - 1, cell_name)), v_spikes)
 
     else:
         print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
+
 
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
@@ -355,8 +356,8 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     T = kwargs['sim_time'] * 1000
     dt = kwargs['dt']
-    rotation =  kwargs['rot']
-    nobs =  kwargs['n']
+    rotation = kwargs['rot']
+    nobs = kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
     offset = kwargs['offset']
@@ -404,7 +405,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     N = np.empty((pos.shape[0], 3))
     for i in np.arange(N.shape[0]):
-        N[i, ] = [1, 0, 0]  # normal vec. of contacts
+        N[i,] = [1, 0, 0]  # normal vec. of contacts
 
     # Add square electrodes (instead of circles)
     if ncontacts > 1:
@@ -436,7 +437,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         z_lim = [float(np.min(elec_z) - overhang),
                  float(np.max(elec_z) + overhang)]
 
-    ignored=0
+    ignored = 0
     saved = 0
     i = 0
 
@@ -489,37 +490,38 @@ def get_physrot_specs(cell_name, model):
         3-dim vetor of preferred orientation 
     """
     if model == 'bbp':
-        polarlim = {'BP': [0.,15.],
-                    'BTC': None, # [0.,15.],
-                    'ChC': None, # [0.,15.],
-                    'DBC': None, # [0.,15.],
-                    'LBC': None, # [0.,15.],
-                    'MC': [0.,15.],
+        polarlim = {'BP': [0., 15.],
+                    'BTC': None,  # [0.,15.],
+                    'ChC': None,  # [0.,15.],
+                    'DBC': None,  # [0.,15.],
+                    'LBC': None,  # [0.,15.],
+                    'MC': [0., 15.],
                     'NBC': None,
                     'NGC': None,
                     'SBC': None,
-                    'STPC': [0.,15.],
-                    'TTPC1': [0.,15.],
-                    'TTPC2': [0.,15.],
-                    'UTPC': [0.,15.]}
+                    'STPC': [0., 15.],
+                    'TTPC1': [0., 15.],
+                    'TTPC2': [0., 15.],
+                    'UTPC': [0., 15.]}
         # how it's implemented, the NMC y axis points into the pref_orient direction after rotation
-        pref_orient = {'BP': [0.,0.,1.],
-                       'BTC': None, # [0.,0.,1.],
-                       'ChC': None, # [0.,0.,1.],
-                       'DBC': None, # [0.,0.,1.],
-                       'LBC': None, # [0.,0.,1.],
-                       'MC': [0.,0.,1.],
+        pref_orient = {'BP': [0., 0., 1.],
+                       'BTC': None,  # [0.,0.,1.],
+                       'ChC': None,  # [0.,0.,1.],
+                       'DBC': None,  # [0.,0.,1.],
+                       'LBC': None,  # [0.,0.,1.],
+                       'MC': [0., 0., 1.],
                        'NBC': None,
                        'NGC': None,
                        'SBC': None,
-                       'STPC': [0.,0.,1.],
-                       'TTPC1': [0.,0.,1.],
-                       'TTPC2': [0.,0.,1.],
-                       'UTPC': [0.,0.,1.]}
+                       'STPC': [0., 0., 1.],
+                       'TTPC1': [0., 0., 1.],
+                       'TTPC2': [0., 0., 1.],
+                       'UTPC': [0., 0., 1.]}
         return polarlim[cell_name.split('_')[1]], pref_orient[cell_name.split('_')[1]]
     else:
-        raise NotImplementedError('Cell model %s is not implemented'\
+        raise NotImplementedError('Cell model %s is not implemented' \
                                   % model_type)
+
 
 def return_extracellular_spike(cell, cell_name, model_type,
                                electrode_parameters, limits, rotation, pos=None):
@@ -561,10 +563,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
         R_x : float
             Three angles for rotations around axis, defined by R = R_z.R_y.R_x
         '''
-        rot_x = np.arctan2(R[2,1],R[2,2])
-        rot_y = np.arcsin(-R[2,0])
-        rot_z = np.arctan2(R[1,0],R[0,0])
-        return rot_x,rot_y,rot_z
+        rot_x = np.arctan2(R[2, 1], R[2, 2])
+        rot_y = np.arcsin(-R[2, 0])
+        rot_z = np.arctan2(R[1, 0], R[0, 0])
+        return rot_x, rot_y, rot_z
 
     def get_rnd_rot_Arvo():
         """ Generate uniformly distributed random rotation matrices
@@ -575,16 +577,16 @@ def return_extracellular_spike(cell, cell_name, model_type,
         R : 3x3 matrix
             random rotation matrix
         """
-        gamma = np.random.uniform(0,2.*np.pi)
+        gamma = np.random.uniform(0, 2. * np.pi)
         rotation_z = np.matrix([[np.cos(gamma), -np.sin(gamma), 0],
                                 [np.sin(gamma), np.cos(gamma), 0],
                                 [0, 0, 1]])
         x = np.random.uniform(size=2)
-        v = np.array([np.cos(2.*np.pi*x[0])*np.sqrt(x[1]),
-                      np.sin(2.*np.pi*x[0])*np.sqrt(x[1]),
-                      np.sqrt(1-x[1])])
-        H = np.identity(3)-2.*np.outer(v,v)
-        M = -np.dot(H,rotation_z)
+        v = np.array([np.cos(2. * np.pi * x[0]) * np.sqrt(x[1]),
+                      np.sin(2. * np.pi * x[0]) * np.sqrt(x[1]),
+                      np.sqrt(1 - x[1])])
+        H = np.identity(3) - 2. * np.outer(v, v)
+        M = -np.dot(H, rotation_z)
         return M
 
     def check_solidangle(matrix, pre, post, polarlim):
@@ -610,8 +612,8 @@ def return_extracellular_spike(cell, cell_name, model_type,
         test : bool
             True if the vector np.dot(matrix,pre) lies inside the specified region.
         """
-        postest = np.dot(matrix,pre)
-        c=np.dot(post/np.linalg.norm(post),postest/np.linalg.norm(postest))
+        postest = np.dot(matrix, pre)
+        c = np.dot(post / np.linalg.norm(post), postest / np.linalg.norm(postest))
         if np.cos(np.deg2rad(polarlim[1])) <= c <= np.cos(np.deg2rad(polarlim[0])):
             return True
         else:
@@ -661,27 +663,27 @@ def return_extracellular_spike(cell, cell_name, model_type,
         z_rot = z_rot + z_rot_offset
     elif rotation == '3drot':
         if model_type == 'bbp':
-            x_rot_offset = np.pi / 2. # align neuron with z axis
-            y_rot_offset = 0 # align neuron with z axis
-            z_rot_offset = 0 # align neuron with z axis
+            x_rot_offset = np.pi / 2.  # align neuron with z axis
+            y_rot_offset = 0  # align neuron with z axis
+            z_rot_offset = 0  # align neuron with z axis
         x_rot, y_rot, z_rot = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
         x_rot = x_rot + x_rot_offset
         y_rot = y_rot + y_rot_offset
         z_rot = z_rot + z_rot_offset
     elif rotation == 'physrot':
-        polarlim, pref_orient  = get_physrot_specs(cell_name, model_type)
+        polarlim, pref_orient = get_physrot_specs(cell_name, model_type)
         if model_type == 'bbp':
-            x_rot_offset = np.pi / 2. # align neuron with z axis
-            y_rot_offset = 0 # align neuron with z axis
-            z_rot_offset = 0 # align neuron with z axis
+            x_rot_offset = np.pi / 2.  # align neuron with z axis
+            y_rot_offset = 0  # align neuron with z axis
+            z_rot_offset = 0  # align neuron with z axis
         while True:
             R = np.array(get_rnd_rot_Arvo())
             if polarlim is None or pref_orient is None:
                 valid = True
             else:
-                valid = check_solidangle(R,[0.,0.,1.],pref_orient,polarlim)
+                valid = check_solidangle(R, [0., 0., 1.], pref_orient, polarlim)
             if valid:
-                x_rot,y_rot,z_rot = get_xyz_angles(R)
+                x_rot, y_rot, z_rot = get_xyz_angles(R)
                 x_rot = x_rot + x_rot_offset
                 y_rot = y_rot + y_rot_offset
                 z_rot = z_rot + z_rot_offset
@@ -695,7 +697,6 @@ def return_extracellular_spike(cell, cell_name, model_type,
     x_rand = np.random.uniform(limits[0][0], limits[0][1])
     y_rand = np.random.uniform(limits[1][0], limits[1][1])
     z_rand = np.random.uniform(limits[2][0], limits[2][1])
-
 
     if pos == None:
         cell.set_pos(x_rand, y_rand, z_rand)
@@ -754,5 +755,3 @@ if __name__ == '__main__':
         run_cell_model(cell_model, vm_im_sim_folder, **params)
         if not intraonly:
             calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, **params)
-
-

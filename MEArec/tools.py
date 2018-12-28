@@ -10,6 +10,7 @@ from os.path import join
 import MEAutility as MEA
 import h5py
 
+
 ### LOAD FUNCTIONS ###
 
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
@@ -151,7 +152,7 @@ def load_recordings(recordings, verbose=False):
 
     Returns
     -------
-    recordings, times, positions, templates, spiketrains, sources, peaks - np.arrays
+    recordings, timestamps, channel_positions, templates, spiketrains, spike_traces, voltage_peaks - np.arrays
     info - dict
 
     '''
@@ -166,35 +167,35 @@ def load_recordings(recordings, verbose=False):
         if os.path.isfile(join(recording_folder, 'recordings.npy')):
             recordings = np.load(join(recording_folder, 'recordings.npy'))
             rec_dict.update({'recordings': recordings})
-        if os.path.isfile(join(recording_folder, 'positions.npy')):
-            positions = np.load(join(recording_folder, 'positions.npy'))
-            rec_dict.update({'positions': positions})
-        if os.path.isfile(join(recording_folder, 'times.npy')):
-            times = np.load(join(recording_folder, 'times.npy'))
-            rec_dict.update({'times': times})
+        if os.path.isfile(join(recording_folder, 'channel_positions.npy')):
+            channel_positions = np.load(join(recording_folder, 'channel_positions.npy'))
+            rec_dict.update({'channel_positions': channel_positions})
+        if os.path.isfile(join(recording_folder, 'timestamps.npy')):
+            timestamps = np.load(join(recording_folder, 'timestamps.npy'))
+            rec_dict.update({'timestamps': timestamps})
         if os.path.isfile(join(recording_folder, 'templates.npy')):
             templates = np.load(join(recording_folder, 'templates.npy'))
             rec_dict.update({'templates': templates})
         if os.path.isfile(join(recording_folder, 'spiketrains.npy')):
             spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
             rec_dict.update({'spiketrains': spiketrains})
-        if os.path.isfile(join(recording_folder, 'sources.npy')):
-            sources = np.load(join(recording_folder, 'sources.npy'))
-            rec_dict.update({'sources': sources})
-        if os.path.isfile(join(recording_folder, 'peaks.npy')):
-            peaks = np.load(join(recording_folder, 'peaks.npy'))
-            rec_dict.update({'peaks': peaks})
+        if os.path.isfile(join(recording_folder, 'spike_traces.npy')):
+            spike_traces = np.load(join(recording_folder, 'spike_traces.npy'))
+            rec_dict.update({'spike_traces': spike_traces})
+        if os.path.isfile(join(recording_folder, 'voltage_peaks.npy')):
+            voltage_peaks = np.load(join(recording_folder, 'voltage_peaks.npy'))
+            rec_dict.update({'voltage_peaks': voltage_peaks})
         with open(join(recording_folder, 'info.yaml'), 'r') as f:
             info = yaml.load(f)
     elif recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
             info = json.loads(str(F['info'][()]))
-            rec_dict['peaks'] = np.array(F.get('peaks'))
-            rec_dict['positions'] = np.array(F.get('positions'))
+            rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
+            rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
             rec_dict['recordings'] = np.array(F.get('recordings'))
-            rec_dict['sources'] = np.array(F.get('sources'))
+            rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
             rec_dict['templates'] = np.array(F.get('templates'))
-            rec_dict['times'] = np.array(F.get('times'))
+            rec_dict['timestamps'] = np.array(F.get('timestamps'))
             spiketrains = []
             for ii in range(info['recordings']['n_neurons']):
                 times = np.array(F.get('spiketrains/{}/times'.format(ii)))
@@ -261,10 +262,10 @@ def save_recording_generator(recgen, filename=None):
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         F.create_dataset('info', data=json.dumps(recgen.info))
-        F.create_dataset('peaks', data=recgen.peaks)
-        F.create_dataset('positions', data=recgen.positions)
+        F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
+        F.create_dataset('channel_positions', data=recgen.channel_positions)
         F.create_dataset('recordings', data=recgen.recordings)
-        F.create_dataset('sources', data=recgen.sources)
+        F.create_dataset('spike_traces', data=recgen.spike_traces)
         for ii in range(len(recgen.spiketrains)):
             st = recgen.spiketrains[ii]
             F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
@@ -280,7 +281,7 @@ def save_recording_generator(recgen, filename=None):
             annotations_str = json.dumps(annotations_no_pq)
             F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
         F.create_dataset('templates', data=recgen.templates)
-        F.create_dataset('times', data=recgen.templates)
+        F.create_dataset('timestamps', data=recgen.timestamps)
         F.close()
         print('\nSaved recordings in', filename, '\n')
     elif filename is not None:
@@ -288,12 +289,12 @@ def save_recording_generator(recgen, filename=None):
         if not os.path.isdir(save_folder):
             os.makedirs(save_folder)
         np.save(join(save_folder, 'recordings'), recgen.recordings)
-        np.save(join(save_folder, 'times'), recgen.times)
-        np.save(join(save_folder, 'positions'), recgen.positions)
+        np.save(join(save_folder, 'timestamps'), recgen.timestamps)
+        np.save(join(save_folder, 'channel_positions'), recgen.channel_positions)
         np.save(join(save_folder, 'templates'), recgen.templates)
         np.save(join(save_folder, 'spiketrains'), recgen.spiketrains)
-        np.save(join(save_folder, 'sources'), recgen.sources)
-        np.save(join(save_folder, 'peaks'), recgen.peaks)
+        np.save(join(save_folder, 'spike_traces'), recgen.spike_traces)
+        np.save(join(save_folder, 'voltage_peaks'), recgen.voltage_peaks)
         with open(join(save_folder, 'info.yaml'), 'w') as f:
             yaml.dump(recgen.info, f, default_flow_style=False)
         print('\nSaved recordings in', save_folder, ' folder\n')
@@ -309,76 +310,77 @@ def save_recording_generator(recgen, filename=None):
         if not os.path.isdir(save_folder):
             os.makedirs(save_folder)
         np.save(join(save_folder, 'recordings'), recgen.recordings)
-        np.save(join(save_folder, 'times'), recgen.times)
-        np.save(join(save_folder, 'positions'), recgen.positions)
+        np.save(join(save_folder, 'timestamps'), recgen.timestamps)
+        np.save(join(save_folder, 'channel_positions'), recgen.channel_positions)
         np.save(join(save_folder, 'templates'), recgen.templates)
         np.save(join(save_folder, 'spiketrains'), recgen.spiketrains)
-        np.save(join(save_folder, 'sources'), recgen.sources)
-        np.save(join(save_folder, 'peaks'), recgen.peaks)
+        np.save(join(save_folder, 'spike_traces'), recgen.spike_traces)
+        np.save(join(save_folder, 'voltage_peaks'), recgen.voltage_peaks)
         with open(join(save_folder, 'info.yaml'), 'w') as f:
             yaml.dump(info, f, default_flow_style=False)
         print('\nSaved recordings in', save_folder, ' folder\n')
 
+
 ### H5 TOOLS ###
 
 def hdf5_to_recordings(input_file, output_folder):
-  if os.path.exists(output_folder):
-    raise Exception('Output folder already exists: ' + output_folder)
+    if os.path.exists(output_folder):
+        raise Exception('Output folder already exists: ' + output_folder)
 
-  os.mkdir(output_folder)
+    os.mkdir(output_folder)
 
-  with h5py.File(input_file,'r') as F:
-    info=json.loads(str(F['info'][()]))
-    with open(output_folder+'/info.yaml','w') as f:
-      yaml.dump(info,f,default_flow_style=False)
+    with h5py.File(input_file, 'r') as F:
+        info = json.loads(str(F['info'][()]))
+        with open(output_folder + '/info.yaml', 'w') as f:
+            yaml.dump(info, f, default_flow_style=False)
 
-    peaks=np.array(F.get('peaks'))
-    np.save(output_folder+'/peaks.npy',peaks)
-    positions=np.array(F.get('positions'))
-    np.save(output_folder+'/positions.npy',positions)
-    recordings=np.array(F.get('recordings'))
-    np.save(output_folder+'/recordings.npy',recordings)
-    sources=np.array(F.get('sources'))
-    np.save(output_folder+'/sources.npy',sources)
-    templates=np.array(F.get('templates'))
-    np.save(output_folder+'/templates.npy',templates)
-    times=np.array(F.get('times'))
-    np.save(output_folder+'/times.npy',times)
-    spiketrains=[]
-    for ii in range(info['recordings']['n_neurons']):
-      times=np.array(F.get('spiketrains/{}/times'.format(ii)))
-      t_stop=np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
-      annotations_str=str(F.get('spiketrains/{}/annotations'.format(ii))[()])
-      annotations=json.loads(annotations_str)
-      st=neo.core.SpikeTrain(
-        times,
-        t_stop=t_stop,
-        units=pq.s
-      )
-      st.annotations=annotations
-      spiketrains.append(st)
-    np.save(output_folder+'/spiketrains.npy',spiketrains)
+        voltage_peaks = np.array(F.get('voltage_peaks'))
+        np.save(output_folder + '/voltage_peaks.npy', voltage_peaks)
+        channel_positions = np.array(F.get('channel_positions'))
+        np.save(output_folder + '/channel_positions.npy', channel_positions)
+        recordings = np.array(F.get('recordings'))
+        np.save(output_folder + '/recordings.npy', recordings)
+        spike_traces = np.array(F.get('spike_traces'))
+        np.save(output_folder + '/spike_traces.npy', spike_traces)
+        templates = np.array(F.get('templates'))
+        np.save(output_folder + '/templates.npy', templates)
+        timestamps = np.array(F.get('timestamps'))
+        np.save(output_folder + '/timestamps.npy', timestamps)
+        spiketrains = []
+        for ii in range(info['recordings']['n_neurons']):
+            times = np.array(F.get('spiketrains/{}/times'.format(ii)))
+            t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
+            annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
+            annotations = json.loads(annotations_str)
+            st = neo.core.SpikeTrain(
+                times,
+                t_stop=t_stop,
+                units=pq.s
+            )
+            st.annotations = annotations
+            spiketrains.append(st)
+        np.save(output_folder + '/spiketrains.npy', spiketrains)
 
 
 def hdf5_to_templates(input_file, output_folder):
-  if os.path.exists(output_folder):
-    raise Exception('Output folder already exists: '+output_folder)
+    if os.path.exists(output_folder):
+        raise Exception('Output folder already exists: ' + output_folder)
 
-  os.mkdir(output_folder)
+    os.mkdir(output_folder)
 
-  with h5py.File(input_file,'r') as F:
-    info=json.loads(str(F['info'][()]))
-    with open(output_folder+'/info.yaml','w') as f:
-      yaml.dump(info,f,default_flow_style=False)
+    with h5py.File(input_file, 'r') as F:
+        info = json.loads(str(F['info'][()]))
+        with open(output_folder + '/info.yaml', 'w') as f:
+            yaml.dump(info, f, default_flow_style=False)
 
-    celltypes=np.array(F.get('celltypes'))
-    np.save(output_folder+'/celltypes.npy',celltypes)
-    locations=np.array(F.get('locations'))
-    np.save(output_folder+'/locations.npy',locations)
-    rotations=np.array(F.get('rotations'))
-    np.save(output_folder+'/rotations.npy',rotations)
-    templates=np.array(F.get('templates'))
-    np.save(output_folder+'/templates.npy',templates)
+        celltypes = np.array(F.get('celltypes'))
+        np.save(output_folder + '/celltypes.npy', celltypes)
+        locations = np.array(F.get('locations'))
+        np.save(output_folder + '/locations.npy', locations)
+        rotations = np.array(F.get('rotations'))
+        np.save(output_folder + '/rotations.npy', rotations)
+        templates = np.array(F.get('templates'))
+        np.save(output_folder + '/templates.npy', templates)
 
 
 def recordings_to_hdf5(recording_folder, output_fname):
@@ -389,14 +391,14 @@ def recordings_to_hdf5(recording_folder, output_fname):
 
     F.create_dataset('info', data=json.dumps(info))
 
-    peaks = np.load(recording_folder + '/peaks.npy')
-    F.create_dataset('peaks', data=peaks)
-    positions = np.load(recording_folder + '/positions.npy')
-    F.create_dataset('positions', data=positions)
+    voltage_peaks = np.load(recording_folder + '/voltage_peaks.npy')
+    F.create_dataset('voltage_peaks', data=voltage_peaks)
+    channel_positions = np.load(recording_folder + '/channel_positions.npy')
+    F.create_dataset('channel_positions', data=channel_positions)
     recordings = np.load(recording_folder + '/recordings.npy')
     F.create_dataset('recordings', data=recordings)
-    sources = np.load(recording_folder + '/sources.npy')
-    F.create_dataset('sources', data=sources)
+    psike_traces = np.load(recording_folder + '/spike_traces.npy')
+    F.create_dataset('spike_traces', data=spike_traces)
     spiketrains = np.load(recording_folder + '/spiketrains.npy')
     for ii in range(len(spiketrains)):
         st = spiketrains[ii]
@@ -414,8 +416,8 @@ def recordings_to_hdf5(recording_folder, output_fname):
         F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
     templates = np.load(recording_folder + '/templates.npy')
     F.create_dataset('templates', data=templates)
-    templates = np.load(recording_folder + '/times.npy')
-    F.create_dataset('times', data=templates)
+    templates = np.load(recording_folder + '/timestamps.npy')
+    F.create_dataset('timestamps', data=timestamps)
     F.close()
 
 
@@ -715,18 +717,18 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drift:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
-                                    # save cell
-                                    pos_sel.append(loc[id_cell])
-                                    idxs_sel.append(id_cell)
-                                    n_sel += 1
-                                    placed = True
+                                # save cell
+                                pos_sel.append(loc[id_cell])
+                                idxs_sel.append(id_cell)
+                                n_sel += 1
+                                placed = True
                             else:
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drift
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
-                                    # save cell
+                                # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
@@ -752,18 +754,18 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drift:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
-                                    # save cell
-                                    pos_sel.append(loc[id_cell])
-                                    idxs_sel.append(id_cell)
-                                    n_sel += 1
-                                    placed = True
+                                # save cell
+                                pos_sel.append(loc[id_cell])
+                                idxs_sel.append(id_cell)
+                                n_sel += 1
+                                placed = True
                             else:
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drift
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
-                                    # save cell
+                                # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
@@ -814,7 +816,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                 print(i, len(permuted_idxs), n_sel)
                 selected_cat.append('U')
 
-    if i == len(permuted_idxs)-1 and n_sel < n_exc + n_inh:
+    if i == len(permuted_idxs) - 1 and n_sel < n_exc + n_inh:
         raise RuntimeError("Templates could not be selected. \n"
                            "Decrease number of spiketrains, decrease 'min-dist', or use more templates.")
 
@@ -910,7 +912,7 @@ def find_overlapping_templates(templates, thresh=0.7):
 
 ### SPIKETRAIN OPERATIONS ###
 
-def annotate_overlapping_spikes(gtst, t_jitt = 1*pq.ms, overlapping_pairs=None, verbose=False, parallel=True):
+def annotate_overlapping_spikes(gtst, t_jitt=1 * pq.ms, overlapping_pairs=None, verbose=False, parallel=True):
     '''
 
     Parameters
@@ -1030,7 +1032,7 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
     elif fs:
         if not isinstance(fs, Quantity):
             raise ValueError("fs must be of type pq.Quantity")
-        binsize = 1./fs
+        binsize = 1. / fs
         binsize.rescale('ms')
         resampled_mat = []
         for sts in spiketrains:
@@ -1050,7 +1052,7 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
 
 ### CONVOLUTION OPERATIONS ###
 
-def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.5, mem_ISI = 10*pq.ms):
+def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.5, mem_ISI=10 * pq.ms):
     '''
 
     Parameters
@@ -1073,7 +1075,7 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
         ISI = stat.isi(st).rescale('ms')
         # mem_ISI = 2*mean_ISI
         amp_mod = np.zeros(len(st))
-        amp_mod[0] = sdrand*np.random.randn() + mrand
+        amp_mod[0] = sdrand * np.random.randn() + mrand
         cons = np.zeros(len(st))
 
         for i, isi in enumerate(ISI):
@@ -1084,10 +1086,10 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                     amp_mod[i + 1] = isi.magnitude ** exp * (1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn()
             else:
                 consecutive = 0
-                bursting=True
+                bursting = True
                 while consecutive < n_spikes and bursting:
-                    if i-consecutive >= 0:
-                        if ISI[i-consecutive] > mem_ISI:
+                    if i - consecutive >= 0:
+                        if ISI[i - consecutive] > mem_ISI:
                             bursting = False
                         else:
                             consecutive += 1
@@ -1096,20 +1098,20 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
 
                 if consecutive == 0:
                     amp_mod[i + 1] = sdrand * np.random.randn() + mrand
-                elif consecutive==1:
+                elif consecutive == 1:
                     amp = (isi / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
                     # scale std by amp
                     amp_mod[i + 1] = amp + amp * sdrand * np.random.randn()
                 else:
                     if i != len(ISI):
-                        isi_mean = np.mean(ISI[i-consecutive+1:i+1])
+                        isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
                     else:
                         isi_mean = np.mean(ISI[i - consecutive + 1:])
-                    amp = (isi_mean/float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                    amp = (isi_mean / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
                     # scale std by amp
                     amp_mod[i + 1] = amp + amp * sdrand * np.random.randn()
 
-                cons[i+1] = consecutive
+                cons[i + 1] = consecutive
     else:
         if n_spikes == 0:
             amp_mod = []
@@ -1118,6 +1120,7 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                 amp_mod.append(sdrand * np.random.randn(n_el) + mrand)
 
     return np.array(amp_mod), cons
+
 
 # TODO use cut outs to align spikes!
 def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, amp_mod=None):
@@ -1151,7 +1154,7 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         if not modulation:
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] +=  temp_jitt
+                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += temp_jitt
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     gt_source[:spos - cut_out[0] + len_spike] += temp_jitt[diff:]
@@ -1162,13 +1165,13 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
             # print('Template-Electrode modulation')
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += amp_mod[pos]*temp_jitt
+                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += amp_mod[pos] * temp_jitt
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    gt_source[:spos - cut_out[0] + len_spike] += amp_mod[pos]*temp_jitt[diff:]
+                    gt_source[:spos - cut_out[0] + len_spike] += amp_mod[pos] * temp_jitt[diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    gt_source[spos - cut_out[0]:] += amp_mod[pos]*temp_jitt[:diff]
+                    gt_source[spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:diff]
     else:
         # print('No modulation')
         for pos, spos in enumerate(spike_pos):
@@ -1184,7 +1187,8 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     return gt_source
 
 
-def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None, modulation=False, amp_mod=None, recordings=[]):
+def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, amp_mod=None,
+                                   recordings=[]):
     '''
 
     Parameters
@@ -1212,9 +1216,9 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
     if len(recordings) == 0:
         recordings = np.zeros((n_elec, n_samples))
     if cut_out is None:
-        cut_out = [len_spike//2, len_spike//2]        
+        cut_out = [len_spike // 2, len_spike // 2]
 
-    # recordings_test = np.zeros((n_elec, n_samples))
+        # recordings_test = np.zeros((n_elec, n_samples))
     if not modulation:
         spike_pos = np.where(spike_bin == 1)[0]
         amp_mod = np.ones_like(spike_pos)
@@ -1237,7 +1241,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                     recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[
-                                                                                                  pos] * template
+                                                                              pos] * template
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
@@ -1252,18 +1256,18 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
             # print('rand_idx: ', rand_idx)
             temp_jitt = template[rand_idx]
             if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                #print('Template modulation')
+                # print('Template modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] +=  amp_mod[pos] * temp_jitt
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp_jitt
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
                     else:
-                        diff = n_samples-(spos - cut_out[0])
+                        diff = n_samples - (spos - cut_out[0])
                         recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
             else:
-                #print('Electrode modulation')
+                # print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
@@ -1274,16 +1278,16 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
                             [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, diff:])]
                         # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
                     else:
-                        diff = n_samples-(spos - cut_out[0])
+                        diff = n_samples - (spos - cut_out[0])
                         recordings[:, spos - cut_out[0]:] += \
                             [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, :diff])]
         else:
             if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                #print('Template modulation')
+                # print('Template modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[
-                                                                                                      pos] * template
+                                                                                  pos] * template
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
@@ -1292,7 +1296,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
                         recordings[:, spos - cut_out[0]:] += amp_mod[pos] * template[:, :diff]
 
             else:
-                #print('Electrode modulation')
+                # print('Electrode modulation')
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
@@ -1303,13 +1307,12 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
                             [a * t for (a, t) in zip(amp_mod[pos], template[:, diff:])]
                         # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
                     else:
-                        diff = n_samples-(spos - cut_out[0])
+                        diff = n_samples - (spos - cut_out[0])
                         recordings[:, spos - cut_out[0]:] += \
                             [a * t for (a, t) in zip(amp_mod[pos], template[:, :diff])]
                         # recordings[:, spos - cut_out[0]:] += amp_mod[pos] * template[:, :diff]
 
-
-    #print('DONE: convolution with spike ', spike_id)
+    # print('DONE: convolution with spike ', spike_id)
 
     return recordings
 
@@ -1351,7 +1354,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     n_step_sample = n_step_sec * int(fs.magnitude)
     dt = 2 ** -5
 
-    mixing = np.zeros((int(n_samples/float(fs.rescale('Hz').magnitude)), n_elec))
+    mixing = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
     if len(recordings) == 0:
         recordings = np.zeros((n_elec, n_samples))
 
@@ -1451,7 +1454,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] \
-                                                                                                  * temp_jitt
+                                                                              * temp_jitt
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
@@ -1571,16 +1574,17 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
     return recordings, final_pos, mixing
 
+
 ### RECORDING OPERATION ###
 
-def extract_wf(spiketrains, recordings, times, fs, n_pad=2):
+def extract_wf(spiketrains, recordings, timestamps, fs, n_pad=2):
     '''
 
     Parameters
     ----------
     spiketrains
     recordings
-    times
+    timestamps
     fs
     n_pad
 
@@ -1589,7 +1593,7 @@ def extract_wf(spiketrains, recordings, times, fs, n_pad=2):
 
     '''
     n_pad = int(n_pad * pq.ms * fs.rescale('kHz'))
-    unit = times[0].rescale('ms').units
+    unit = timestamps[0].rescale('ms').units
 
     nChs, nPts = recordings.shape
 
@@ -1599,18 +1603,18 @@ def extract_wf(spiketrains, recordings, times, fs, n_pad=2):
         first_spike = True
 
         for t in st:
-            idx = np.where(times >= t)[0][0]
+            idx = np.where(timestamps >= t)[0][0]
             # find single waveforms crossing thresholds
             if idx - n_pad > 0 and idx + n_pad < nPts:
-                t_spike = times[idx - n_pad:idx + n_pad]
+                t_spike = timestamps[idx - n_pad:idx + n_pad]
                 spike_rec = recordings[:, idx - n_pad:idx + n_pad]
             elif idx - n_pad < 0:
-                t_spike = times[:idx + n_pad]
+                t_spike = timestamps[:idx + n_pad]
                 t_spike = np.pad(t_spike, (np.abs(idx - n_pad), 0), 'constant') * unit
                 spike_rec = recordings[:, :idx + n_pad]
                 spike_rec = np.pad(spike_rec, ((0, 0), (np.abs(idx - n_pad), 0)), 'constant')
             elif idx + n_pad > nPts:
-                t_spike = times[idx - n_pad:]
+                t_spike = timestamps[idx - n_pad:]
                 t_spike = np.pad(t_spike, (0, idx + n_pad - nPts), 'constant') * unit
                 spike_rec = recordings[:, idx - n_pad:]
                 spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad - nPts)), 'constant')
@@ -1698,15 +1702,17 @@ def raster_plots(st, bintype=False, ax=None, overlap=False, labels=False, color_
                     import seaborn as sns
                     colors = sns.color_palette("Paired", len(color_st))
                     if i in color_st:
-                        idx = np.where(color_st==i)[0][0]
+                        idx = np.where(color_st == i)[0][0]
                         ax.plot(t, i * np.ones_like(t), marker=marker, mew=mew, color=colors[idx], markersize=5, ls='')
                     else:
                         ax.plot(t, i * np.ones_like(t), 'k', marker=marker, mew=mew, markersize=markersize, ls='')
                 elif color is not None:
                     if isinstance(color, list) or isinstance(color, np.ndarray):
-                        ax.plot(t, i * np.ones_like(t), color=color[i], marker=marker, mew=mew, markersize=markersize, ls='')
+                        ax.plot(t, i * np.ones_like(t), color=color[i], marker=marker, mew=mew, markersize=markersize,
+                                ls='')
                     else:
-                        ax.plot(t, i * np.ones_like(t), color=color, marker=marker, mew=mew, markersize=markersize, ls='')
+                        ax.plot(t, i * np.ones_like(t), color=color, marker=marker, mew=mew, markersize=markersize,
+                                ls='')
                 else:
                     ax.plot(t, i * np.ones_like(t), 'k', marker=marker, mew=mew, markersize=markersize, ls='')
             elif overlap:
@@ -1773,7 +1779,7 @@ def plot_templates(templates, mea, single_figure=True):
         rows = int(np.ceil(n_sources / float(cols)))
 
         for n in range(n_sources):
-            ax_t = fig_t.add_subplot(rows, cols, n+1)
+            ax_t = fig_t.add_subplot(rows, cols, n + 1)
             MEA.plot_mea_recording(templates[n], mea, ax=ax_t)
 
     return fig_t

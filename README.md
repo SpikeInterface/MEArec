@@ -92,27 +92,27 @@ Moreover, the user can set the default folders and params yaml files for templat
 
 The command to generate templates is:
 ```
-mearec gen_templates
+mearec gen-templates
 ```
 Run it with `--help` to show available arguments.
 
 In order to check available MEA probes, just run `mearec gen_templates`, or do not provide the `--probe` option.
 During the first run of the scripts, the NEURON model in the `cell_models/bbp/` will be first compiled. Simulation parameters can be changed from the `params/template_params.yaml` file, provided with an external yaml file (with the `--params` option) or overwritten with command line argument. 
 
-EAP templates will be generated and saved in `templates\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model) and they can be loaded with the `tools.load_eaps(path-to-recordings)` function.
+EAP templates will be generated and saved in `templates\<rotation-type>\templates_<n>_<meaname>_<date>` (where n is the number of EAPs per cell model) and they can be loaded with the `MEArec.load_templates(path-to-recordings)` function.
 
 
 ## Recordings generation
 
 The command to generate recordings is:
 ```
-mearec gen_recordings
+mearec gen-recordings
 ```
 Run it with `--help` to show available arguments.
 
 Run the command with `--template` or `-t` option to point to the templates path. In brief, first spike trains are generated with the `SpikeTrainGenerator` class based on the `spiketrain` parameters in the `recording_params`. Then, the templates are selected based on the number of simulated spike trains and other parameters (`templates` parameters in the `recording_params`). Then, templates are convoluted in time with the spikes to create clean recordings. During convolution, single eap can be modulated either at the template level, or at the single electrode level (eith the `--modulation` ot `-m` option - none | template | electrode). Finally, a gaussian noise is added to the clean recordings (`--noise-lev` or `-nl` allows to change the noise sd in uV) and the recordings are filtered (unless the `--no-filter` option is used). All parameters for convolution and noise can be set in the `recordings` parameters in the `recording_params`.
 
-Recordings are saved in `recordings\recording_<neurons>cells_<meaname>_<duration>s_<noise-level>uV_<date>` and they can be loaded with the `tools.load_recordings(path-to-recordings)` function.
+Recordings are saved in `recordings\recording_<neurons>cells_<meaname>_<duration>s_<noise-level>uV_<date>` and they can be loaded with the `MEArec.load_recordings(path-to-recordings)` function.
 
 ## Save and load in hdf5 format
 
