@@ -1232,8 +1232,6 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template,  cut_out=None,
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
-
-            raise Exception()
         else:
             # print('No jitter')
             for pos, spos in enumerate(spike_pos):
