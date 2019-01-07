@@ -5,6 +5,7 @@ import yaml
 import json
 import neo
 import elephant
+import shutil
 import os
 from os.path import join
 import MEAutility as MEA
