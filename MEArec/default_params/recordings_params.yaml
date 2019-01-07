@@ -33,9 +33,9 @@ templates:
   # recording generation parameters
   min_dist: 25 # minimum distance between neurons
   min_amp: 50 # minimum spike amplitude in uV
-  x_lim: null # limits for neuron depths (x-coord) in um [min, max]
-  y_lim: null # limits for neuron depths (y-coord) in um [min, max]
-  z_lim: null # limits for neuron depths (z-coord) in um [min, max]
+  xlim: null # limits for neuron depths (x-coord) in um [min, max]
+  ylim: null # limits for neuron depths (y-coord) in um [min, max]
+  zlim: null # limits for neuron depths (z-coord) in um [min, max]
   overlap_threshold: 0.8 # threshold to consider two templates spatially overlapping
   # (e.g 0.8 -> 80% of template B on largest electrode of template A)
   n_jitters: 10 # number of temporal jittered copies for each eap

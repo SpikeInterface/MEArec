@@ -8,29 +8,12 @@ import yaml
 import shutil
 import MEArec.generators as generators
 from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates, \
-    save_template_generator, save_recording_generator
+    save_template_generator, save_recording_generator, get_default_config
 import pprint
 import time
 
 
-def getDefaultConfig():
-    this_dir, this_filename = os.path.split(__file__)
-    home = os.path.expanduser("~")
-    mearec_home = join(home, '.config', 'mearec')
-    if not os.path.isdir(mearec_home):
-        os.makedirs(mearec_home)
-        shutil.copytree(join(this_dir, 'default_params'), join(mearec_home, 'default_params'))
-        default_info = {'templates_params': join(mearec_home, 'default_params', 'templates_params.yaml'),
-                        'recordings_params': join(mearec_home, 'default_params', 'recordings_params.yaml'),
-                        'templates_folder': join(mearec_home, 'templates'),
-                        'recordings_folder': join(mearec_home, 'recordings'),
-                        'cell_models_folder': ''}
-        with open(join(mearec_home, 'mearec.conf'), 'w') as f:
-            yaml.dump(default_info, f)
-    else:
-        with open(join(mearec_home, 'mearec.conf'), 'r') as f:
-            default_info = yaml.load(f)
-    return default_info, mearec_home
+
 
 
 @click.group()
@@ -69,7 +52,7 @@ def cli():
               help='limits ( low high ) for neuron locations in the x-axis (depth) (default=[10.,80.])')
 @click.option('--ylim', '-yl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the y-axis (default=None)')
-@click.option('--xlim', '-xl', default=None, nargs=2, type=float,
+@click.option('--zlim', '-zl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the z-axis (default=None)')
 @click.option('--det-thresh', '-dt', default=None, type=float,
               help='detection threshold for EAPs (default=30)')
@@ -82,7 +65,7 @@ def cli():
 def gen_templates(params, **kwargs):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
     this_dir, this_filename = os.path.split(__file__)
-    info, config_folder = getDefaultConfig()
+    info, config_folder = get_default_config()
 
     if params is None:
         with open(info['templates_params'], 'r') as pf:
@@ -222,7 +205,7 @@ def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATES and SPIKETRAINS"""
     # Retrieve default_params file
     this_dir, this_filename = os.path.split(__file__)
-    info, config_folder = getDefaultConfig()
+    info, config_folder = get_default_config()
 
     if params is None:
         with open(info['recordings_params'], 'r') as pf:
@@ -389,7 +372,7 @@ def recfromhdf5(h5file, foldername):
 @cli.command()
 def default_config():
     """Print default configurations"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     import pprint
     pprint.pprint(info)
 
@@ -398,7 +381,7 @@ def default_config():
 @click.argument('cell-models-folder')
 def set_cell_models_folder(cell_models_folder):
     """Set default cell_models folder"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     if os.path.isdir(cell_models_folder):
         info['cell_models_folder'] = os.path.abspath(cell_models_folder)
         with open(join(config, 'mearec.conf'), 'w') as f:
@@ -413,7 +396,7 @@ def set_cell_models_folder(cell_models_folder):
 @click.option('--create', is_flag=True, help='if True it creates the directory')
 def set_templates_folder(templates_folder, create):
     """Set default templates output folder"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     templates_folder = os.path.abspath(templates_folder)
     if os.path.isdir(templates_folder):
         info['templates_folder'] = templates_folder
@@ -435,7 +418,7 @@ def set_templates_folder(templates_folder, create):
 @click.option('--create', is_flag=True, help='if True it creates the directory')
 def set_recordings_folder(recordings_folder, create):
     """Set default recordings output folder"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     recordings_folder = os.path.abspath(recordings_folder)
     if os.path.isdir(recordings_folder):
         info['recordings_folder'] = recordings_folder
@@ -456,7 +439,7 @@ def set_recordings_folder(recordings_folder, create):
 @click.argument('templates-params')
 def set_templates_params(templates_params):
     """Set default templates output folder"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     templates_params = os.path.abspath(templates_params)
     if os.path.isfile(templates_params) and (templates_params.endswith('yaml') or templates_params.endswith('yml')):
         info['templates_params'] = templates_params
@@ -471,7 +454,7 @@ def set_templates_params(templates_params):
 @click.argument('recordings-params')
 def set_recordings_params(recordings_params):
     """Set default templates output folder"""
-    info, config = getDefaultConfig()
+    info, config = get_default_config()
     recordings_params = os.path.abspath(recordings_params)
     if os.path.isfile(recordings_params) and (recordings_params.endswith('yaml') or recordings_params.endswith('yml')):
         info['recordings_params'] = recordings_params

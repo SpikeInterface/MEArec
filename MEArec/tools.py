@@ -11,6 +11,28 @@ import MEAutility as MEA
 import h5py
 
 
+### GET DEFAULT SETTINGS ###
+
+def get_default_config():
+    this_dir, this_filename = os.path.split(__file__)
+    home = os.path.expanduser("~")
+    mearec_home = join(home, '.config', 'mearec')
+    if not os.path.isdir(mearec_home):
+        os.makedirs(mearec_home)
+        shutil.copytree(join(this_dir, 'default_params'), join(mearec_home, 'default_params'))
+        default_info = {'templates_params': join(mearec_home, 'default_params', 'templates_params.yaml'),
+                        'recordings_params': join(mearec_home, 'default_params', 'recordings_params.yaml'),
+                        'templates_folder': join(mearec_home, 'templates'),
+                        'recordings_folder': join(mearec_home, 'recordings'),
+                        'cell_models_folder': ''}
+        with open(join(mearec_home, 'mearec.conf'), 'w') as f:
+            yaml.dump(default_info, f)
+    else:
+        with open(join(mearec_home, 'mearec.conf'), 'r') as f:
+            default_info = yaml.load(f)
+    return default_info, mearec_home
+
+
 ### LOAD FUNCTIONS ###
 
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):

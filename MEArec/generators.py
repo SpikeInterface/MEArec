@@ -529,9 +529,12 @@ class RecordingGenerator:
 
             if 'fs' not in rec_params.keys():
                 params['recordings']['fs'] = 1. / temp_info['params']['dt']
+                fs = params['recordings']['fs'] * pq.kHz
             elif params['recordings']['fs'] is None:
                 params['recordings']['fs'] = 1. / temp_info['params']['dt']
-            fs = params['recordings']['fs'] * pq.kHz
+                fs = params['recordings']['fs'] * pq.kHz
+            else:
+                fs = params['recordings']['fs'] * pq.Hz
 
             if 'noise_level' not in rec_params.keys():
                 params['recordings']['noise_level'] = 15
@@ -588,17 +591,17 @@ class RecordingGenerator:
                 params['recordings']['seed'] = np.random.randint(1, 1000)
             noise_seed = params['recordings']['seed']
 
-            if 'x_lim' not in temp_params.keys():
-                params['templates']['x_lim'] = None
-            x_lim = params['templates']['x_lim']
+            if 'xlim' not in temp_params.keys():
+                params['templates']['xlim'] = None
+            x_lim = params['templates']['xlim']
 
-            if 'y_lim' not in temp_params.keys():
-                params['templates']['y_lim'] = None
-            y_lim = params['templates']['y_lim']
+            if 'ylim' not in temp_params.keys():
+                params['templates']['ylim'] = None
+            y_lim = params['templates']['ylim']
 
-            if 'z_lim' not in temp_params.keys():
-                params['templates']['z_lim'] = None
-            z_lim = params['templates']['z_lim']
+            if 'zlim' not in temp_params.keys():
+                params['templates']['zlim'] = None
+            z_lim = params['templates']['zlim']
 
             if 'min_amp' not in temp_params.keys():
                 params['templates']['min_amp'] = 50
@@ -688,6 +691,7 @@ class RecordingGenerator:
             resample = False
             pad_samples = [int((pp * fs).magnitude) for pp in pad_len]
             n_resample = int((fs * spike_duration).magnitude)
+            print(n_resample, templates.shape, fs)
             if templates.shape[2] != n_resample:
                 templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
                 print('Resampling spikes')
