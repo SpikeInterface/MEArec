@@ -4,7 +4,7 @@ long_description = open("README.md").read()
 
 setup(
     name="MEArec",
-    version="1.1.0",
+    version="1.1.1",
     author="Alessio Buccino",
     author_email="alessiob@ifi.uio.no",
     description="Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays.",
