@@ -12,10 +12,6 @@ from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hd
 import pprint
 import time
 
-
-
-
-
 @click.group()
 def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
@@ -128,14 +124,6 @@ def gen_templates(params, **kwargs):
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
-        # if not os.path.isdir(save_folder):
-        #     os.makedirs(save_folder)
-        # np.save(join(save_folder, 'templates'), tempgen.templates)
-        # np.save(join(save_folder, 'locations'), tempgen.locations)
-        # np.save(join(save_folder, 'rotations'), tempgen.rotations)
-        # np.save(join(save_folder, 'celltypes'), tempgen.celltypes)
-        # info = tempgen.info
-        # yaml.dump(info, open(join(save_folder, 'info.yaml'), 'w'), default_flow_style=False)
         save_template_generator(tempgen, save_fname)
         print('\nSaved eap templates in', save_fname, '\n')
 
@@ -260,14 +248,14 @@ def gen_recordings(params, **kwargs):
     if kwargs['tstart'] is not None:
         params_dict['spiketrains']['t_start'] = kwargs['t_start']
     if kwargs['st_seed'] is not None:
-        params_dict['spiketrains']['seed'] = kwargs['seed']
+        params_dict['spiketrains']['seed'] = kwargs['st_seed']
 
     if kwargs['min_dist'] is not None:
         params_dict['templates']['min_dist'] = kwargs['min_dist']
     if kwargs['min_amp'] is not None:
         params_dict['templates']['min_amp'] = kwargs['min_amp']
     if kwargs['temp_seed'] is not None:
-        params_dict['templates']['seed'] = kwargs['seed']
+        params_dict['templates']['seed'] = kwargs['temp_seed']
 
     if kwargs['noise_lev'] is not None:
         params_dict['recordings']['noise_level'] = kwargs['noise_lev']
@@ -286,7 +274,7 @@ def gen_recordings(params, **kwargs):
     else:
         params_dict['recordings']['fs'] = None
     if kwargs['noise_seed'] is not None:
-        params_dict['recordings']['seed'] = kwargs['seed']
+        params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
     if kwargs['extract_wf']:
@@ -308,22 +296,6 @@ def gen_recordings(params, **kwargs):
 
     rec_path = join(recordings_folder, fname)
     save_recording_generator(recgen, rec_path)
-    # if not os.path.isdir(rec_path):
-    #     os.makedirs(rec_path)
-    #
-    # np.save(join(rec_path, 'recordings'), recgen.recordings)
-    # np.save(join(rec_path, 'times'), recgen.times)
-    # np.save(join(rec_path, 'positions'), recgen.positions)
-    # np.save(join(rec_path, 'templates'), recgen.templates)
-    # np.save(join(rec_path, 'spiketrains'), recgen.spiketrains)
-    # np.save(join(rec_path, 'sources'), recgen.sources)
-    # np.save(join(rec_path, 'peaks'), recgen.peaks)
-    #
-    # with open(join(rec_path, 'info.yaml'), 'w') as f:
-    #     yaml.dump(info, f, default_flow_style=False)
-
-    # print('\nSaved recordings in', rec_path, '\n')
-
 
 @cli.command()
 @click.argument('foldername')

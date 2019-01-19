@@ -10,28 +10,31 @@ import os
 from os.path import join
 import MEAutility as MEA
 import h5py
+from pathlib import Path
 
 
 ### GET DEFAULT SETTINGS ###
 
 def get_default_config():
     this_dir, this_filename = os.path.split(__file__)
-    home = os.path.expanduser("~")
-    mearec_home = join(home, '.config', 'mearec')
-    if not os.path.isdir(mearec_home):
-        os.makedirs(mearec_home)
-        shutil.copytree(join(this_dir, 'default_params'), join(mearec_home, 'default_params'))
-        default_info = {'templates_params': join(mearec_home, 'default_params', 'templates_params.yaml'),
-                        'recordings_params': join(mearec_home, 'default_params', 'recordings_params.yaml'),
-                        'templates_folder': join(mearec_home, 'templates'),
-                        'recordings_folder': join(mearec_home, 'recordings'),
-                        'cell_models_folder': ''}
-        with open(join(mearec_home, 'mearec.conf'), 'w') as f:
+    this_dir = Path(this_dir)
+    home = Path(os.path.expanduser("~"))
+    mearec_home = home / '.config' / 'mearec'
+    if not (mearec_home / 'mearec.conf').is_file():
+        mearec_home.mkdir(exist_ok=True)
+        shutil.copytree(str(this_dir / 'default_params'), str(mearec_home / 'default_params'))
+        shutil.copytree(str(this_dir.parent / 'cell_models'), str(mearec_home / 'cell_models'))
+        default_info = {'templates_params': str(mearec_home / 'default_params' / 'templates_params.yaml'),
+                        'recordings_params': str(mearec_home / 'default_params' / 'recordings_params.yaml'),
+                        'templates_folder': str(mearec_home / 'templates'),
+                        'recordings_folder': str(mearec_home / 'recordings'),
+                        'cell_models_folder': str(mearec_home /'cell_models' / 'bbp')}
+        with (mearec_home / 'mearec.conf').open('w') as f:
             yaml.dump(default_info, f)
     else:
-        with open(join(mearec_home, 'mearec.conf'), 'r') as f:
+        with (mearec_home / 'mearec.conf').open() as f:
             default_info = yaml.load(f)
-    return default_info, mearec_home
+    return default_info, str(mearec_home)
 
 
 ### LOAD FUNCTIONS ###
@@ -836,7 +839,6 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
             if placed:
                 n_sel += 1
-                print(i, len(permuted_idxs), n_sel)
                 selected_cat.append('U')
 
     if i == len(permuted_idxs) - 1 and n_sel < n_exc + n_inh:
@@ -1102,7 +1104,10 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
         cons = np.zeros(len(st))
 
         for i, isi in enumerate(ISI):
-            if n_spikes == 1:
+            if n_spikes == 0:
+                # no isi-dependent modulation
+                amp_mod[i + 1] = sdrand * np.random.randn() + mrand
+            elif n_spikes == 1:
                 if isi > mem_ISI:
                     amp_mod[i + 1] = sdrand * np.random.randn() + mrand
                 else:
@@ -1118,6 +1123,9 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                             consecutive += 1
                     else:
                         bursting = False
+
+                # if consecutive >= 1:
+                #     print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
 
                 if consecutive == 0:
                     amp_mod[i + 1] = sdrand * np.random.randn() + mrand
@@ -1137,10 +1145,54 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                 cons[i + 1] = consecutive
     else:
         if n_spikes == 0:
-            amp_mod = []
+            amp_mod = sdrand * np.random.randn(len(st), n_el) + mrand
             cons = []
-            for i, sp in enumerate(st):
-                amp_mod.append(sdrand * np.random.randn(n_el) + mrand)
+        else:
+            ISI = stat.isi(st).rescale('ms')
+            amp_mod = np.zeros((len(st), n_el))
+            amp_mod[0] = sdrand * np.random.randn(n_el) + mrand
+            cons = np.zeros(len(st))
+
+            for i, isi in enumerate(ISI):
+                if n_spikes == 1:
+                    if isi > mem_ISI:
+                        amp_mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
+                    else:
+                        amp_mod[i + 1] = isi.magnitude ** exp * (
+                                    1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn(n_el)
+                else:
+                    consecutive = 0
+                    bursting = True
+                    #TODO fix this
+                    while consecutive < n_spikes and bursting:
+                        if i - consecutive >= 0:
+                            if ISI[i - consecutive] > mem_ISI:
+                                bursting = False
+                            else:
+                                consecutive += 1
+                        else:
+                            bursting = False
+
+                    # if consecutive >= 1:
+                    #     print('Bursting event duration: ', ISI[i - 1 - consecutive], ' with spikes: ', consecutive)
+
+                    if consecutive == 0:
+                        amp_mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
+                    elif consecutive == 1:
+                        amp = (isi / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                        # scale std by amp
+                        amp_mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
+                    else:
+                        if i != len(ISI):
+                            isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
+                        else:
+                            isi_mean = np.mean(ISI[i - consecutive + 1:])
+                        amp = (isi_mean / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                        # scale std by amp
+                        amp_mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
+
+                    cons[i + 1] = consecutive
+
 
     return np.array(amp_mod), cons
 

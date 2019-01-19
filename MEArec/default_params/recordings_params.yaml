@@ -20,7 +20,6 @@ spiketrains:
   process: poisson # process for spike train simulation (poisson-gamma)
   gamma_shape: 2 # gamma shape (for gamma process)
   seed: null # random seed for spiketrain generation
-
   t_start: 0 # start time in s
   duration: 10 # duration in s
 
@@ -46,15 +45,21 @@ templates:
 recordings:
   fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
   noise_level: 10 # noise standard deviation in uV
-  noise_mode: uncorrelated # so far only uncorrelated is implemented
+  noise_mode: uncorrelated # [uncorrelated | distance-correlated]
+  noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
   seed: null # random seed for noise generation
   filter: True # if True it filters the recordings
   cutoff: [300, 6000] # filter cutoff frequencies in Hz
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
-  # electrode (each electrode is modulated separately)]
+    # electrode (each electrode is modulated separately) |
+    # template-isi (spike amplitude is modulated depending on isi interval with the same value on each electrode)
+    # electrode-isi (spike amplitude is modulated depending on isi interval and each electrode is modulated separately)]
   mrand: 1 # mean of gaussian modulation (should be 1)
   sdrand:  0.05 # standard deviation of gaussian modulation
+  exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
+  n_isi: 10 # max number of 'bursting' consecutive spikes
+  mem_isi: 100 # duration in ms of maximum burst modulation
   chunk_conv_duration: 0 # chunk duration in s for convolution processing (if 0 the entire recordings are generated at once)
   chunk_noise_duration: 0 # chunk duration for noise addition
   chunk_filter_duration: 0 # chunk duration for filtering
