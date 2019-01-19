@@ -1,2 +1,2 @@
 nrnivmodl ./mechanisms
-./run_RmpRiTau.py "$@"
+run_RmpRiTau.py "$@"

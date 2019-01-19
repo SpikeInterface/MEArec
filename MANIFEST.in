@@ -2,4 +2,4 @@ include README.md
 include LICENSE
 
 recursive-include MEArec/default_params *.yaml
-recursive-include cell_models *
+recursive-include MEArec/cell_models *

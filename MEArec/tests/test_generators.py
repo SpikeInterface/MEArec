@@ -15,7 +15,7 @@ class TestGenerators(unittest.TestCase):
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])
-        self.n = 2
+        self.n = 5
         with open(info['templates_params']) as f:
             templates_params = yaml.load(f)
 

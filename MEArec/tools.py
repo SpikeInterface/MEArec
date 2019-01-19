@@ -23,7 +23,7 @@ def get_default_config():
     if not (mearec_home / 'mearec.conf').is_file():
         mearec_home.mkdir(exist_ok=True)
         shutil.copytree(str(this_dir / 'default_params'), str(mearec_home / 'default_params'))
-        shutil.copytree(str(this_dir.parent / 'cell_models'), str(mearec_home / 'cell_models'))
+        shutil.copytree(str(this_dir / 'cell_models'), str(mearec_home / 'cell_models'))
         default_info = {'templates_params': str(mearec_home / 'default_params' / 'templates_params.yaml'),
                         'recordings_params': str(mearec_home / 'default_params' / 'recordings_params.yaml'),
                         'templates_folder': str(mearec_home / 'templates'),
