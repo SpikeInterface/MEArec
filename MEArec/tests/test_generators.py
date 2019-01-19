@@ -21,7 +21,9 @@ class TestGenerators(unittest.TestCase):
 
         templates_params['n'] = self.n
         templates_params['probe'] = 'Neuronexus-32'
-        self.tempgen = mr.gen_templates(cell_models_folder, params=templates_params, parallel=True, delete_tmp=True)
+        templates_folder = info['templates_folder']
+        self.tempgen = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
+                                        params=templates_params, parallel=True, delete_tmp=True)
         self.templates_params = templates_params
         self.num_chan = self.tempgen.templates.shape[1]
 

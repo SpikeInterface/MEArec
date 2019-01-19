@@ -190,6 +190,7 @@ class SpikeTrainGenerator:
             print("Using default parameters")
             params = {}
         self.params = copy(params)
+        print('Spiketrains seed: ', self.params['seed'])
         np.random.seed(self.params['seed'])
 
         if 't_start' not in self.params.keys():
@@ -627,7 +628,7 @@ class RecordingGenerator:
                 n_exc = [st.annotations['type'] for st in spiketrains].count('E')
                 n_inh = n_neurons - n_exc
 
-            print('SEED: ', temp_seed)
+            print('Templates selection seed: ', temp_seed)
             np.random.seed(temp_seed)
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
                                                         z_lim=z_lim,
@@ -875,6 +876,7 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
+            print('Noise seed: ', noise_seed)
             np.random.seed(noise_seed)
             if noise_level > 0:
                 if noise_mode == 'uncorrelated':
