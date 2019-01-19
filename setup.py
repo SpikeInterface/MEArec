@@ -26,6 +26,8 @@ setup(
         'neo',
         'elephant',
         'h5py',
+        'mpi4py',
+        'LFPy',
         'MEAutility'
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
