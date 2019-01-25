@@ -671,7 +671,7 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
-                     min_amp=None, drift=False, drift_dir_ang=[], preferred_dir=None, ang_tol=30, verbose=False):
+                     min_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, ang_tol=30, verbose=False):
     '''
 
     Parameters
@@ -686,7 +686,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     y_lim
     z_lim
     min_amp
-    drift
+    drifting
     drift_dir_ang
     preferred_dir
     ang_tol
@@ -715,8 +715,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     if not min_amp:
         min_amp = 0
 
-    if drift:
-        if len(drift_dir_ang) == 0 or preferred_dir == None:
+    if drifting:
+        if drift_dir_ang is None or preferred_dir is None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
     placed_exc = 0
@@ -741,7 +741,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                         pass
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
-                        if not drift:
+                        if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
@@ -752,7 +752,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
-                            # drift
+                            # drifting
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
@@ -778,7 +778,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                         pass
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
-                        if not drift:
+                        if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
@@ -789,7 +789,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
-                            # drift
+                            # drifting
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
@@ -814,7 +814,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                 pass
             else:
                 amp = np.max(np.abs(spikes[id_cell]))
-                if not drift:
+                if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                         # save cell
                         pos_sel.append(loc[id_cell])
@@ -824,7 +824,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                         if verbose:
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
-                    # drift
+                    # drifting
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                         # save cell
                         if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
@@ -1163,7 +1163,6 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                 else:
                     consecutive = 0
                     bursting = True
-                    #TODO fix this
                     while consecutive < n_spikes and bursting:
                         if i - consecutive >= 0:
                             if ISI[i - consecutive] > mem_ISI:
@@ -1393,7 +1392,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
 
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
-                                            modulation=False, amp_mod=None, recordings=[], n_step_sec=1):
+                                            cut_out=None, modulation=False, amp_mod=None, recordings=[], n_step_sec=1):
     '''
 
     Parameters
@@ -1427,7 +1426,9 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     dur = (n_samples / fs).rescale('s').magnitude
     t_steps = np.arange(0, dur, n_step_sec)
     n_step_sample = n_step_sec * int(fs.magnitude)
-    dt = 2 ** -5
+    dt = 1. / fs.magnitude
+    if cut_out is None:
+        cut_out = [len_spike // 2, len_spike // 2]
 
     mixing = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
     if len(recordings) == 0:

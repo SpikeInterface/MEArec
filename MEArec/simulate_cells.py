@@ -14,8 +14,6 @@ from os.path import join
 import sys
 from glob import glob
 import numpy as np
-import LFPy
-import neuron
 import MEAutility as MEA
 import yaml
 import time
@@ -96,6 +94,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     cell : object
         LFPy cell object
     """
+    import LFPy
     import neuron
     neuron.h.load_file("stdrun.hoc")
     neuron.h.load_file("import3d.hoc")
@@ -367,6 +366,14 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     det_thresh = kwargs['det_thresh']
     MEAname = kwargs['probe']
     offset = kwargs['offset']
+    drifting = kwargs['drifting']
+    if drifting:
+        max_drift = kwargs['max_drift']
+        min_drift = kwargs['min_drift']
+        drift_steps = kwargs['drift_steps']
+        drift_x_lim = kwargs['drift_x_lim']
+        drift_y_lim = kwargs['drift_y_lim']
+        drift_z_lim = kwargs['drift_z_lim']
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
@@ -386,7 +393,6 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     # load MEA info
     elinfo = MEA.return_mea_info(electrode_name=MEAname)
-    elinfo['offset'] = offset
 
     # Create save folder
     save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
@@ -449,19 +455,99 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         cell.imem = i_spikes[spike_idx, :, :]
         cell.somav = v_spikes[spike_idx, :]
 
-        espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
-                                                             [x_lim, y_lim, z_lim], rotation, pos=position)
-        if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
-            save_spikes.append(espikes)
-            save_pos.append(pos)
-            save_rot.append(rot)
-            save_offs.append(offs)
-            plot_spike = False
-            print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
-            saved += 1
-        else:
-            pass
 
+        if not drifting:
+            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
+                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
+            if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+                save_spikes.append(espikes)
+                save_pos.append(pos)
+                save_rot.append(rot)
+                save_offs.append(offs)
+                plot_spike = False
+                print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
+                saved += 1
+        else:
+            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
+                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
+            if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
+                    pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
+                    pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
+                if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+                    drift_ok = False
+                    # fix rotation while drifting
+                    cell.set_rotation(rot[0], rot[1], rot[2])
+                    max_trials = 100
+                    tr = 0
+                    while not drift_ok and tr < max_trials:
+                        init_pos = pos
+                        # find drifting final position within drift limits
+                        x_rand = np.random.uniform(init_pos[0] + drift_x_lim[0], init_pos[0] + drift_x_lim[1])
+                        y_rand = np.random.uniform(init_pos[1] + drift_y_lim[0], init_pos[1] + drift_y_lim[1])
+                        z_rand = np.random.uniform(init_pos[2] + drift_z_lim[0], init_pos[2] + drift_z_lim[1])
+                        final_pos = [x_rand, y_rand, z_rand]
+                        drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
+
+                        # check location and boundaries
+                        if drift_dist < max_drift and drift_dist > min_drift and \
+                                x_rand > x_lim[0] and x_rand < x_lim[1] and \
+                                y_rand > y_lim[0] and y_rand < y_lim[1] and \
+                                z_rand > z_lim[0] and z_rand < z_lim[1]:
+                            espikes, pos, rot_, offs = return_extracellular_spike(cell, cell_name, 'bbp',
+                                                                                  electrode_parameters,
+                                                                                  [x_lim, y_lim, z_lim],
+                                                                                  rotation=None,
+                                                                                  pos=final_pos)
+                            # check final position spike amplitude
+                            if (np.max(np.abs(espikes)) >= det_thresh).any():
+                                print('Found final drifting position')
+                                drift_ok = True
+                            else:
+                                tr += 1
+                                pass
+                        else:
+                            tr += 1
+                            pass
+
+                    # now compute drifting templates
+                    if drift_ok:
+                        drift_spikes = []
+                        drift_pos = []
+                        drift_rot = []
+                        drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
+                        drift_dir = np.array(final_pos) - np.array(init_pos)
+                        for i, dp in enumerate(np.linspace(0, 1, drift_steps)):
+                            pos_drift = init_pos + dp * drift_dir
+                            espikes, pos, r_, offs = return_extracellular_spike(cell, cell_name, 'bbp',
+                                                                                electrode_parameters,
+                                                                                [x_lim, y_lim, z_lim],
+                                                                                rotation=None,
+                                                                                pos=pos_drift)
+                            drift_spikes.append(espikes)
+                            drift_pos.append(pos)
+                            drift_rot.append(rot)
+
+                        # reverse rotation
+                        rev_rot = [-r for r in rot]
+                        cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
+
+                        drift_spikes = np.array(drift_spikes)
+                        drift_pos = np.array(drift_pos)
+                        print('Drift done from ', init_pos, ' to ', final_pos, ' with ', drift_steps, ' steps')
+
+                        save_spikes.append(drift_spikes)
+                        save_pos.append(drift_pos)
+                        save_rot.append(rot)
+                        save_offs.append(offs)
+                        print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' +
+                              str(target_num_spikes) + ']')
+                        saved += 1
+                    else:
+                        print('Discarded for trials')
+                else:
+                    pass
+            else:
+                print('Discarded position: ', pos)
         i += 1
 
     save_spikes = np.array(save_spikes)
@@ -547,6 +633,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
     --------
     Extracellular spike for each MEA contact site
     """
+    import LFPy
 
     def get_xyz_angles(R):
         ''' Get rotation angles for each axis from rotation matrix
@@ -689,28 +776,29 @@ def return_extracellular_spike(cell, cell_name, model_type,
                 z_rot = z_rot + z_rot_offset
                 break
     else:
+        rotation = None
         x_rot = 0
         y_rot = 0
         z_rot = 0
 
-    '''Move neuron randomly'''
-    x_rand = np.random.uniform(limits[0][0], limits[0][1])
-    y_rand = np.random.uniform(limits[1][0], limits[1][1])
-    z_rand = np.random.uniform(limits[2][0], limits[2][1])
-
-    if pos == None:
+    if pos is None:
+        '''Move neuron randomly'''
+        x_rand = np.random.uniform(limits[0][0], limits[0][1])
+        y_rand = np.random.uniform(limits[1][0], limits[1][1])
+        z_rand = np.random.uniform(limits[2][0], limits[2][1])
         cell.set_pos(x_rand, y_rand, z_rand)
+        pos = [x_rand, y_rand, z_rand]
     else:
         cell.set_pos(pos[0], pos[1], pos[2])
     cell.set_rotation(x=x_rot, y=y_rot, z=z_rot)
-    pos = [x_rand, y_rand, z_rand]
     rot = [x_rot, y_rot, z_rot]
 
     electrodes.calc_lfp()
 
     # Reverse rotation to bring cell back into initial rotation state
-    rev_rot = [-rot[e] for e in range(len(rot))]
-    cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
+    if rotation is not None:
+        rev_rot = [-r for r in rot]
+        cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
 
     return 1000 * electrodes.LFP, pos, rot, electrodes.offsets
 
