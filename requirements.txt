@@ -5,4 +5,3 @@ MEAutility
 elephant
 click
 h5py
-LFPy==2.0
