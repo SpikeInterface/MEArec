@@ -7,7 +7,6 @@ spiketrains:
 
   # rates: [3,3,5] # individual spike trains rates
   # types: ['e', 'e', 'i'] # individual spike trains class (exc-inh)
-
   # alternative to rates - excitatory and inhibitory settings
   n_exc: 2 # number of excitatory cells
   n_inh: 1 # number of inhibitory cells

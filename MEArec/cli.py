@@ -17,7 +17,7 @@ def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
     pass
 
-
+#TODO add drifting args
 @cli.command()
 @click.option('--params', '-prm', default=None,
               help='path to default_params.yaml (otherwise default default_params are used and some of the parameters'

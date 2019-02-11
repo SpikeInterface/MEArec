@@ -37,7 +37,7 @@ class simulationThread(threading.Thread):
 
 
 class TemplateGenerator:
-    def __init__(self, *, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
+    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
                  params=None, intraonly=False, parallel=True, delete_tmp=True):
         from .simulate_cells import run_cell_model, calc_extracellular
         if temp_dict is not None and info is not None:
@@ -718,7 +718,7 @@ class RecordingGenerator:
 
             templates_pad = []
             templates_spl = []
-            # TODO check padding
+
             print('Padding template edges')
             for t, tem in enumerate(templates_pol):
                 if not drifting:

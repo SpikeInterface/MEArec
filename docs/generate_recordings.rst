@@ -1,0 +1,121 @@
+.. _gen-recordings:
+
+Generating Recordings
+=====================
+
+
+Spike trains generation
+-----------------------
+
+
+Parameters summary
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+    spiketrains:
+      # Default parameters for spike train generation (spiketrain_gen.py)
+
+      # spike train generation parameters
+
+      # rates: [3,3,5] # individual spike trains rates
+      # types: ['e', 'e', 'i'] # individual spike trains class (exc-inh)
+      # alternative to rates - excitatory and inhibitory settings
+      n_exc: 2 # number of excitatory cells
+      n_inh: 1 # number of inhibitory cells
+      f_exc: 5 # average firing rate of excitatory cells in Hz
+      f_inh: 15 # average firing rate of inhibitory cells in Hz
+      st_exc: 1 # firing rate standard deviation of excitatory cells in Hz
+      st_inh: 3 # firing rate standard deviation of inhibitory cells in Hz
+      min_rate: 0.5 # minimum firing rate in Hz
+      ref_per: 2 # refractory period in ms
+      process: poisson # process for spike train simulation (poisson-gamma)
+      gamma_shape: 2 # gamma shape (for gamma process)
+      seed: null # random seed for spiketrain generation
+      t_start: 0 # start time in s
+      duration: 10 # duration in s
+
+
+Recording generation
+--------------------
+
+Specyfying excitatory and inhibitory cell-types
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+    cell_types:
+      # excitatory and inhibitory cell names
+      excitatory: ['STPC', 'TTPC1', 'TTPC2', 'UTPC']
+      inhibitory: ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC', 'NGC', 'SBC']
+
+Template selection and parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+    templates:
+      # recording generation parameters
+      min_dist: 25 # minimum distance between neurons
+      min_amp: 50 # minimum spike amplitude in uV
+      xlim: null # limits for neuron depths (x-coord) in um [min, max]
+      ylim: null # limits for neuron depths (y-coord) in um [min, max]
+      zlim: null # limits for neuron depths (z-coord) in um [min, max]
+      overlap_threshold: 0.8 # threshold to consider two templates spatially overlapping
+      # (e.g 0.8 -> 80% of template B on largest electrode of template A)
+      n_jitters: 10 # number of temporal jittered copies for each eap
+      upsample: 8 # upsampling factor to extract jittered copies
+      pad_len: [3, 3] # padding of templates in ms
+      seed: null # random seed to draw eap templates
+
+
+Other recordings settings
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+.. code-block:: bash
+
+    recordings:
+      fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
+      noise_level: 10 # noise standard deviation in uV
+      noise_mode: uncorrelated # [uncorrelated | distance-correlated]
+      noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+      seed: null # random seed for noise generation
+      filter: True # if True it filters the recordings
+      cutoff: [300, 6000] # filter cutoff frequencies in Hz
+      modulation: electrode # type of spike modulation [none (no modulation) |
+        # template (each spike instance is modulated with the same value on each electrode) |
+        # electrode (each electrode is modulated separately) |
+        # template-isi (spike amplitude is modulated depending on isi interval with the same value on each electrode)
+        # electrode-isi (spike amplitude is modulated depending on isi interval and each electrode is modulated separately)]
+      mrand: 1 # mean of gaussian modulation (should be 1)
+      sdrand:  0.05 # standard deviation of gaussian modulation
+      exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
+      n_isi: 10 # max number of 'bursting' consecutive spikes
+      mem_isi: 100 # duration in ms of maximum burst modulation
+      chunk_conv_duration: 0 # chunk duration in s for convolution processing (if 0 the entire recordings are generated at once)
+      chunk_noise_duration: 0 # chunk duration for noise addition
+      chunk_filter_duration: 0 # chunk duration for filtering
+      overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+      extract_waveforms: False # if True, waveforms are extracted from recordings
+
+
+Drifting recordings
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+      drifting: False # if True templates are drifted
+      preferred_dir: 90  # preferred drifting direction (90 is positive z)
+      angle_tol: 15  # tollerance for direction (e.g. preferred_dir = 90 and angle_tol = 15 -> dir: [75, 105]
+      drift_velocity: 300  # drift velocity in um/min
+      t_start_drift: 0  # tim in s from which drifting starts
+
+Running recording generation using CLI
+--------------------------------------
+
+Running recording generation using Python
+-----------------------------------------
+
+The RecordingGenerator object
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

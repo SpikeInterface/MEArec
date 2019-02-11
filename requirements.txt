@@ -1,8 +1,8 @@
-LFPy==2.0
+numpy
+matplotlib
 pyyaml
 MEAutility
-matplotlib
 elephant
 click
 h5py
-ipython
+LFPy==2.0
