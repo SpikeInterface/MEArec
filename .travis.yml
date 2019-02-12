@@ -12,7 +12,7 @@ addons:
     - gfortran
 install:
 - source continuous_integration/install.sh
-- pip install matplotlib
+- pip install matplotlib mpi4py LFPy
 - pip install .
 - pip install pytest
 script: pytest
