@@ -51,6 +51,15 @@ On Linux systems you also need install libncurses:
 
     sudo apt install lib32ncurses5-dev
 
+Installing LFPy
+---------------
+
+LFPy is used to generate extracellular templates. It is not installed by default, but it can be easily installed with:
+
+.. code-block:: bash
+
+    pip install LFPy
+
 
 Test the installation
 ---------------------
