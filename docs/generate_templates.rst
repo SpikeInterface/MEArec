@@ -32,7 +32,7 @@ folder of the default output templates folder, so that currents do not need to b
 
 
 Intracellular parameters summary
-********************************
+"""""""""""""""""""""""""""""""""""""
 
 .. code-block:: bash
 
@@ -60,26 +60,27 @@ in 3d.
 
 The :code:`probe` parameter allows the user to choose which neural probe has to be used. Probes are handled with the
 `MEAutility <https://github.com/alejoe91/MEAutility>`_ package (automatically instlled), and can be
-(`custom designed <https://github.com/alejoe91/MEAutility>`_). There is a number of pre-installed probes, such as
+(`custom designed <https://meautility.readthedocs.io/en/latest/mea_definitions.html>`_).
+There is a number of pre-installed probes, such as
 Neuronexus-32, Neuropixels, tetrodes, and various square MEAs with varying pitches and sizes. The default probe is the
-`Neuronexus-32 <neuronexus...>`_.
-The MEA probes are located on the yz plane, with an adjustable x-offset (:code:`offset`) set to 0 $\mu$m by default.
+Neuronexus-32 (`A1x32-Poly3 <http://neuronexus.com/electrode-array/a1x32-poly3-5mm-25s-177/>`_).
+The MEA probes are located on the yz plane, with an adjustable x-offset (:code:`offset`) set to 0 :math:`\mu m` by default.
 
 The limits for the locations of cells can be set using the :code:`xlim`, :code:`ylim`, and :code:`zlim`. If set to
 :code:`null` (default for :code:`ylim` and :code:`zlim`), the boundary is set by the maximum and minimum electrode
-position in the respective axis plus the :code:`overhang` parameter, which is 30 $\mu$m by default.
+position in the respective axis plus the :code:`overhang` parameter, which is 30 :math:`\mu m` by default.
 
 The :code:`ncontacts` parameter can be used to simulate the spatial extent of the electrodes. For example, if set to 10,
 10 points will be randomly drawn from the area of each electrode and the resulting potential is computed as the average
 of the 10 electric potentials of those points.
 
-Only templates larger than the :code:`det_thresh` parameter (30 $\mu$V by default) will be saved.
+Only templates larger than the :code:`det_thresh` parameter (30 :math:`\mu V` by default) will be saved.
 
 For reproducibility, the :code:`seed` can be manually set by the user (if :code:`null` a random seed is used).
 
 
 Extracellular parameters summary
-********************************
+"""""""""""""""""""""""""""""""""""""
 .. code-block:: bash
 
     # extracellular simulation settings
@@ -95,6 +96,7 @@ Extracellular parameters summary
     n: 50 # number of EAPs per cell model
     seed: null # random seed for positions and rotations
 
+.. _drift-templates:
 
 Drifting templates
 ------------------
@@ -105,7 +107,7 @@ generated. Note that drifting recordings can be simulated ONLY from drifting tem
 To generate drifting, set the :code:`drifting` parameter to :code:`True`.
 Drifting is simulated as follows: first, an initial position is chosen so that the resulting EAP is above the detection
 threshold. Second, a final position is chosen so that i) the EAP is above threshold and ii) the drifting distance is
-between :code:`min_drift` (defualt 20 $\mu$m) and :code:`max_drift` defualt 100 $\mu$m. Third, the neuron is moved along
+between :code:`min_drift` (defualt 20 :math:`\mu m`) and :code:`max_drift` defualt 100 :math:`\mu m`. Third, the neuron is moved along
 the straight line connecting the initial and final position for :code:`drift_steps` points (default 50).
 The :code:`drift_x_lim`, :code:`drift_y_lim`, and :code:`drift_z_lim` can be used to decide the drift directions. For
 example, in the default case :code:`drift_x_lim` is [-10, 10], :code:`drift_y_lim` is [-10, 10], and :code:`drift_z_lim`
@@ -113,7 +115,7 @@ is [20, 80] and the final position will be pointing upwards in the z-direction, 
 y-axes.
 
 Drifting parameters summary
-***************************
+"""""""""""""""""""""""""""
 
 .. code-block:: bash
 
@@ -164,7 +166,7 @@ The :code:`TemplateGenerator` class contains several fields:
 * locations: (n_templates) 3D locations for the templates (for not drifting) or (n_templates, n_drift_steps) 3D locations for drifting templates.
 * rotations: (n_templates) 3D rotations applied to the cell model before computing the template (for drifting templates rotation is fixed)
 * celltypes: (n_templates) cell types of the generated templates
-* info: dictionary with parameters used.
+* info: dictionary with parameters used
 
 :code:`TemplateGenerator` can be saved to .h5 files as follows:
 

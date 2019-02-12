@@ -17,7 +17,7 @@ def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
     pass
 
-#TODO add drifting args
+
 @cli.command()
 @click.option('--params', '-prm', default=None,
               help='path to default_params.yaml (otherwise default default_params are used and some of the parameters'
@@ -56,8 +56,22 @@ def cli():
               help='random seed for template generation (int)')
 @click.option('--intraonly', '-io', is_flag=True,
               help='only run intracellular simulations')
-@click.option('--parallel', '-par', is_flag=True,
+@click.option('--no-parallel', '-nopar', is_flag=True,
               help='run with multiprocessing tool')
+@click.option('--drifting', '-dr', is_flag=True,
+              help='generate drifting templates')
+@click.option('--min-drift', '-mind', type=float,
+              help='miniumum drifting distance')
+@click.option('--max-drift', '-maxd', type=float,
+              help='maximum drifting distance')
+@click.option('--drift-steps', '-drst', type=int,
+              help='number of drift steps')
+@click.option('--drift-xlim', '-dxl', default=None, nargs=2, type=float,
+              help='limits ( low high ) for neuron drift locations in the x-axis (depth) (default=[10.,80.])')
+@click.option('--drift-ylim', '-dyl', default=None, nargs=2, type=float,
+              help='limits ( low high ) for neuron drift locations in the y-axis (default=None)')
+@click.option('--drift-zlim', '-dzl', default=None, nargs=2, type=float,
+              help='limits ( low high ) for neuron drift locations in the z-axis (default=None)')
 def gen_templates(params, **kwargs):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
     this_dir, this_filename = os.path.split(__file__)
@@ -88,11 +102,13 @@ def gen_templates(params, **kwargs):
     params_dict['seed'] = seed
 
     if kwargs['folder'] is not None:
+        templates_folder = kwargs['folder']
         params_dict['templates_folder'] = kwargs['folder']
     else:
         templates_folder = info['templates_folder']
     intraonly = kwargs['intraonly']
 
+    # TODO add missing params
     if kwargs['rot'] is not None:
         params_dict['rot'] = kwargs['rot']
     if kwargs['n'] is not None:
@@ -105,11 +121,38 @@ def gen_templates(params, **kwargs):
         params_dict['offset'] = kwargs['offset']
     if kwargs['det_thresh'] is not None:
         params_dict['det_thresh'] = kwargs['det_thresh']
+    if kwargs['xlim'] is not None:
+        params_dict['xlim'] = kwargs['xlim']
+    if kwargs['ylim'] is not None:
+        params_dict['ylim'] = kwargs['ylim']
+    if kwargs['zlim'] is not None:
+        params_dict['zlim'] = kwargs['zlim']
+
+    if kwargs['drifting']:
+        params_dict['drifting'] = True
+    else:
+        params_dict['drifting'] = False
+    if kwargs['min_drift'] is not None:
+        params_dict['min_drift'] = kwargs['min_drift']
+    if kwargs['max_drift'] is not None:
+        params_dict['max_drift'] = kwargs['max_drift']
+    if kwargs['drift_steps'] is not None:
+        params_dict['drift_steps'] = kwargs['drift_steps']
+    if kwargs['drift_xlim'] is not None:
+        params_dict['drift_xlim'] = kwargs['drift_xlim']
+    if kwargs['drift_ylim'] is not None:
+        params_dict['drift_ylim'] = kwargs['drift_ylim']
+    if kwargs['drift_zlim'] is not None:
+        params_dict['drift_zlim'] = kwargs['drift_zlim']
+
     if kwargs['probe'] is not None:
         params_dict['probe'] = kwargs['probe']
     else:
         intraonly = True
-    parallel = kwargs['parallel']
+    if kwargs['no_parallel']:
+        parallel = True
+    else:
+        parallel = False
     params_dict['templates_folder'] = templates_folder
 
     tempgen = generators.gen_templates(model_folder, params_dict, templates_folder, intraonly, parallel)
@@ -128,6 +171,7 @@ def gen_templates(params, **kwargs):
         print('\nSaved eap templates in', save_fname, '\n')
 
 
+#TODO add drifting args
 @cli.command()
 @click.option('--templates', '-t', default=None,
               help='eap templates path')
@@ -189,8 +233,18 @@ def gen_templates(params, **kwargs):
               help='if True it annotates overlapping spikes')
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
+@click.option('--drifting', '-dr', is_flag=True,
+              help='generate drifting recordings')
+@click.option('--preferred-dir', '-prd', type=float,
+              help='preferred drifting direction (90 is positive z-direction)')
+@click.option('--angle-tol', '-angt', type=float,
+              help='angle tollerance for preferred direction')
+@click.option('--drift-velocity', '-drvel', type=float,
+              help='drift velocity in um/min')
+@click.option('--t-start-drift', '-tsd', type=float,
+              help='drifting start time in s')
 def gen_recordings(params, **kwargs):
-    """Generates recordings from TEMPLATES and SPIKETRAINS"""
+    """Generates recordings from TEMPLATESS"""
     # Retrieve default_params file
     this_dir, this_filename = os.path.split(__file__)
     info, config_folder = get_default_config()
@@ -279,6 +333,19 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['overlap'] = True
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
+
+    if kwargs['drifting']:
+        params_dict['recordings']['drifting'] = True
+    else:
+        params_dict['recordings']['drifting'] = False
+    if kwargs['preferred_dir'] is not None:
+        params_dict['recordings']['preferred_dir'] = kwargs['preferred_dir']
+    if kwargs['angle_tol']:
+        params_dict['recordings']['angle_tol'] = kwargs['angle_tol']
+    if kwargs['drift_velocity']:
+        params_dict['recordings']['drift_velocity'] = kwargs['drift_velocity']
+    if kwargs['t_start_drift']:
+        params_dict['recordings']['t_start_drift'] = kwargs['t_start_drift']
 
     recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict)
     info = recgen.info
