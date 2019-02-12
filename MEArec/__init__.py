@@ -3,4 +3,4 @@ from MEArec.tools import load_templates, load_recordings, hdf5_to_templates, \
     get_default_config
 from MEArec.generators import gen_recordings, gen_templates, RecordingGenerator, TemplateGenerator, SpikeTrainGenerator
 
-__version__ = '1.1.1'
+__version__ = '1.1.2'
