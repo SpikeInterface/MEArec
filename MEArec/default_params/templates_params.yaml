@@ -23,7 +23,7 @@ det_thresh: 30 # detection threshold for EAPs
 n: 50 # number of EAPs per cell model
 seed: null # random seed for positions and rotations
 
-drifting: True # if True, drifting templates are simulated
+drifting: False # if True, drifting templates are simulated
 max_drift: 100 # max distance from the initial and final cell position
 min_drift: 30  # min distance from the initial and final cell position
 drift_steps: 50 # number of drift steps
