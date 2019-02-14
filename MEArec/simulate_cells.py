@@ -550,6 +550,10 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 print('Discarded position: ', pos)
         i += 1
 
+    # Method of Images for semi-infinite planes
+    if elinfo['type'] == 'mea':
+        save_spikes = save_spikes * 2
+
     save_spikes = np.array(save_spikes)
     save_pos = np.array(save_pos)
     save_rot = np.array(save_rot)
