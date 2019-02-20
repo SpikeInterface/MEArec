@@ -7,8 +7,7 @@ import numpy as np
 import yaml
 import shutil
 import MEArec.generators as generators
-from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates, \
-    save_template_generator, save_recording_generator, get_default_config
+from MEArec import save_template_generator, save_recording_generator, get_default_config
 import pprint
 import time
 
@@ -211,12 +210,12 @@ def gen_templates(params, **kwargs):
               help='minumum eap amplitude in uV (default=50)')
 @click.option('--fs', default=None, type=float,
               help='sampling frequency in kHz (default from templates sampling frequency)')
+@click.option('--sync-rate', '-sr', default=0, type=float,
+              help='added synchrony rate on spatially overlapping spikes')
 @click.option('--noise-lev', '-nl', default=None, type=int,
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
               help='modulation type')
-@click.option('--chunk-conv', '-chc', default=None, type=float,
-              help='chunk duration in s for chunk convolution (default 0)')
 @click.option('--chunk-noise', '-chn', default=None, type=float,
               help='chunk duration in s for chunk noise (default 0)')
 @click.option('--chunk-filt', '-chf', default=None, type=float,
@@ -231,6 +230,8 @@ def gen_templates(params, **kwargs):
               help='if True no filter is applied')
 @click.option('--overlap', is_flag=True,
               help='if True it annotates overlapping spikes')
+@click.option('--overlap-thresh', '-ot', type=float,
+              help='overlap threshold for spatial overlap')
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
 @click.option('--drifting', '-dr', is_flag=True,
@@ -246,7 +247,6 @@ def gen_templates(params, **kwargs):
 def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATESS"""
     # Retrieve default_params file
-    this_dir, this_filename = os.path.split(__file__)
     info, config_folder = get_default_config()
 
     if params is None:
@@ -310,13 +310,14 @@ def gen_recordings(params, **kwargs):
         params_dict['templates']['min_amp'] = kwargs['min_amp']
     if kwargs['temp_seed'] is not None:
         params_dict['templates']['seed'] = kwargs['temp_seed']
+    if kwargs['overlap_thresh'] is not None:
+        params_dict['templates']['overlap_threshold'] = kwargs['overlap_thresh']
 
     if kwargs['noise_lev'] is not None:
         params_dict['recordings']['noise_level'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
         params_dict['recordings']['modulation'] = kwargs['modulation']
-    if kwargs['chunk_conv'] is not None:
-        params_dict['recordings']['chunk_conv_duration'] = kwargs['chunk_conv']
+
     if kwargs['chunk_noise'] is not None:
         params_dict['recordings']['chunk_noise_duration'] = kwargs['chunk_noise']
     if kwargs['chunk_filt'] is not None:
@@ -327,6 +328,10 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['fs'] = kwargs['fs']
     else:
         params_dict['recordings']['fs'] = None
+    if kwargs['sync_rate'] is not None:
+        params_dict['recordings']['sync_rate'] = kwargs['sync_rate']
+    else:
+        params_dict['recordings']['sync_rate'] = 0
     if kwargs['noise_seed'] is not None:
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
@@ -363,49 +368,6 @@ def gen_recordings(params, **kwargs):
 
     rec_path = join(recordings_folder, fname)
     save_recording_generator(recgen, rec_path)
-
-@cli.command()
-@click.argument('foldername')
-@click.argument('h5file')
-def temptohdf5(foldername, h5file):
-    """Convert templates to hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        h5file = h5file + '.h5'
-    templates_to_hdf5(foldername, h5file)
-    print("Saved: ", h5file)
-
-
-@cli.command()
-@click.argument('h5file')
-@click.argument('foldername')
-def tempfromhdf5(h5file, foldername):
-    """Convert templates from hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        raise AttributeError("'h5file' is not an hdf5 file")
-    hdf5_to_templates(h5file, foldername)
-    print("Saved: ", foldername)
-
-
-@cli.command()
-@click.argument('foldername')
-@click.argument('h5file')
-def rectohdf5(foldername, h5file):
-    """Convert recordings to hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        h5file = h5file + '.h5'
-    recordings_to_hdf5(foldername, h5file)
-    print("Saved: ", h5file)
-
-
-@cli.command()
-@click.argument('h5file')
-@click.argument('foldername')
-def recfromhdf5(h5file, foldername):
-    """Convert recordings from hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        raise AttributeError("'h5file' is not an hdf5 file")
-    hdf5_to_recordings(h5file, foldername)
-    print("Saved: ", foldername)
 
 
 @cli.command()

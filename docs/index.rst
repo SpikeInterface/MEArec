@@ -24,7 +24,7 @@ and plotting functions.
    generate_templates
    generate_recordings
    plotting
-
+   api
 
 Contact
 =======

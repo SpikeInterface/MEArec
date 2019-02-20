@@ -136,6 +136,10 @@ its corresponding spike train.
 The :code:`fs` parameters permits to resample the recordings and if it is not provided recordings are created with the
 same sampling frequency as the templates.
 
+If :code:`sync_rate` is greater than 0 (and <= 1, default is 0), synchrony is added to spatially overlapping templates.
+For example, if :code:`sync_rate` is 0.2, 1 out of 5 spikes on spike trains with overlapping templates will be temporally
+coincident.
+
 The :code:`modulation` parameter is extremely important, as it controls the variablility of the amplitude modulation:
 * if :code:`modulation` id :code:`none`, spikes are not modulated and each instance will have the same aplitude
 * if :code:`modulation` id :code:`template`, each spike event is modulated with the same amplitude for all electrodes
@@ -154,8 +158,6 @@ During a bursting event, the amplitude modulation, previous to the gaussian one,
 where :math:`amp_{mod}` is the resulting amplitude modulation, :math:`avg_{ISI}` is the average ISI so far during the
 bursting event, :math:`n_{consecutive}` is the number of spikes occurred in the bursting period (maximum is
 :code:`n_isi`) and :code:`exp` is the exponent of the decay (0.2 by default).
-Optionally, convolution can be performed by splitting the recording in smaller chunks (:code:`chunk_conv_duration`), but
-it is not recommended (default value is 0).
 
 Next, noise is added to to the clean recordings. Two different noise modes can be used (using the :code:`noise_mode`
 parameter):
@@ -178,6 +180,7 @@ Recordings parameters section summary
 
     recordings:
       fs: null # sampling frequency in kHz
+      sync_rate: 0 # added synchrony rate for spatilly overlapping templates
       modulation: electrode # type of spike modulation [none (no modulation) |
         # template (each spike instance is modulated with the same value on each electrode) |
         # electrode (each electrode is modulated separately) |

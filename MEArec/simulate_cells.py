@@ -94,6 +94,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     cell : object
         LFPy cell object
     """
+    import mpi4py.MPI
     import LFPy
     import neuron
     neuron.h.load_file("stdrun.hoc")
@@ -459,6 +460,10 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         if not drifting:
             espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
                                                                  [x_lim, y_lim, z_lim], rotation, pos=position)
+            # Method of Images for semi-infinite planes
+            if elinfo['type'] == 'mea':
+                espikes = espikes * 2
+
             if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
                 save_spikes.append(espikes)
                 save_pos.append(pos)
@@ -470,6 +475,11 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         else:
             espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
                                                                  [x_lim, y_lim, z_lim], rotation, pos=position)
+
+            # Method of Images for semi-infinite planes
+            if elinfo['type'] == 'mea':
+                espikes = espikes * 2
+
             if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
                     pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
                     pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
@@ -550,14 +560,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 print('Discarded position: ', pos)
         i += 1
 
-    # Method of Images for semi-infinite planes
-    if elinfo['type'] == 'mea':
-        save_spikes = save_spikes * 2
-
     save_spikes = np.array(save_spikes)
     save_pos = np.array(save_pos)
     save_rot = np.array(save_rot)
-    save_offs = np.array(save_offs)
 
     np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
     np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)

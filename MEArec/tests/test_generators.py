@@ -11,7 +11,8 @@ import quantities as pq
 
 
 class TestGenerators(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])

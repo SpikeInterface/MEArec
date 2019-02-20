@@ -671,7 +671,7 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
-                     min_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, ang_tol=30, verbose=False):
+                     min_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15, verbose=False):
     '''
 
     Parameters
@@ -689,7 +689,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     drifting
     drift_dir_ang
     preferred_dir
-    ang_tol
+    angle_tol
     verbose
 
     Returns
@@ -755,7 +755,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             # drifting
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
                                     n_sel += 1
@@ -792,7 +792,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             # drifting
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
                                     n_sel += 1
@@ -827,7 +827,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     # drifting
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                         # save cell
-                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                             pos_sel.append(loc[id_cell])
                             idxs_sel.append(id_cell)
                             placed = True
@@ -915,25 +915,27 @@ def find_overlapping_templates(templates, thresh=0.7):
     '''
     overlapping_pairs = []
 
-    for i in range(templates.shape[0] - 1):
-        temp_1 = templates[i]
-        max_ptp = (np.array([np.ptp(t) for t in temp_1]).max())
-        max_ptp_idx = (np.array([np.ptp(t) for t in temp_1]).argmax())
+    for i, temp_1 in enumerate(templates):
+        if len(templates.shape) == 4: # jitter
+            temp_1 = temp_1[0]
 
-        for j in range(i + 1, templates.shape[0]):
-            temp_2 = templates[j]
-            ptp_on_max = np.ptp(temp_2[max_ptp_idx])
+        peak_1 = np.abs(np.min(temp_1))
+        peak_electrode_idx = np.unravel_index(temp_1.argmin(), temp_1.shape)
 
-            max_ptp_2 = (np.array([np.ptp(t) for t in temp_2]).max())
+        for j, temp_2 in enumerate(templates):
+            if len(templates.shape) == 4:  # jitter
+                temp_2 = temp_2[0]
 
-            max_peak = np.max([ptp_on_max, max_ptp])
-            min_peak = np.min([ptp_on_max, max_ptp])
+            if i != j:
+                peak_2_on_max = np.abs(np.min(temp_2[peak_electrode_idx]))
+                peak_2 = np.abs(np.min(temp_2))
 
-            if min_peak > thresh * max_peak and ptp_on_max > thresh * max_ptp_2:
-                overlapping_pairs.append([i, j])  # , max_ptp_idx, max_ptp, ptp_on_max
+                # max_peak_2 = (np.array([np.max(np.abs(t)) for t in temp_2]).max())
+                if peak_2_on_max > thresh * peak_2:
+                    if [i, j] not in overlapping_pairs and [j, i] not in overlapping_pairs:
+                        overlapping_pairs.append(sorted([i, j]))
 
     return np.array(overlapping_pairs)
-
 
 ### SPIKETRAIN OPERATIONS ###
 
