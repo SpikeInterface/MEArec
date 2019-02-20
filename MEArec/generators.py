@@ -424,7 +424,6 @@ class SpikeTrainGenerator:
         unit = times2.units
         added_spikes = 0
 
-        # TODO check this
         for t1 in st1:
             rand = np.random.rand()
             if rand <= rate:
