@@ -27,6 +27,6 @@ drifting: False # if True, drifting templates are simulated
 max_drift: 100 # max distance from the initial and final cell position
 min_drift: 30  # min distance from the initial and final cell position
 drift_steps: 50 # number of drift steps
-drift_x_lim: [-10, 10] # limits ( low high ) for neuron drift locations in the x-axis (depth)
-drift_y_lim: [-10, 10] # limits ( low high ) for neuron drift locations in the y-axis (depth)
-drift_z_lim: [20, 80] # limits ( low high ) for neuron drift locations in the z-axis (depth)
+drift_xlim: [-10, 10] # limits ( low high ) for neuron drift locations in the x-axis (depth)
+drift_ylim: [-10, 10] # limits ( low high ) for neuron drift locations in the y-axis (depth)
+drift_zlim: [20, 80] # limits ( low high ) for neuron drift locations in the z-axis (depth)

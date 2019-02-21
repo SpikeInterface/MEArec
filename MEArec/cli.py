@@ -120,11 +120,11 @@ def gen_templates(params, **kwargs):
         params_dict['offset'] = kwargs['offset']
     if kwargs['det_thresh'] is not None:
         params_dict['det_thresh'] = kwargs['det_thresh']
-    if kwargs['xlim'] is not None:
+    if kwargs['xlim'] is not None and len(kwargs['xlim']) == 2:
         params_dict['xlim'] = kwargs['xlim']
-    if kwargs['ylim'] is not None:
+    if kwargs['ylim'] is not None and len(kwargs['ylim']) == 2:
         params_dict['ylim'] = kwargs['ylim']
-    if kwargs['zlim'] is not None:
+    if kwargs['zlim'] is not None and len(kwargs['zlim']) == 2:
         params_dict['zlim'] = kwargs['zlim']
 
     if kwargs['drifting']:
@@ -137,11 +137,11 @@ def gen_templates(params, **kwargs):
         params_dict['max_drift'] = kwargs['max_drift']
     if kwargs['drift_steps'] is not None:
         params_dict['drift_steps'] = kwargs['drift_steps']
-    if kwargs['drift_xlim'] is not None:
+    if kwargs['drift_xlim'] is not None and len(kwargs['drift_xlim']) == 2:
         params_dict['drift_xlim'] = kwargs['drift_xlim']
-    if kwargs['drift_ylim'] is not None:
+    if kwargs['drift_ylim'] is not None and len(kwargs['drift_ylim']) == 2:
         params_dict['drift_ylim'] = kwargs['drift_ylim']
-    if kwargs['drift_zlim'] is not None:
+    if kwargs['drift_zlim'] is not None and len(kwargs['drift_zlim']) == 2:
         params_dict['drift_zlim'] = kwargs['drift_zlim']
 
     if kwargs['probe'] is not None:
@@ -374,7 +374,6 @@ def gen_recordings(params, **kwargs):
 def default_config():
     """Print default configurations"""
     info, config = get_default_config()
-    import pprint
     pprint.pprint(info)
 
 

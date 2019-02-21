@@ -1172,8 +1172,6 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
     else:
         params_dict = None
 
-    pprint(params_dict)
-
     if templates_folder is not None:
         if not os.path.isdir(templates_folder):
             os.makedirs(templates_folder)

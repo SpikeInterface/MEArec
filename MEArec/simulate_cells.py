@@ -372,9 +372,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         max_drift = kwargs['max_drift']
         min_drift = kwargs['min_drift']
         drift_steps = kwargs['drift_steps']
-        drift_x_lim = kwargs['drift_x_lim']
-        drift_y_lim = kwargs['drift_y_lim']
-        drift_z_lim = kwargs['drift_z_lim']
+        drift_x_lim = kwargs['drift_xlim']
+        drift_y_lim = kwargs['drift_ylim']
+        drift_z_lim = kwargs['drift_zlim']
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
@@ -456,10 +456,11 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         cell.imem = i_spikes[spike_idx, :, :]
         cell.somav = v_spikes[spike_idx, :]
 
-
         if not drifting:
-            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
-                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
+            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type='bbp',
+                                                                 electrode_parameters=electrode_parameters,
+                                                                 limits=[x_lim, y_lim, z_lim], rotation=rotation,
+                                                                 pos=position)
             # Method of Images for semi-infinite planes
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
