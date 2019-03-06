@@ -33,7 +33,7 @@ def get_default_config():
             yaml.dump(default_info, f)
     else:
         with (mearec_home / 'mearec.conf').open() as f:
-            default_info = yaml.load(f)
+            default_info = yaml.load(f, Loader=yaml.FullLoader)
     return default_info, str(mearec_home)
 
 
@@ -150,7 +150,7 @@ def load_templates(templates, verbose=False):
             celltypes = np.load(join(templates_folder, 'celltypes.npy'))
             temp_dict.update({'celltypes': celltypes})
         with open(join(templates_folder, 'info.yaml'), 'r') as f:
-            info = yaml.load(f)
+            info = yaml.load(f, Loader=yaml.FullLoader)
     elif templates.endswith('h5') or templates.endswith('hdf5'):
         with h5py.File(templates, 'r') as F:
             info = json.loads(str(F['info'][()]))
@@ -212,7 +212,7 @@ def load_recordings(recordings, verbose=False):
             voltage_peaks = np.load(join(recording_folder, 'voltage_peaks.npy'))
             rec_dict.update({'voltage_peaks': voltage_peaks})
         with open(join(recording_folder, 'info.yaml'), 'r') as f:
-            info = yaml.load(f)
+            info = yaml.load(f, Loader=yaml.FullLoader)
     elif recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
             info = json.loads(str(F['info'][()]))
@@ -413,7 +413,7 @@ def recordings_to_hdf5(recording_folder, output_fname):
     F = h5py.File(output_fname, 'w')
 
     with open(recording_folder + '/info.yaml', 'r') as f:
-        info = yaml.load(f)
+        info = yaml.load(f, )
 
     F.create_dataset('info', data=json.dumps(info))
 
@@ -451,7 +451,7 @@ def templates_to_hdf5(templates_folder, output_fname):
     F = h5py.File(output_fname, 'w')
 
     with open(templates_folder + '/info.yaml', 'r') as f:
-        info = yaml.load(f)
+        info = yaml.load(f, Loader=yaml.FullLoader)
 
     F.create_dataset('info', data=json.dumps(info))
 

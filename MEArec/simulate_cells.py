@@ -841,7 +841,7 @@ if __name__ == '__main__':
         params_path = sys.argv[3]
 
         with open(params_path, 'r') as f:
-            params = yaml.load(f)
+            params = yaml.load(f, Loader=yaml.FullLoader)
 
         sim_folder = params['templates_folder']
         cell_folder = params['cell_models_folder']

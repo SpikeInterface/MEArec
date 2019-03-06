@@ -1080,7 +1080,7 @@ def gen_recordings(params=None, templates=None, tempgen=None):
     if isinstance(params, str):
         if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
             with open(params, 'r') as pf:
-                params_dict = yaml.load(pf)
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
     elif isinstance(params, dict):
         params_dict = params
     else:
@@ -1166,7 +1166,7 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
     if isinstance(params, str):
         if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
             with open(params, 'r') as pf:
-                params_dict = yaml.load(pf)
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
     elif isinstance(params, dict):
         params_dict = params
     else:

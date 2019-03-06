@@ -35,7 +35,7 @@ The following are the Python requirements, which are installed when running the 
 Installing NEURON
 -----------------
 
-The template generation requires NEURON. The code is tested using version 7.5,
+The template generation requires NEURON. The code is tested using version 7.5 and 7.6.4,
 that can be downloaded `here <https://neuron.yale.edu/ftp/neuron/versions/>`_. If you are running a Linux system
 add:
 
@@ -45,11 +45,11 @@ add:
 
 to your .bashrc.
 
-On Linux systems you also need install libncurses:
+On Linux systems you also need install libncurses and libreadlines:
 
 .. code-block:: bash
 
-    sudo apt install lib32ncurses5-dev
+    sudo apt install lib32ncurses5-dev libreadlines-dev
 
 Installing LFPy
 ---------------

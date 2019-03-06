@@ -78,10 +78,10 @@ def gen_templates(params, **kwargs):
 
     if params is None:
         with open(info['templates_params'], 'r') as pf:
-            params_dict = yaml.load(pf)
+            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf)
+            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
@@ -251,10 +251,10 @@ def gen_recordings(params, **kwargs):
 
     if params is None:
         with open(info['recordings_params'], 'r') as pf:
-            params_dict = yaml.load(pf)
+            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf)
+            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
