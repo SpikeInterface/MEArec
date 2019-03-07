@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 
 long_description = open("README.md").read()
 
+
 setup(
     name="MEArec",
     version="1.1.4",
