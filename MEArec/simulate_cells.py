@@ -14,9 +14,15 @@ from os.path import join
 import sys
 from glob import glob
 import numpy as np
-import MEAutility as MEA
+import MEAutility as mu
 import yaml
 import time
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 
 def get_templatename(f):
@@ -393,7 +399,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     target_num_spikes = int(nobs)
 
     # load MEA info
-    elinfo = MEA.return_mea_info(electrode_name=MEAname)
+    elinfo = mu.return_mea_info(electrode_name=MEAname)
 
     # Create save folder
     save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
@@ -403,7 +409,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
-    mea = MEA.return_mea(info=elinfo)
+    mea = mu.return_mea(info=elinfo)
     pos = mea.positions
 
     elec_x = pos[:, 0]
@@ -841,7 +847,10 @@ if __name__ == '__main__':
         params_path = sys.argv[3]
 
         with open(params_path, 'r') as f:
-            params = yaml.load(f, Loader=yaml.FullLoader)
+            if use_loader:
+                params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                params = yaml.load(f)
 
         sim_folder = params['templates_folder']
         cell_folder = params['cell_models_folder']

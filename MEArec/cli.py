@@ -1,7 +1,7 @@
 import os
 from os.path import join
 import time
-import MEAutility as MEA
+import MEAutility as mu
 import click
 import numpy as np
 import yaml
@@ -10,6 +10,12 @@ import MEArec.generators as generators
 from MEArec import save_template_generator, save_recording_generator, get_default_config
 import pprint
 import time
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 @click.group()
 def cli():
@@ -78,14 +84,20 @@ def gen_templates(params, **kwargs):
 
     if params is None:
         with open(info['templates_params'], 'r') as pf:
-            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
-        MEA.return_mea()
+        mu.return_mea()
         return
 
     if kwargs['cellfolder'] is not None:
@@ -251,10 +263,16 @@ def gen_recordings(params, **kwargs):
 
     if params is None:
         with open(info['recordings_params'], 'r') as pf:
-            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)

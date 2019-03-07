@@ -12,14 +12,19 @@ import os
 from os.path import join
 from copy import copy
 from MEArec.tools import *
-import MEAutility as MEA
+import MEAutility as mu
 import threading
 import shutil
 import yaml
 from pprint import pprint
 import quantities as pq
 from quantities import Quantity
+from distutils.version import StrictVersion
 
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 class simulationThread(threading.Thread):
     def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
@@ -94,7 +99,7 @@ class TemplateGenerator:
             if 'rot' not in params.keys():
                 params['rot'] = 'physrot'
             if 'probe' not in params.keys():
-                available_mea = MEA.return_mea_list()
+                available_mea = mu.return_mea_list()
                 probe = available_mea[np.random.randint(len(available_mea))]
                 print("Probe randomly set to: %s" % probe)
                 params['probe'] = probe
@@ -170,7 +175,7 @@ class TemplateGenerator:
             self.rotations = rotations
             self.celltypes = celltypes
             self.info['params'] = params
-            self.info['electrodes'] = MEA.return_mea_info(probe)
+            self.info['electrodes'] = mu.return_mea_info(probe)
 
 
 class SpikeTrainGenerator:
@@ -632,10 +637,10 @@ class RecordingGenerator:
 
             # load MEA info
             electrode_name = temp_info['electrodes']['electrode_name']
-            elinfo = MEA.return_mea_info(electrode_name)
+            elinfo = mu.return_mea_info(electrode_name)
             offset = temp_info['params']['offset']
             elinfo['offset'] = offset
-            mea = MEA.return_mea(info=elinfo)
+            mea = mu.return_mea(info=elinfo)
             mea_pos = mea.positions
 
             params['recordings'].update({'duration': float(duration.magnitude),
@@ -1080,7 +1085,10 @@ def gen_recordings(params=None, templates=None, tempgen=None):
     if isinstance(params, str):
         if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
             with open(params, 'r') as pf:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+                if use_loader:
+                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+                else:
+                    params_dict = yaml.load(pf)
     elif isinstance(params, dict):
         params_dict = params
     else:
@@ -1166,7 +1174,10 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
     if isinstance(params, str):
         if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
             with open(params, 'r') as pf:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+                if use_loader:
+                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+                else:
+                    params_dict = yaml.load(pf)
     elif isinstance(params, dict):
         params_dict = params
     else:
