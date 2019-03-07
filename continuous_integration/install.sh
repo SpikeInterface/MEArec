@@ -2,9 +2,9 @@
 export PATH=$HOME/.local/nrn/x86_64/bin:$PATH
 
 cd $HOME
-wget http://www.neuron.yale.edu/ftp/neuron/versions/v7.4/nrn-7.4.tar.gz
-tar -xf nrn-7.4.tar.gz
-cd nrn-7.4
+wget http://www.neuron.yale.edu/ftp/neuron/versions/v7.6/nrn-7.6.4.tar.gz
+tar -xf nrn-7.6.4.tar.gz
+cd nrn-7.6
 echo "installing NEURON:"
 echo "running sh build.sh"
 sh build.sh > /dev/null
