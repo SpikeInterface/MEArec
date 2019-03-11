@@ -1144,8 +1144,6 @@ def gen_recordings(params=None, templates=None, tempgen=None):
     else:
         params_dict = {}
 
-    pprint(params_dict)
-
     if 'spiketrains' not in params_dict:
         params_dict['spiketrains'] = {}
     if 'templates' not in params_dict:

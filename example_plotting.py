@@ -1,29 +1,28 @@
-from __future__ import print_function
-
 '''Examples on how to load and plot templates, spike trains, recordings'''
+
 import matplotlib.pylab as plt
 from MEArec import tools
-import MEAutility as MEA
+import MEAutility as mu
 
-template_folder = None # insert here the template path
-recording_folder = None # insert here the recording path
-
-
-if template_folder is not None:
-    temp_dict, temp_info = tools.load_templates(template_folder)
-    electrode_name = temp_info['electrodes']['electrode_name']
-    mea = MEA.return_mea(electrode_name)
-
-    MEA.plot_mea_recording(temp_dict['templates'][0], mea)
+template_file = None  # insert here the templates path
+recording_file = None  # insert here the recordings path
 
 
-if recording_folder is not None:
-    rec_dict, rec_info = tools.load_recordings(recording_folder)
-    electrode_name = rec_info['recordings']['electrode_name']
-    mea = MEA.return_mea(electrode_name)
-    
-    MEA.plot_mea_recording(rec_dict['recordings'], mea)
-    tools.raster_plots(rec_dict['spiketrains'])
+if template_file is not None:
+    tempgen = tools.load_templates(template_file)
+    electrode_info = tempgen.info['electrodes']
+    mea = mu.return_mea(info=electrode_info)
+
+    mu.plot_mea_recording(tempgen.templates[0], mea)
+
+
+if recording_file is not None:
+    recgen = tools.load_templates(template_file)
+    electrode_info = recgen.info['electrodes']
+    mea = mu.return_mea(info=electrode_info)
+
+    mu.plot_mea_recording(recgen.recordings, mea)
+    tools.raster_plots(recgen.spiketrains)
 
 plt.ion()
 plt.show()
