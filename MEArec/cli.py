@@ -218,8 +218,10 @@ def gen_templates(params, **kwargs):
               help='start time in s (default=0)')
 @click.option('--min-dist', '-md', default=None, type=int,
               help='minumum distance between neuron in um (default=25)')
-@click.option('--min-amp', '-ma', default=None, type=int,
+@click.option('--min-amp', '-mina', default=None, type=int,
               help='minumum eap amplitude in uV (default=50)')
+@click.option('--max-amp', '-maxa', default=None, type=int,
+              help='maximum eap amplitude in uV (default=inf)')
 @click.option('--fs', default=None, type=float,
               help='sampling frequency in kHz (default from templates sampling frequency)')
 @click.option('--sync-rate', '-sr', default=0, type=float,
@@ -234,6 +236,16 @@ def gen_templates(params, **kwargs):
               help='chunk duration in s for chunk filter (default 0)')
 @click.option('--noise-seed', '-nseed', default=None, type=int,
               help='random seed for noise')
+@click.option('--half-dist', '-hd', default=None, type=float,
+              help='when noise is distance-correlated the distance at which covariance is 0.5 (default=30)')
+@click.option('--color-noise', '-cn', is_flag=True,
+              help='if True noise is colored')
+@click.option('--color-peak', '-cp', default=None, type=float,
+              help='peak for noise in Hz (default 500 Hz)')
+@click.option('--color-q', '-cq', default=None, type=float,
+              help='quality factor for noise filter (default=1)')
+@click.option('--random-noise-floor', '-rnf', default=None, type=float,
+              help='noise floor in std of additive noide (default 1)')
 @click.option('--st-seed', '-stseed', default=None, type=int,
               help='random seed for spike trains')
 @click.option('--temp-seed', '-tseed', default=None, type=int,
@@ -326,6 +338,8 @@ def gen_recordings(params, **kwargs):
         params_dict['templates']['min_dist'] = kwargs['min_dist']
     if kwargs['min_amp'] is not None:
         params_dict['templates']['min_amp'] = kwargs['min_amp']
+    if kwargs['max_amp'] is not None:
+        params_dict['templates']['max_amp'] = kwargs['max_amp']
     if kwargs['temp_seed'] is not None:
         params_dict['templates']['seed'] = kwargs['temp_seed']
     if kwargs['overlap_thresh'] is not None:
@@ -356,6 +370,19 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['overlap'] = True
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
+
+    if kwargs['half_dist'] is not None:
+        params_dict['recordings']['half_dist'] = kwargs['half_dist']
+    if kwargs['color_noise']:
+        params_dict['recordings']['noise_color'] = True
+    else:
+        params_dict['recordings']['noise_color'] = False
+    if kwargs['color_peak'] is not None:
+        params_dict['recordings']['color_peak'] = kwargs['color_peak']
+    if kwargs['color_q'] is not None:
+        params_dict['recordings']['color_q'] = kwargs['color_q']
+    if kwargs['random_noise_floor'] is not None:
+        params_dict['recordings']['random_noise_floor'] = kwargs['random_noise_floor']
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True

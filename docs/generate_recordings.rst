@@ -92,7 +92,8 @@ Templates are selected so that they match the excitatory-inhibitory spike trains
 provided) and they follow the following rules:
 
 * neuron locations cannot be closer than the :code:`min_dist` parameter (default 25 :math:`\mu m`)
-* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`)
+* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`) and at most :code:`max_amp`
+(default 500 :math:`\mu V`)
 * if specified, neuron locations are selected within the :code:`xlim`, :code:`ylim`, and :code:`zlim` limits
 
 Once the templates are selected and matched to the corresponding spike train, temporal jitter is added to them to
@@ -102,9 +103,9 @@ sampling period. During convolution, randomly a jittered version of the spike is
 Finally, the templates are linearly padded on both sides (:code:`pad_len` by default pads 3 ms before and 3 after the
 duration of the template) to ensure a smooth convolution.
 
-The :code:`overlap_threshold` allows to define spatially overlapping templates. For example, if set to 0.8 (by default)
+The :code:`overlap_threshold` allows to define spatially overlapping templates. For example, if set to 0.9 (by default)
 template A and template B are marked as overlapping if on the electrode with the largest peak for template A, template
-B's amplitude is greater or equal than the 80% of its peak amplitude.
+B's amplitude is greater or equal than the 90% of its peak amplitude.
 
 The :code:`seed` parameter, randomly set if :code:`null`, ensures reproducibility.
 
@@ -117,6 +118,7 @@ Templates parameters section summary
       # recording generation parameters
       min_dist: 25 # minimum distance between neurons
       min_amp: 50 # minimum spike amplitude in uV
+      max_amp: 500 # minimum spike amplitude in uV
       xlim: null # limits for neuron depths (x-coord) in um [min, max]
       ylim: null # limits for neuron depths (y-coord) in um [min, max]
       zlim: null # limits for neuron depths (z-coord) in um [min, max]
@@ -165,6 +167,14 @@ parameter):
 2. :code:`distance-correlated`: noise is generated as a multivariate normal with covariance matrix decaying with distance between electrodes. The :code:`noise_half_distance` parameter is the distance for which correlation is 0.5.
 Noise can be added in chunks (:code:`chunk_noise_duration`) as for long recordings the user can run into :code:`MemoryError`.
 
+In order to simulate noise that resembles experimental noise, one can use the :code:`noise_color` option (default is False),
+so that the noise spectrum is similar to biological noise.
+If :code:`noise_color` is True, the gaussian noise is filtered with an IIR resonant filter with a peak at :code:`color_peak`
+(default 500) and quality factor :code:`color_q` (default 1). Moreover, a gaussian noise floor is added to the noise.
+The amplitude of the gaussian added noise is controlled by :code:`random_noise_floor` (default 1), which is the percent
+of gaussian noise over the colored noise (when :code:`random_noise_floor=1` 50% of the noise is additive gaussian. The final
+noise level is adjusted so that the overall standard deviation is equal to :code:`noise_level`.
+
 Finally, and optionally, the recordings can be filtered (if :code:`filter` is :code:`True`) with a bandpass filter with
 :code:`cutoff` frequencies ([300, 6000] by default). Also filtering can be applied in chunks
 (:code:`chunk_filter_duration`).
@@ -193,8 +203,11 @@ Recordings parameters section summary
       mem_isi: 100 # duration in ms of maximum burst modulation
       chunk_conv_duration: 0 # chunk duration in s for convolution processing (if 0 the entire recordings are generated at once)
       noise_level: 10 # noise standard deviation in uV
-      noise_mode: uncorrelated # [uncorrelated | distance-correlated]
+      noise_color: False # if True noise is colored resembling experimental noise
       noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+      color_peak: 500 # (color) peak / curoff frequency of resonating filter
+      color_q: 1 # (color) quality factor of resonating filter
+      random_noise_floor: 1 # (color) additional noise floor
       chunk_noise_duration: 0 # chunk duration for noise addition
       seed: null # random seed for noise generation
       filter: True # if True it filters the recordings

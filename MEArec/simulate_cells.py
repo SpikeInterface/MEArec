@@ -370,7 +370,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     x_lim = kwargs['xlim']
     y_lim = kwargs['ylim']
     z_lim = kwargs['zlim']
-    det_thresh = kwargs['det_thresh']
+    min_amp = kwargs['min_amp']
     MEAname = kwargs['probe']
     offset = kwargs['offset']
     drifting = kwargs['drifting']
@@ -471,7 +471,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
 
-            if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+            if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -490,7 +490,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
             if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
                     pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
                     pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
-                if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+                if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
                     drift_ok = False
                     # fix rotation while drifting
                     cell.set_rotation(rot[0], rot[1], rot[2])
@@ -516,7 +516,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                                                                                   rotation=None,
                                                                                   pos=final_pos)
                             # check final position spike amplitude
-                            if (np.max(np.abs(espikes)) >= det_thresh).any():
+                            if (np.max(np.abs(espikes)) >= min_amp).any():
                                 print('Found final drifting position')
                                 drift_ok = True
                             else:

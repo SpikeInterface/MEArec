@@ -19,7 +19,7 @@ offset: 0 # plane offset (um) for MEA
 xlim: [10,80] # limits ( low high ) for neuron locations in the x-axis (depth)
 ylim: null # limits ( low high ) for neuron locations in the y-axis
 zlim: null # limits ( low high ) for neuron locations in the z-axis
-det_thresh: 30 # detection threshold for EAPs
+min_amp: 30 # minimum amplitude for detection
 n: 50 # number of EAPs per cell model
 seed: null # random seed for positions and rotations
 

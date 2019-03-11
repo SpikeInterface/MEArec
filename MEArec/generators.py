@@ -500,6 +500,10 @@ class RecordingGenerator:
                 params['recordings']['noise_mode'] = 'uncorrelated'
             noise_mode = params['recordings']['noise_mode']
 
+            if 'noise_color' not in rec_params.keys():
+                params['recordings']['noise_color'] = False
+            noise_color = params['recordings']['noise_color']
+
             if 'sync_rate' not in rec_params.keys():
                 params['recordings']['sync_rate'] = 0
             sync_rate = params['recordings']['sync_rate']
@@ -508,6 +512,17 @@ class RecordingGenerator:
                 if 'half_distance' not in rec_params.keys():
                     params['recordings']['half_dist'] = 30
                     half_dist = 30
+
+            if noise_color is True:
+                if 'color_peak' not in rec_params.keys():
+                    params['recordings']['color_peak'] = 500
+                color_peak = params['recordings']['color_peak']
+                if 'color_q' not in rec_params.keys():
+                    params['recordings']['color_q'] = 1
+                color_q = params['recordings']['color_q']
+                if 'random_noise_floor' not in rec_params.keys():
+                    params['recordings']['random_noise_floor'] = 0.5
+                random_noise_floor = params['recordings']['random_noise_floor']
 
             if 'noise_level' not in rec_params.keys():
                 params['recordings']['noise_level'] = 10
@@ -599,6 +614,10 @@ class RecordingGenerator:
                 params['templates']['min_amp'] = 50
             min_amp = params['templates']['min_amp']
 
+            if 'max_amp' not in temp_params.keys():
+                params['templates']['max_amp'] = np.inf
+            max_amp = params['templates']['max_amp']
+
             if 'min_dist' not in temp_params.keys():
                 params['templates']['min_dist'] = 25
             min_dist = params['templates']['min_dist']
@@ -606,7 +625,6 @@ class RecordingGenerator:
             if 'overlap_threshold' not in temp_params.keys():
                 params['templates']['overlap_threshold'] = 0.8
             overlap_threshold = params['templates']['overlap_threshold']
-            print(overlap_threshold)
 
             if 'pad_len' not in temp_params.keys():
                 params['templates']['pad_len'] = [3., 3.]
@@ -676,8 +694,9 @@ class RecordingGenerator:
                 n_elec = eaps.shape[1]
 
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
-                                                        z_lim=z_lim, min_amp=min_amp, min_dist=min_dist,
-                                                        drifting=drifting, drift_dir_ang=drift_dir_angle,
+                                                        z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
+                                                        min_dist=min_dist, drifting=drifting,
+                                                        drift_dir_ang=drift_dir_angle,
                                                         preferred_dir=preferred_dir, angle_tol=angle_tol,
                                                         verbose=False)
 
@@ -983,6 +1002,9 @@ class RecordingGenerator:
                         finished = True
 
             print('Noise seed: ', noise_seed)
+            if noise_color:
+                print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                      ' and random noise level: ', random_noise_floor)
             np.random.seed(noise_seed)
             if noise_level > 0:
                 if noise_mode == 'uncorrelated':
@@ -992,10 +1014,25 @@ class RecordingGenerator:
                             idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                             additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                            len(idxs))
+                            if noise_color:
+                                # iir peak filter
+                                b_iir, a_iir = ss.iirpeak(color_peak / (2*fs.rescale('Hz').magnitude), Q=color_q)
+                                additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
+                                additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                                                 np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
+                                additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                             recordings[:, idxs] += additive_noise
                     else:
                         additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                        recordings.shape[1])
+                        if noise_color:
+                            # iir peak filter
+                            b_iir, a_iir = ss.iirpeak(color_peak / (2*fs.rescale('Hz').magnitude), Q=color_q)
+                            additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
+                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
+                                             * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
+                            additive_noise = additive_noise * (noise_level / np.std(additive_noise))
+
                         recordings += additive_noise
                 elif noise_mode == 'distance-correlated':
                     cov_dist = np.zeros((n_elec, n_elec))
@@ -1011,14 +1048,27 @@ class RecordingGenerator:
                             print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                             idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                             additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                                         size=(recordings.shape[0],
-                                                                                               len(idxs)))
+                                                                                         size=(len(idxs))).T
+                            if noise_color:
+                                # iir peak filter
+                                b_iir, a_iir = ss.iirpeak(color_peak / (2*fs.rescale('Hz').magnitude), Q=color_q)
+                                additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
+                                additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
+                                                 * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
+                                additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                             recordings[:, idxs] += additive_noise
                     else:
                         additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                                      size=recordings.shape[1]).T
-                        recordings += additive_noise
+                        if noise_color:
+                            # iir peak filter
+                            b_iir, a_iir = ss.iirpeak(color_peak / (2*fs.rescale('Hz').magnitude), Q=color_q)
+                            additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
+                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
+                                             * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
+                            additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
+                        recordings += additive_noise
                 elif noise_mode == 'experimental':
                     pass
                     # print( 'experimental noise model'
@@ -1093,6 +1143,8 @@ def gen_recordings(params=None, templates=None, tempgen=None):
         params_dict = params
     else:
         params_dict = {}
+
+    pprint(params_dict)
 
     if 'spiketrains' not in params_dict:
         params_dict['spiketrains'] = {}

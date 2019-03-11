@@ -690,7 +690,8 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
-                     min_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15, verbose=False):
+                     min_amp=None, max_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15,
+                     verbose=False):
     '''
 
     Parameters
@@ -731,15 +732,17 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     permuted_idxs = np.random.permutation(len(bin_cat))
     permuted_bin_cats = bin_cat[permuted_idxs]
 
-    if not min_amp:
+    if min_amp is None:
         min_amp = 0
+
+    if max_amp is None:
+        max_amp = np.inf
+
 
     if drifting:
         if drift_dir_ang is None or preferred_dir is None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
-    placed_exc = 0
-    placed_inh = 0
     n_sel = 0
     n_sel_exc = 0
     n_sel_inh = 0
@@ -761,7 +764,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -798,7 +802,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -809,7 +814,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
                                 if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                                     pos_sel.append(loc[id_cell])
@@ -834,7 +840,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
             else:
                 amp = np.max(np.abs(spikes[id_cell]))
                 if not drifting:
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                         # save cell
                         pos_sel.append(loc[id_cell])
                         idxs_sel.append(id_cell)
@@ -844,7 +851,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
                     # drifting
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                         # save cell
                         if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                             pos_sel.append(loc[id_cell])
