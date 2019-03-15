@@ -8,8 +8,8 @@ spiketrains:
   # rates: [3,3,5] # individual spike trains rates
   # types: ['e', 'e', 'i'] # individual spike trains class (exc-inh)
   # alternative to rates - excitatory and inhibitory settings
-  n_exc: 2 # number of excitatory cells
-  n_inh: 1 # number of inhibitory cells
+  n_exc: 7 # number of excitatory cells
+  n_inh: 3 # number of inhibitory cells
   f_exc: 5 # average firing rate of excitatory cells in Hz
   f_inh: 15 # average firing rate of inhibitory cells in Hz
   st_exc: 1 # firing rate standard deviation of excitatory cells in Hz
@@ -31,10 +31,11 @@ templates:
   # recording generation parameters
   min_dist: 25 # minimum distance between neurons
   min_amp: 50 # minimum spike amplitude in uV
+  max_amp: 500 # maximum spike amplitude in uV
   xlim: null # limits for neuron depths (x-coord) in um [min, max]
   ylim: null # limits for neuron depths (y-coord) in um [min, max]
   zlim: null # limits for neuron depths (z-coord) in um [min, max]
-  overlap_threshold: 0.8 # threshold to consider two templates spatially overlapping
+  overlap_threshold: 0.9 # threshold to consider two templates spatially overlapping
   # (e.g 0.8 -> 80% of template B on largest electrode of template A)
   n_jitters: 10 # number of temporal jittered copies for each eap
   upsample: 8 # upsampling factor to extract jittered copies
@@ -43,12 +44,9 @@ templates:
 
 recordings:
   fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
-  noise_level: 10 # noise standard deviation in uV
-  noise_mode: uncorrelated # [uncorrelated | distance-correlated]
-  noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
-  seed: null # random seed for noise generation
-  filter: True # if True it filters the recordings
-  cutoff: [300, 6000] # filter cutoff frequencies in Hz
+
+  sync_rate: 0 # added synchrony rate for spatilly overlapping templates
+
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
     # electrode (each electrode is modulated separately) |
@@ -59,11 +57,24 @@ recordings:
   exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
   n_isi: 10 # max number of 'bursting' consecutive spikes
   mem_isi: 100 # duration in ms of maximum burst modulation
-  chunk_conv_duration: 0 # chunk duration in s for convolution processing (if 0 the entire recordings are generated at once)
+
+  noise_level: 20 # noise standard deviation in uV
+  noise_mode: uncorrelated # [uncorrelated | distance-correlated]
+  noise_color: False # if True noise is colored resembling experimental noise
+  noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+  color_peak: 500 # (color) peak / curoff frequency of resonating filter
+  color_q: 1 # (color) quality factor of resonating filter
+  random_noise_floor: 1 # (color) additional noise floor
   chunk_noise_duration: 0 # chunk duration for noise addition
+  seed: null # random seed for noise generation
+
+  filter: True # if True it filters the recordings
+  cutoff: [300, 6000] # filter cutoff frequencies in Hz
   chunk_filter_duration: 0 # chunk duration for filtering
+
   overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
   extract_waveforms: False # if True, waveforms are extracted from recordings
+
   drifting: False # if True templates are drifted
   preferred_dir: 90  # preferred drifting direction (90 is positive z)
   angle_tol: 15  # tollerance for direction (e.g. preferred_dir = 90 and angle_tol = 15 -> dir: [75, 105]

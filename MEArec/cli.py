@@ -1,16 +1,21 @@
 import os
 from os.path import join
 import time
-import MEAutility as MEA
+import MEAutility as mu
 import click
 import numpy as np
 import yaml
 import shutil
 import MEArec.generators as generators
-from MEArec import recordings_to_hdf5, templates_to_hdf5, hdf5_to_recordings, hdf5_to_templates, \
-    save_template_generator, save_recording_generator, get_default_config
+from MEArec import save_template_generator, save_recording_generator, get_default_config
 import pprint
 import time
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 @click.group()
 def cli():
@@ -79,14 +84,20 @@ def gen_templates(params, **kwargs):
 
     if params is None:
         with open(info['templates_params'], 'r') as pf:
-            params_dict = yaml.load(pf)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
-        MEA.return_mea()
+        mu.return_mea()
         return
 
     if kwargs['cellfolder'] is not None:
@@ -121,11 +132,11 @@ def gen_templates(params, **kwargs):
         params_dict['offset'] = kwargs['offset']
     if kwargs['det_thresh'] is not None:
         params_dict['det_thresh'] = kwargs['det_thresh']
-    if kwargs['xlim'] is not None:
+    if kwargs['xlim'] is not None and len(kwargs['xlim']) == 2:
         params_dict['xlim'] = kwargs['xlim']
-    if kwargs['ylim'] is not None:
+    if kwargs['ylim'] is not None and len(kwargs['ylim']) == 2:
         params_dict['ylim'] = kwargs['ylim']
-    if kwargs['zlim'] is not None:
+    if kwargs['zlim'] is not None and len(kwargs['zlim']) == 2:
         params_dict['zlim'] = kwargs['zlim']
 
     if kwargs['drifting']:
@@ -138,11 +149,11 @@ def gen_templates(params, **kwargs):
         params_dict['max_drift'] = kwargs['max_drift']
     if kwargs['drift_steps'] is not None:
         params_dict['drift_steps'] = kwargs['drift_steps']
-    if kwargs['drift_xlim'] is not None:
+    if kwargs['drift_xlim'] is not None and len(kwargs['drift_xlim']) == 2:
         params_dict['drift_xlim'] = kwargs['drift_xlim']
-    if kwargs['drift_ylim'] is not None:
+    if kwargs['drift_ylim'] is not None and len(kwargs['drift_ylim']) == 2:
         params_dict['drift_ylim'] = kwargs['drift_ylim']
-    if kwargs['drift_zlim'] is not None:
+    if kwargs['drift_zlim'] is not None and len(kwargs['drift_zlim']) == 2:
         params_dict['drift_zlim'] = kwargs['drift_zlim']
 
     if kwargs['probe'] is not None:
@@ -207,22 +218,34 @@ def gen_templates(params, **kwargs):
               help='start time in s (default=0)')
 @click.option('--min-dist', '-md', default=None, type=int,
               help='minumum distance between neuron in um (default=25)')
-@click.option('--min-amp', '-ma', default=None, type=int,
+@click.option('--min-amp', '-mina', default=None, type=int,
               help='minumum eap amplitude in uV (default=50)')
+@click.option('--max-amp', '-maxa', default=None, type=int,
+              help='maximum eap amplitude in uV (default=inf)')
 @click.option('--fs', default=None, type=float,
               help='sampling frequency in kHz (default from templates sampling frequency)')
+@click.option('--sync-rate', '-sr', default=0, type=float,
+              help='added synchrony rate on spatially overlapping spikes')
 @click.option('--noise-lev', '-nl', default=None, type=int,
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
               help='modulation type')
-@click.option('--chunk-conv', '-chc', default=None, type=float,
-              help='chunk duration in s for chunk convolution (default 0)')
 @click.option('--chunk-noise', '-chn', default=None, type=float,
               help='chunk duration in s for chunk noise (default 0)')
 @click.option('--chunk-filt', '-chf', default=None, type=float,
               help='chunk duration in s for chunk filter (default 0)')
 @click.option('--noise-seed', '-nseed', default=None, type=int,
               help='random seed for noise')
+@click.option('--half-dist', '-hd', default=None, type=float,
+              help='when noise is distance-correlated the distance at which covariance is 0.5 (default=30)')
+@click.option('--color-noise', '-cn', is_flag=True,
+              help='if True noise is colored')
+@click.option('--color-peak', '-cp', default=None, type=float,
+              help='peak for noise in Hz (default 500 Hz)')
+@click.option('--color-q', '-cq', default=None, type=float,
+              help='quality factor for noise filter (default=1)')
+@click.option('--random-noise-floor', '-rnf', default=None, type=float,
+              help='noise floor in std of additive noide (default 1)')
 @click.option('--st-seed', '-stseed', default=None, type=int,
               help='random seed for spike trains')
 @click.option('--temp-seed', '-tseed', default=None, type=int,
@@ -231,6 +254,8 @@ def gen_templates(params, **kwargs):
               help='if True no filter is applied')
 @click.option('--overlap', is_flag=True,
               help='if True it annotates overlapping spikes')
+@click.option('--overlap-thresh', '-ot', type=float,
+              help='overlap threshold for spatial overlap')
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
 @click.option('--drifting', '-dr', is_flag=True,
@@ -246,15 +271,20 @@ def gen_templates(params, **kwargs):
 def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATESS"""
     # Retrieve default_params file
-    this_dir, this_filename = os.path.split(__file__)
     info, config_folder = get_default_config()
 
     if params is None:
         with open(info['recordings_params'], 'r') as pf:
-            params_dict = yaml.load(pf)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
     else:
         with open(params, 'r') as pf:
-            params_dict = yaml.load(pf)
+            if use_loader:
+                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
+            else:
+                params_dict = yaml.load(pf)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
@@ -308,15 +338,18 @@ def gen_recordings(params, **kwargs):
         params_dict['templates']['min_dist'] = kwargs['min_dist']
     if kwargs['min_amp'] is not None:
         params_dict['templates']['min_amp'] = kwargs['min_amp']
+    if kwargs['max_amp'] is not None:
+        params_dict['templates']['max_amp'] = kwargs['max_amp']
     if kwargs['temp_seed'] is not None:
         params_dict['templates']['seed'] = kwargs['temp_seed']
+    if kwargs['overlap_thresh'] is not None:
+        params_dict['templates']['overlap_threshold'] = kwargs['overlap_thresh']
 
     if kwargs['noise_lev'] is not None:
         params_dict['recordings']['noise_level'] = kwargs['noise_lev']
     if kwargs['modulation'] is not None:
         params_dict['recordings']['modulation'] = kwargs['modulation']
-    if kwargs['chunk_conv'] is not None:
-        params_dict['recordings']['chunk_conv_duration'] = kwargs['chunk_conv']
+
     if kwargs['chunk_noise'] is not None:
         params_dict['recordings']['chunk_noise_duration'] = kwargs['chunk_noise']
     if kwargs['chunk_filt'] is not None:
@@ -327,12 +360,29 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['fs'] = kwargs['fs']
     else:
         params_dict['recordings']['fs'] = None
+    if kwargs['sync_rate'] is not None:
+        params_dict['recordings']['sync_rate'] = kwargs['sync_rate']
+    else:
+        params_dict['recordings']['sync_rate'] = 0
     if kwargs['noise_seed'] is not None:
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
+
+    if kwargs['half_dist'] is not None:
+        params_dict['recordings']['half_dist'] = kwargs['half_dist']
+    if kwargs['color_noise']:
+        params_dict['recordings']['noise_color'] = True
+    else:
+        params_dict['recordings']['noise_color'] = False
+    if kwargs['color_peak'] is not None:
+        params_dict['recordings']['color_peak'] = kwargs['color_peak']
+    if kwargs['color_q'] is not None:
+        params_dict['recordings']['color_q'] = kwargs['color_q']
+    if kwargs['random_noise_floor'] is not None:
+        params_dict['recordings']['random_noise_floor'] = kwargs['random_noise_floor']
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
@@ -364,55 +414,11 @@ def gen_recordings(params, **kwargs):
     rec_path = join(recordings_folder, fname)
     save_recording_generator(recgen, rec_path)
 
-@cli.command()
-@click.argument('foldername')
-@click.argument('h5file')
-def temptohdf5(foldername, h5file):
-    """Convert templates to hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        h5file = h5file + '.h5'
-    templates_to_hdf5(foldername, h5file)
-    print("Saved: ", h5file)
-
-
-@cli.command()
-@click.argument('h5file')
-@click.argument('foldername')
-def tempfromhdf5(h5file, foldername):
-    """Convert templates from hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        raise AttributeError("'h5file' is not an hdf5 file")
-    hdf5_to_templates(h5file, foldername)
-    print("Saved: ", foldername)
-
-
-@cli.command()
-@click.argument('foldername')
-@click.argument('h5file')
-def rectohdf5(foldername, h5file):
-    """Convert recordings to hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        h5file = h5file + '.h5'
-    recordings_to_hdf5(foldername, h5file)
-    print("Saved: ", h5file)
-
-
-@cli.command()
-@click.argument('h5file')
-@click.argument('foldername')
-def recfromhdf5(h5file, foldername):
-    """Convert recordings from hdf5"""
-    if not h5file.endswith('.h5') and not h5file.endswith('.hdf5'):
-        raise AttributeError("'h5file' is not an hdf5 file")
-    hdf5_to_recordings(h5file, foldername)
-    print("Saved: ", foldername)
-
 
 @cli.command()
 def default_config():
     """Print default configurations"""
     info, config = get_default_config()
-    import pprint
     pprint.pprint(info)
 
 

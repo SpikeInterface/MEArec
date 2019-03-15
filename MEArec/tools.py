@@ -11,10 +11,15 @@ from os.path import join
 import MEAutility as MEA
 import h5py
 from pathlib import Path
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 
 ### GET DEFAULT SETTINGS ###
-
 def get_default_config():
     this_dir, this_filename = os.path.split(__file__)
     this_dir = Path(this_dir)
@@ -33,12 +38,14 @@ def get_default_config():
             yaml.dump(default_info, f)
     else:
         with (mearec_home / 'mearec.conf').open() as f:
-            default_info = yaml.load(f)
+            if use_loader:
+                default_info = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                default_info = yaml.load(f)
     return default_info, str(mearec_home)
 
 
 ### LOAD FUNCTIONS ###
-
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
     '''
     Loads EAP from temporary folder
@@ -150,7 +157,10 @@ def load_templates(templates, verbose=False):
             celltypes = np.load(join(templates_folder, 'celltypes.npy'))
             temp_dict.update({'celltypes': celltypes})
         with open(join(templates_folder, 'info.yaml'), 'r') as f:
-            info = yaml.load(f)
+            if use_loader:
+                info = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                info = yaml.load(f)
     elif templates.endswith('h5') or templates.endswith('hdf5'):
         with h5py.File(templates, 'r') as F:
             info = json.loads(str(F['info'][()]))
@@ -212,7 +222,10 @@ def load_recordings(recordings, verbose=False):
             voltage_peaks = np.load(join(recording_folder, 'voltage_peaks.npy'))
             rec_dict.update({'voltage_peaks': voltage_peaks})
         with open(join(recording_folder, 'info.yaml'), 'r') as f:
-            info = yaml.load(f)
+            if use_loader:
+                info = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                info = yaml.load(f)
     elif recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
             info = json.loads(str(F['info'][()]))
@@ -435,7 +448,10 @@ def recordings_to_hdf5(recording_folder, output_fname):
     F = h5py.File(output_fname, 'w')
 
     with open(recording_folder + '/info.yaml', 'r') as f:
-        info = yaml.load(f)
+        if use_loader:
+            info = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            info = yaml.load(f)
 
     F.create_dataset('info', data=json.dumps(info))
 
@@ -473,7 +489,10 @@ def templates_to_hdf5(templates_folder, output_fname):
     F = h5py.File(output_fname, 'w')
 
     with open(templates_folder + '/info.yaml', 'r') as f:
-        info = yaml.load(f)
+        if use_loader:
+            info = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            info = yaml.load(f)
 
     F.create_dataset('info', data=json.dumps(info))
 
@@ -693,7 +712,8 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 
 def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
-                     min_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, ang_tol=30, verbose=False):
+                     min_amp=None, max_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15,
+                     verbose=False):
     '''
 
     Parameters
@@ -711,7 +731,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     drifting
     drift_dir_ang
     preferred_dir
-    ang_tol
+    angle_tol
     verbose
 
     Returns
@@ -734,15 +754,17 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     permuted_idxs = np.random.permutation(len(bin_cat))
     permuted_bin_cats = bin_cat[permuted_idxs]
 
-    if not min_amp:
+    if min_amp is None:
         min_amp = 0
+
+    if max_amp is None:
+        max_amp = np.inf
+
 
     if drifting:
         if drift_dir_ang is None or preferred_dir is None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
-    placed_exc = 0
-    placed_inh = 0
     n_sel = 0
     n_sel_exc = 0
     n_sel_inh = 0
@@ -764,7 +786,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -777,7 +800,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             # drifting
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
                                     n_sel += 1
@@ -801,7 +824,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     else:
                         amp = np.max(np.abs(spikes[id_cell]))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
                                 pos_sel.append(loc[id_cell])
                                 idxs_sel.append(id_cell)
@@ -812,9 +836,10 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                                     pos_sel.append(loc[id_cell])
                                     idxs_sel.append(id_cell)
                                     n_sel += 1
@@ -837,7 +862,8 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
             else:
                 amp = np.max(np.abs(spikes[id_cell]))
                 if not drifting:
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                         # save cell
                         pos_sel.append(loc[id_cell])
                         idxs_sel.append(id_cell)
@@ -847,9 +873,10 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
                     # drifting
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                         # save cell
-                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < ang_tol:
+                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
                             pos_sel.append(loc[id_cell])
                             idxs_sel.append(id_cell)
                             placed = True
@@ -937,25 +964,27 @@ def find_overlapping_templates(templates, thresh=0.7):
     '''
     overlapping_pairs = []
 
-    for i in range(templates.shape[0] - 1):
-        temp_1 = templates[i]
-        max_ptp = (np.array([np.ptp(t) for t in temp_1]).max())
-        max_ptp_idx = (np.array([np.ptp(t) for t in temp_1]).argmax())
+    for i, temp_1 in enumerate(templates):
+        if len(templates.shape) == 4: # jitter
+            temp_1 = temp_1[0]
 
-        for j in range(i + 1, templates.shape[0]):
-            temp_2 = templates[j]
-            ptp_on_max = np.ptp(temp_2[max_ptp_idx])
+        peak_1 = np.abs(np.min(temp_1))
+        peak_electrode_idx = np.unravel_index(temp_1.argmin(), temp_1.shape)
 
-            max_ptp_2 = (np.array([np.ptp(t) for t in temp_2]).max())
+        for j, temp_2 in enumerate(templates):
+            if len(templates.shape) == 4:  # jitter
+                temp_2 = temp_2[0]
 
-            max_peak = np.max([ptp_on_max, max_ptp])
-            min_peak = np.min([ptp_on_max, max_ptp])
+            if i != j:
+                peak_2_on_max = np.abs(np.min(temp_2[peak_electrode_idx]))
+                peak_2 = np.abs(np.min(temp_2))
 
-            if min_peak > thresh * max_peak and ptp_on_max > thresh * max_ptp_2:
-                overlapping_pairs.append([i, j])  # , max_ptp_idx, max_ptp, ptp_on_max
+                # max_peak_2 = (np.array([np.max(np.abs(t)) for t in temp_2]).max())
+                if peak_2_on_max > thresh * peak_2:
+                    if [i, j] not in overlapping_pairs and [j, i] not in overlapping_pairs:
+                        overlapping_pairs.append(sorted([i, j]))
 
     return np.array(overlapping_pairs)
-
 
 ### SPIKETRAIN OPERATIONS ###
 

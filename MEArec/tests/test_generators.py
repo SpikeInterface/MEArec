@@ -8,16 +8,26 @@ import yaml
 import os
 import elephant.statistics as stat
 import quantities as pq
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 
 class TestGenerators(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])
         self.n = 5
         with open(info['templates_params']) as f:
-            templates_params = yaml.load(f)
+            if use_loader:
+                templates_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                templates_params = yaml.load(f)
 
         templates_params['n'] = self.n
         templates_params['probe'] = 'Neuronexus-32'
@@ -37,13 +47,16 @@ class TestGenerators(unittest.TestCase):
         assert len(self.tempgen.rotations) == (n * num_cells)
         assert len(self.tempgen.celltypes) == (n * num_cells)
         assert len(np.unique(self.tempgen.celltypes)) == num_cells
-        assert np.max(self.tempgen.locations[:, 0]) > templates_params['xlim'][0] and \
-               np.max(self.tempgen.locations[:, 0]) < templates_params['xlim'][1]
+        assert np.max(self.tempgen.locations[:, 0]) > templates_params['xlim'][0] \
+               and np.max(self.tempgen.locations[:, 0]) < templates_params['xlim'][1]
 
     def test_gen_spiketrains(self):
         info, info_folder = mr.get_default_config()
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
         sp_params = rec_params['spiketrains']
         spgen = mr.SpikeTrainGenerator(sp_params)
         spgen.generate_spikes()
@@ -70,7 +83,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -98,7 +114,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -124,7 +143,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -142,7 +164,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_elec.spike_traces) == n_neurons
 
-    def test_gen_recordings_mod_temp(self):
+    def test_gen_recordings_mod_temp_isi(self):
         info, info_folder = mr.get_default_config()
         ne = 2
         ni = 2
@@ -150,7 +172,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -168,7 +193,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_temp.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_temp.spike_traces) == n_neurons
 
-    def test_gen_recordings_mod_elec(self):
+    def test_gen_recordings_mod_elec_isi(self):
         info, info_folder = mr.get_default_config()
         ne = 3
         ni = 1
@@ -176,7 +201,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -202,7 +230,10 @@ class TestGenerators(unittest.TestCase):
         n_neurons = ne + ni
 
         with open(info['recordings_params']) as f:
-            rec_params = yaml.load(f)
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni

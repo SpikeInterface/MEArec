@@ -14,9 +14,15 @@ from os.path import join
 import sys
 from glob import glob
 import numpy as np
-import MEAutility as MEA
+import MEAutility as mu
 import yaml
 import time
+from distutils.version import StrictVersion
+
+if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+    use_loader = True
+else:
+    use_loader = False
 
 
 def get_templatename(f):
@@ -94,6 +100,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
     cell : object
         LFPy cell object
     """
+    import mpi4py.MPI
     import LFPy
     import neuron
     neuron.h.load_file("stdrun.hoc")
@@ -363,7 +370,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     x_lim = kwargs['xlim']
     y_lim = kwargs['ylim']
     z_lim = kwargs['zlim']
-    det_thresh = kwargs['det_thresh']
+    min_amp = kwargs['min_amp']
     MEAname = kwargs['probe']
     offset = kwargs['offset']
     drifting = kwargs['drifting']
@@ -371,9 +378,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         max_drift = kwargs['max_drift']
         min_drift = kwargs['min_drift']
         drift_steps = kwargs['drift_steps']
-        drift_x_lim = kwargs['drift_x_lim']
-        drift_y_lim = kwargs['drift_y_lim']
-        drift_z_lim = kwargs['drift_z_lim']
+        drift_x_lim = kwargs['drift_xlim']
+        drift_y_lim = kwargs['drift_ylim']
+        drift_z_lim = kwargs['drift_zlim']
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
@@ -392,7 +399,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     target_num_spikes = int(nobs)
 
     # load MEA info
-    elinfo = MEA.return_mea_info(electrode_name=MEAname)
+    elinfo = mu.return_mea_info(electrode_name=MEAname)
 
     # Create save folder
     save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
@@ -402,7 +409,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
-    mea = MEA.return_mea(info=elinfo)
+    mea = mu.return_mea(info=elinfo)
     pos = mea.positions
 
     elec_x = pos[:, 0]
@@ -455,11 +462,16 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         cell.imem = i_spikes[spike_idx, :, :]
         cell.somav = v_spikes[spike_idx, :]
 
-
         if not drifting:
-            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
-                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
-            if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type='bbp',
+                                                                 electrode_parameters=electrode_parameters,
+                                                                 limits=[x_lim, y_lim, z_lim], rotation=rotation,
+                                                                 pos=position)
+            # Method of Images for semi-infinite planes
+            if elinfo['type'] == 'mea':
+                espikes = espikes * 2
+
+            if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -470,10 +482,15 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
         else:
             espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
                                                                  [x_lim, y_lim, z_lim], rotation, pos=position)
+
+            # Method of Images for semi-infinite planes
+            if elinfo['type'] == 'mea':
+                espikes = espikes * 2
+
             if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
                     pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
                     pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
-                if (np.max(np.abs(espikes), axis=1) >= det_thresh).any():
+                if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
                     drift_ok = False
                     # fix rotation while drifting
                     cell.set_rotation(rot[0], rot[1], rot[2])
@@ -499,7 +516,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                                                                                   rotation=None,
                                                                                   pos=final_pos)
                             # check final position spike amplitude
-                            if (np.max(np.abs(espikes)) >= det_thresh).any():
+                            if (np.max(np.abs(espikes)) >= min_amp).any():
                                 print('Found final drifting position')
                                 drift_ok = True
                             else:
@@ -550,14 +567,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 print('Discarded position: ', pos)
         i += 1
 
-    # Method of Images for semi-infinite planes
-    if elinfo['type'] == 'mea':
-        save_spikes = save_spikes * 2
-
     save_spikes = np.array(save_spikes)
     save_pos = np.array(save_pos)
     save_rot = np.array(save_rot)
-    save_offs = np.array(save_offs)
 
     np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
     np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
@@ -835,7 +847,10 @@ if __name__ == '__main__':
         params_path = sys.argv[3]
 
         with open(params_path, 'r') as f:
-            params = yaml.load(f)
+            if use_loader:
+                params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                params = yaml.load(f)
 
         sim_folder = params['templates_folder']
         cell_folder = params['cell_models_folder']
