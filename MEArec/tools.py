@@ -246,6 +246,17 @@ def load_recordings(recordings, verbose=False):
 
 
 def save_template_generator(tempgen, filename=None):
+    '''
+
+    Parameters
+    ----------
+    tempgen
+    filename
+
+    Returns
+    -------
+
+    '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         F.create_dataset('info', data=json.dumps(tempgen.info))
@@ -285,6 +296,17 @@ def save_template_generator(tempgen, filename=None):
 
 
 def save_recording_generator(recgen, filename=None):
+    '''
+
+    Parameters
+    ----------
+    recgen
+    filename
+
+    Returns
+    -------
+
+    '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         F.create_dataset('info', data=json.dumps(recgen.info))
@@ -1077,7 +1099,7 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
 
 ### CONVOLUTION OPERATIONS ###
 
-def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.5, mem_ISI=10 * pq.ms):
+def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, mem_ISI=100 * pq.ms):
     '''
 
     Parameters
@@ -1103,6 +1125,7 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
         amp_mod[0] = sdrand * np.random.randn() + mrand
         cons = np.zeros(len(st))
 
+        last_burst_event = 0 * pq.s
         for i, isi in enumerate(ISI):
             if n_spikes == 0:
                 # no isi-dependent modulation
@@ -1113,19 +1136,21 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                 else:
                     amp_mod[i + 1] = isi.magnitude ** exp * (1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn()
             else:
-                consecutive = 0
-                bursting = True
-                while consecutive < n_spikes and bursting:
-                    if i - consecutive >= 0:
-                        if ISI[i - consecutive] > mem_ISI:
-                            bursting = False
-                        else:
-                            consecutive += 1
-                    else:
-                        bursting = False
+                if last_burst_event.magnitude == 0:
+                    consecutive_idx = np.where((st > st[i] - mem_ISI) & (st <= st[i]))[0]
+                    consecutive = len(consecutive_idx)
+                else:
+                    consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
+                    consecutive = len(consecutive_idx)
 
                 # if consecutive >= 1:
-                #     print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
+                # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
+
+                if consecutive == n_spikes:
+                    last_burst_event = st[i + 1]
+                if consecutive >= 1:
+                    if st[i + 1] - st[consecutive_idx[0]] >= mem_ISI:
+                        last_burst_event = st[i + 1]
 
                 if consecutive == 0:
                     amp_mod[i + 1] = sdrand * np.random.randn() + mrand
@@ -1153,6 +1178,7 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
             amp_mod[0] = sdrand * np.random.randn(n_el) + mrand
             cons = np.zeros(len(st))
 
+            last_burst_event = 0 * pq.s
             for i, isi in enumerate(ISI):
                 if n_spikes == 1:
                     if isi > mem_ISI:
@@ -1161,19 +1187,21 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                         amp_mod[i + 1] = isi.magnitude ** exp * (
                                     1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn(n_el)
                 else:
-                    consecutive = 0
-                    bursting = True
-                    while consecutive < n_spikes and bursting:
-                        if i - consecutive >= 0:
-                            if ISI[i - consecutive] > mem_ISI:
-                                bursting = False
-                            else:
-                                consecutive += 1
-                        else:
-                            bursting = False
+                    if last_burst_event.magnitude == 0:
+                        consecutive_idx = np.where((st > st[i] - mem_ISI) & (st <= st[i]))[0]
+                        consecutive = len(consecutive_idx)
+                    else:
+                        consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
+                        consecutive = len(consecutive_idx)
 
                     # if consecutive >= 1:
-                    #     print('Bursting event duration: ', ISI[i - 1 - consecutive], ' with spikes: ', consecutive)
+                        # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
+
+                    if consecutive == n_spikes:
+                        last_burst_event = st[i + 1]
+                    if consecutive >= 1:
+                        if st[i + 1] - st[consecutive_idx[0]] >= mem_ISI:
+                            last_burst_event = st[i + 1]
 
                     if consecutive == 0:
                         amp_mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
@@ -1192,11 +1220,9 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
 
                     cons[i + 1] = consecutive
 
-
     return np.array(amp_mod), cons
 
 
-# TODO use cut outs to align spikes!
 def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, amp_mod=None):
     '''
 
