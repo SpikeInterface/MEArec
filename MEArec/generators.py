@@ -4,12 +4,8 @@ import numpy as np
 import neo
 import elephant.spike_train_generation as stg
 import elephant.conversion as conv
-import elephant.statistics as stat
 import matplotlib.pylab as plt
-import scipy.signal as ss
 import time
-import os
-from os.path import join
 from copy import copy
 from MEArec.tools import *
 import MEAutility as mu
@@ -25,6 +21,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
 else:
     use_loader = False
+
 
 class simulationThread(threading.Thread):
     def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
@@ -712,9 +709,9 @@ class RecordingGenerator:
             for tem in templates:
                 dt = 1. / fs.magnitude
                 if not drifting:
-                    feat = get_EAP_features(tem, ['na'], dt=dt)
+                    feat = get_templates_features(tem, ['na'], dt=dt)
                 else:
-                    feat = get_EAP_features(tem[0], ['na'], dt=dt)
+                    feat = get_templates_features(tem[0], ['na'], dt=dt)
                 peak.append(-np.squeeze(feat['na']))
             peak = np.array(peak)
 
@@ -750,7 +747,6 @@ class RecordingGenerator:
                     templates_pol = templates
 
             templates_pad = []
-            templates_spl = []
 
             print('Padding template edges')
             for t, tem in enumerate(templates_pol):
@@ -763,7 +759,6 @@ class RecordingGenerator:
                     for tem_p in tem:
                         tem_p = cubic_padding(tem_p, pad_len, fs)
                         templates_pad_p.append(tem_p)
-                        # templates_spl.append(spl)
                     templates_pad.append(templates_pad_p)
             templates_pad = np.array(templates_pad)
 
@@ -851,28 +846,28 @@ class RecordingGenerator:
                 print('Template modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                         n_spikes=0)
+                                                   n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode':
                 print('Electrode modulaton')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                         n_spikes=0)
+                                                   n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'template-isi':
                 print('Template-ISI modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                         n_spikes=n_isi, exp=exp_decay, mem_ISI=mem_isi)
+                                                   n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode-isi':
                 print('Electrode-ISI modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                         n_spikes=n_isi, exp=exp_decay, mem_ISI=mem_isi)
+                                                   n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
 
@@ -923,19 +918,18 @@ class RecordingGenerator:
                         recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
-                                                                     amp_mod=amp_mod[st])
+                                                                     mod_array=amp_mod[st])
                         np.random.seed(seed)
                         gt_spikes.append(convolve_single_template(st, spike_bin,
                                                                   templates[st, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  amp_mod=amp_mod[st][:,
-                                                                          np.argmax(peak[st])]))
+                                                                  mod_array=amp_mod[st][:, np.argmax(peak[st])]))
                     else:
                         rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
                                                                                     cut_out=cut_outs_samples,
                                                                                     modulation=True,
-                                                                                    amp_mod=amp_mod[st],
+                                                                                    mod_array=amp_mod[st],
                                                                                     fs=fs,
                                                                                     loc=template_locs[st],
                                                                                     v_drift=velocity_vector,
@@ -947,7 +941,7 @@ class RecordingGenerator:
                                                                   templates[st, 0, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  amp_mod=amp_mod[st][:,
+                                                                  mod_array=amp_mod[st][:,
                                                                           np.argmax(peak[st])]))
                 elif 'template' in modulation:
                     seed = np.random.randint(10000)
@@ -956,18 +950,18 @@ class RecordingGenerator:
                         recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
-                                                                     amp_mod=amp_mod[st])
+                                                                     mod_array=amp_mod[st])
                         np.random.seed(seed)
                         gt_spikes.append(convolve_single_template(st, spike_bin,
                                                                   templates[st, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  amp_mod=amp_mod[st]))
+                                                                  mod_array=amp_mod[st]))
                     else:
                         rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
                                                                                     cut_out=cut_outs_samples,
                                                                                     modulation=True,
-                                                                                    amp_mod=amp_mod[st],
+                                                                                    mod_array=amp_mod[st],
                                                                                     fs=fs,
                                                                                     loc=template_locs[st],
                                                                                     v_drift=velocity_vector,
@@ -979,7 +973,7 @@ class RecordingGenerator:
                                                                   templates[st, 0, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  amp_mod=amp_mod[st]))
+                                                                  mod_array=amp_mod[st]))
             gt_spikes = np.array(gt_spikes)
 
             if drifting:
@@ -1127,10 +1121,13 @@ def gen_recordings(params=None, templates=None, tempgen=None):
         Path to generated templates
     params: dict OR str
         Dictionary containing recording parameters OR path to yaml file containing parameters
+    tempgen: TemplateGenerator
+        Template generator object
 
     Returns
     -------
-    recgen: RecordingGenerator
+    RecordingGenerator
+        Generated recording generator object
 
     '''
     if isinstance(params, str):
@@ -1212,14 +1209,8 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
 
     Returns
     -------
-    templates: np.array
-        Array containing num_eaps x num_channels templates
-    locations: np.array
-        Array containing num_eaps x 3 (x,y,z) soma positions
-    rotations: np.array
-        Array containing num_eaps x 3 (x_rot, y_rot. z_rot) rotations
-    celltypes: np.array
-        Array containing num_eaps cell-types
+    TemplateGenerator
+        Generated template generator object
 
     '''
     if isinstance(params, str):

@@ -5,6 +5,7 @@ import yaml
 import json
 import neo
 import elephant
+import time
 import shutil
 import os
 from os.path import join
@@ -514,7 +515,7 @@ def recordings_to_hdf5(recordings_folder, output_fname):
     F.create_dataset('channel_positions', data=channel_positions)
     recordings = np.load(recordings_folder + '/recordings.npy')
     F.create_dataset('recordings', data=recordings)
-    psike_traces = np.load(recordings_folder + '/spike_traces.npy')
+    spike_traces = np.load(recordings_folder + '/spike_traces.npy')
     F.create_dataset('spike_traces', data=spike_traces)
     spiketrains = np.load(recordings_folder + '/spiketrains.npy')
     for ii in range(len(spiketrains)):
@@ -533,7 +534,7 @@ def recordings_to_hdf5(recordings_folder, output_fname):
         F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
     templates = np.load(recordings_folder + '/templates.npy')
     F.create_dataset('templates', data=templates)
-    templates = np.load(recordings_folder + '/timestamps.npy')
+    timestamps = np.load(recordings_folder + '/timestamps.npy')
     F.create_dataset('timestamps', data=timestamps)
     F.close()
 
@@ -708,6 +709,7 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
             features['width'][i, too_low] = templates.shape[2] * dt  # templates_times[-1]-templates_times[0]
 
         if 'fwhm' in feat_list:
+            import scipy.signal as ss
             min_peak = np.min(templates[i], axis=1)
             if reference_mode == 't0':
                 # reference voltage is zeroth voltage entry
@@ -715,7 +717,7 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
             elif reference_mode == 'maxd2templates':
                 # reference voltage is taken at peak onset
                 # peak onset is defined as id of maximum 2nd derivative of templates
-                peak_onset = np.array([np.argmax(savitzky_golay(templates[i, e], 5, 2, deriv=2)[:min_idx[e]])
+                peak_onset = np.array([np.argmax(ss.savgol_filter(templates[i, e], 5, 2, deriv=2)[:min_idx[e]])
                                        for e in range(templates.shape[1])])
                 fwhm_ref = np.array([templates[i, e, peak_onset[e]] for e in range(templates.shape[1])])
             else:
@@ -1375,16 +1377,24 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
 
 
 def compute_bursting_template(template, mod, wc_mod):
+    import scipy.signal as ss
     b, a = ss.butter(3, wc_mod)
-    temp_filt = ss.filtfilt(b, a, template)
-    # temp_mod[i, e] = ttt
-    return mod * np.min(template) / np.min(temp_filt) * temp_filt
+    if len(template.shape) == 2:
+        temp_filt = ss.filtfilt(b, a, template, axis=1)
+        if len(mod) > 1:
+            temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
+                                  temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
+        else:
+            temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
+    else:
+        temp_filt = ss.filtfilt(b, a, template)
+        temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
+    return temp_filt
 
 
 def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
                              bursting=False, fc=None, fs=None):
-    '''
-    Convolve single template with spike train. Used to compute 'spike_traces'.
+    '''Convolve single template with spike train. Used to compute 'spike_traces'.
 
     Parameters
     ----------
@@ -1434,18 +1444,20 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         else:
             if bursting:
                 assert len(fc) == 2 and fs is not None
-                wc_mod_array = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0] / fs
+                fs = fs.rescale('Hz').magnitude
+                wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (fs / 2.)
+                wc_mod_mean = np.mean(wc_mod_array, axis=1)
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                         gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
-                            compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                            compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
                         gt_source[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
                         gt_source[spos - cut_out[0]:] += temp_filt[:diff]
             else:
                 for pos, spos in enumerate(spike_pos):
@@ -1460,33 +1472,36 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     else:
         if bursting:
             assert len(fc) == 2 and fs is not None
-            wc_mod_array = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0] / fs
+            fs = fs.rescale('Hz').magnitude
+            wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (fs / 2.)
+            wc_mod_mean = np.mean(wc_mod_array, axis=1)
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
-                        compute_bursting_template(template, mod_array[pos], wc_mod_array[pos])
+                        compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_array[pos])
+                    temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
                     gt_source[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_bursting_template(templat   , mod_array[pos], wc_mod_array[pos])
+                    temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
                     gt_source[spos - cut_out[0]:] += temp_filt[:diff]
-        for pos, spos in enumerate(spike_pos):
-            if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_array[pos] * template
-            elif spos - cut_out[0] < 0:
-                diff = -(spos - cut_out[0])
-                gt_source[:spos - cut_out[0] + len_spike] += mod_array[pos] * template[diff:]
-            else:
-                diff = n_samples - (spos - cut_out[0])
-                gt_source[spos - cut_out[0]:] += mod_array[pos] * template[:diff]
+        else:
+            for pos, spos in enumerate(spike_pos):
+                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_array[pos] * template
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    gt_source[:spos - cut_out[0] + len_spike] += mod_array[pos] * template[diff:]
+                else:
+                    diff = n_samples - (spos - cut_out[0])
+                    gt_source[spos - cut_out[0]:] += mod_array[pos] * template[:diff]
     return gt_source
 
 
 def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False):
+                                   verbose=False, bursting=False, fc=None, fs=None):
     '''
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -1526,7 +1541,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     recordings = np.zeros((n_elec, n_samples))
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
-    if not modulation:
+    if modulation is False:
         # No modulation
         spike_pos = np.where(spike_bin == 1)[0]
         mod_array = np.ones_like(spike_pos)
@@ -1564,19 +1579,54 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
             temp_jitt = template[rand_idx]
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # Template modulation
-                for pos, spos in enumerate(spike_pos):
-                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
-                    elif spos - cut_out[0] < 0:
-                        diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
-                    else:
-                        diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
+                if bursting:
+                    assert len(fc) == 2 and fs is not None
+                    fs = fs.rescale('Hz').magnitude
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
+                                fs / 2.)
+                    wc_mod_mean = wc_mod_array
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
                 # Electrode modulation
                 if bursting:
-                    pass
+                    assert len(fc) == 2 and fs is not None
+                    fs = fs.rescale('Hz').magnitude
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
+                                fs / 2.)
+                    wc_mod_mean = np.mean(wc_mod_array, axis=1)
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
                 else:
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1594,21 +1644,56 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
             # No jitter
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # Template modulation
-                for pos, spos in enumerate(spike_pos):
-                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[
-                                                                                  pos] * template
-                    elif spos - cut_out[0] < 0:
-                        diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * template[:, diff:]
-                    else:
-                        diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * template[:, :diff]
+                if bursting:
+                    assert len(fc) == 2 and fs is not None
+                    fs = fs.rescale('Hz').magnitude
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
+                                fs / 2.)
+                    wc_mod_mean = wc_mod_array
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[
+                                                                                      pos] * template
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            recordings[:, :spos + cut_out[1]] += mod_array[pos] * template[:, diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            recordings[:, spos - cut_out[0]:] += mod_array[pos] * template[:, :diff]
 
             else:
                 # Electrode modulation
                 if bursting:
-                    pass
+                    assert len(fc) == 2 and fs is not None
+                    fs = fs.rescale('Hz').magnitude
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
+                            fs / 2.)
+                    wc_mod_mean = np.mean(wc_mod_array, axis=1)
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_mean[pos])
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
                 else:
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1627,17 +1712,17 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
     return recordings
 
-
+# TODO add bursting
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
                                             cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
-                                            verbose=False):
+                                            verbose=False, bursting=False, fc=None):
     '''
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
     Parameters
     ----------
     spike_id: int
-        Index of spike trains - template.
+        Index of spike trains - template
     spike_bin: np.array
         Binary array with spike times
     template: np.array
@@ -1730,7 +1815,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                     temp_jitt = template[temp_idx, rand_idx]
 
-                feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
                 peaks[i] = -np.squeeze(feat['na'])
         else:
             # No jitter
@@ -1762,7 +1847,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                     temp_jitt = template[temp_idx]
 
-                feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
                 peaks[i] = -np.squeeze(feat['na'])
     else:
         assert mod_array is not None
@@ -1771,63 +1856,69 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
             rand_idx = np.random.randint(njitt)
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # Template modulation
-                for pos, spos in enumerate(spike_pos):
-                    sp_time = spos / fs
-                    if sp_time < t_start_drift:
-                        temp_idx = 0
-                        temp_jitt = template[temp_idx, rand_idx]
-                    else:
-                        # compute current position
-                        new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
-                        temp_jitt = template[temp_idx, rand_idx]
-                        if verbose:
-                            print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
-                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] \
-                                                                              * temp_jitt
-                    elif spos - cut_out[0] < 0:
-                        diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
-                    else:
-                        diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
+                if bursting:
+                    pass
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        sp_time = spos / fs
+                        if sp_time < t_start_drift:
+                            temp_idx = 0
+                            temp_jitt = template[temp_idx, rand_idx]
+                        else:
+                            # compute current position
+                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            temp_jitt = template[temp_idx, rand_idx]
+                            if verbose:
+                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
+                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] \
+                                                                                  * temp_jitt
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
                 # Electrode modulation
-                for pos, spos in enumerate(spike_pos):
-                    sp_time = spos / fs
-                    if sp_time < t_start_drift:
-                        temp_idx = 0
-                        temp_jitt = template[temp_idx, rand_idx]
-                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            recordings[:, :spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
+                if bursting:
+                    pass
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        sp_time = spos / fs
+                        if sp_time < t_start_drift:
+                            temp_idx = 0
+                            temp_jitt = template[temp_idx, rand_idx]
+                            if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                            elif spos - cut_out[0] < 0:
+                                diff = -(spos - cut_out[0])
+                                recordings[:, :spos + cut_out[1]] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
+                            else:
+                                diff = n_samples - (spos - cut_out[0])
+                                recordings[:, spos - cut_out[0]:] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
                         else:
-                            diff = n_samples - (spos - cut_out[0])
-                            recordings[:, spos - cut_out[0]:] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
-                    else:
-                        # compute current position
-                        new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
-                        new_temp_jitt = template[temp_idx, rand_idx]
-                        if verbose:
-                            print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
-                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt)]
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            recordings[:, :spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, diff:])]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            recordings[:, spos - cut_out[0]:] += \
-                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, :diff])]
+                            # compute current position
+                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            new_temp_jitt = template[temp_idx, rand_idx]
+                            if verbose:
+                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
+                            if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt)]
+                            elif spos - cut_out[0] < 0:
+                                diff = -(spos - cut_out[0])
+                                recordings[:, :spos + cut_out[1]] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, diff:])]
+                            else:
+                                diff = n_samples - (spos - cut_out[0])
+                                recordings[:, spos - cut_out[0]:] += \
+                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, :diff])]
                 for i, t in enumerate(t_steps):
                     if t < t_start_drift:
                         temp_idx = 0
@@ -1838,7 +1929,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp_jitt = template[temp_idx, rand_idx]
 
-                    feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                    feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
                     peaks[i] = -np.squeeze(feat['na'])
         else:
             # No jitter
@@ -1851,7 +1942,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp = template[temp_idx]
                     else:
                         # compute current position
-                        new_pos = np.array(pos[0, 1:] + v * (sp_time - t_start_drift))
+                        new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp = template[temp_idx]
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1872,7 +1963,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp = template[temp_idx]
                     else:
                         # compute current position
-                        new_pos = np.array(pos[0, 1:] + v * (sp_time - t_start_drift))
+                        new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp = template[temp_idx]
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -2230,35 +2321,52 @@ if __name__ == '__main__':
     import MEArec as mr
     import elephant.statistics as stat
     import scipy.signal as ss
+    import matplotlib.pylab as plt
+    plt.ion()
+    plt.show()
 
-    recgen = mr.load_recordings('/home/alessio/Documents/Codes/MEArec/data/recordings/recordings_20cells_Neuronexus-32_10.0_10.0uV_19-01-2019:17:56.h5')
+    recgen = mr.load_recordings('/home/alessiob/Documents/Codes/MEArec/data/recordings/recordings_30cells_SqMEA-10-15um_30.0_10.0uV_06-03-2019:18:23.h5')
 
     n_elec, n_samples = recgen.recordings.shape
     spiketrain = recgen.spiketrains[0]
+    fs = recgen.info['recordings']['fs'] * pq.Hz
     isi = stat.isi(spiketrain).rescale('ms')
     mod, cons = compute_modulation(spiketrain, n_el=n_elec, mrand=1, sdrand=0.02,
                                    n_spikes=100, exp=0.2, max_burst_duration=100 * pq.ms)
 
-    fc = [1000., 6000.]
-    fn = 16000.
+    fc = [500., 12000.]
+    fn = fs / 2.
 
     temp = recgen.templates[0]
     temp_mod = np.zeros((mod.shape[0], n_elec, temp.shape[-1]))
 
-    map_mod = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]
+    mea = mu.return_mea(info=recgen.info['electrodes'])
 
-    for i, (m, a) in enumerate(zip(map_mod, mod)):
-        rand_idx = np.random.permutation(temp.shape[0])[0]
-        t = temp[rand_idx]
-        print('spike ', i)
-        print('avg freq: ', np.mean(m))
-        # temp_mod[i] = [aa * tt for (aa, tt) in zip(a, t)]
-        # print(np.min(temp_mod[i]))
-        for e, (mm, aa, tt) in enumerate(zip(m, a, t)):
-            b, a  = ss.butter(3, mm / fn)
-            ttt = ss.lfilter(b, a, tt)
-            # temp_mod[i, e] = ttt
-            temp_mod[i, e] = aa * np.min(tt) / np.min(ttt) * ttt
-        print(np.min(temp_mod[i]))
+    map_mod = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / fn
+    map_mod_mean = np.mean(map_mod, axis=1)
+    # print(map_mod_mean.shape)
+    #
+    # for i, (m, a) in enumerate(zip(map_mod_mean, mod)):
+    #     rand_idx = np.random.permutation(temp.shape[0])[0]
+    #     t = temp[rand_idx]
+    #     temp_mod[i] = compute_bursting_template(t, a, m)
+    #     # temp_mod[i] = [aa * tt for (aa, tt) in zip(a, t)]
+    #     # print(np.min(temp_mod[i]))
+    #     # for e, (mm, aa, tt) in enumerate(zip(m, a, t)):
+    #     #     b, a  = ss.butter(3, mm / fn)
+    #     #     ttt = ss.lfilter(b, a, tt)
+    #     #     # temp_mod[i, e] = ttt
+    #     #     temp_mod[i, e] = aa * np.min(tt) / np.min(ttt) * ttt
+    #     print(np.min(temp_mod[i]))
+
+    spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
+
+    max_idx, _ = np.unravel_index(temp[0].argmin(), temp[0].shape)
+    st = convolve_single_template(0, spike_matrix[0], temp[0, max_idx],
+                                  modulation=True, mod_array=mod[:, max_idx],
+                                  bursting=True, fc=fc, fs=fs)
+
+    rec_mod = convolve_templates_spiketrains(0, spike_matrix[0], temp, modulation=True, mod_array=mod,
+                                             verbose=True, bursting=True, fc=fc, fs=fs)
 
 
