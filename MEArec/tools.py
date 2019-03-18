@@ -8,7 +8,7 @@ import elephant
 import shutil
 import os
 from os.path import join
-import MEAutility as MEA
+import MEAutility as mu
 import h5py
 from pathlib import Path
 from distutils.version import StrictVersion
@@ -21,6 +21,15 @@ else:
 
 ### GET DEFAULT SETTINGS ###
 def get_default_config():
+    '''
+
+    Returns
+    -------
+    dict
+        Default_info from config file
+    str
+        Mearec home path
+    '''
     this_dir, this_filename = os.path.split(__file__)
     this_dir = Path(this_dir)
     home = Path(os.path.expanduser("~"))
@@ -52,13 +61,23 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
     Parameters
     ----------
-    templates_folder: temporary folder
-    celltypes: (optional) list of celltypes to be loaded
-    samples_per_cat (optional) number of eap to load per category
+    templates_folder: str
+        Path to temporary folder
+    celltypes: list (optional)
+        List of celltypes to be loaded
+    samples_per_cat: int (optional)
+        The number of eap to load per category
 
     Returns
     -------
-    templates, locations, rotations, celltypes
+    np.array
+        templates (n_eap, n_elec, n_sample)
+    np.array
+        locations (n_eap, 3)
+    np.array
+        rotations (n_eap, 3)
+    np.array
+        celltypes (n_eap)
 
     '''
     if verbose:
@@ -124,16 +143,17 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
 def load_templates(templates, verbose=False):
     '''
-    Load generated eap templates (from template_gen.py)
+    Load generated eap templates.
 
     Parameters
     ----------
-    template_folder: templates folder
+    templates: str
+        templates file or folder
 
     Returns
     -------
-    templates, locations, rotations, celltypes - np.arrays
-    info - dict
+    TemplateGenerator
+        TemplateGenerator object
 
     '''
     from MEArec import TemplateGenerator
@@ -180,16 +200,17 @@ def load_templates(templates, verbose=False):
 
 def load_recordings(recordings, verbose=False):
     '''
-    Load generated recordings (from template_gen.py)
+    Load generated recordings.
 
     Parameters
     ----------
-    recording_folder: recordings folder
+    recordings: str
+        recordings file or folder
 
     Returns
     -------
-    recordings, timestamps, channel_positions, templates, spiketrains, spike_traces, voltage_peaks - np.arrays
-    info - dict
+    RecordingGenerator
+        RecordingGenerator object
 
     '''
     from MEArec import RecordingGenerator
@@ -260,14 +281,14 @@ def load_recordings(recordings, verbose=False):
 
 def save_template_generator(tempgen, filename=None):
     '''
+    Saves templates to disk.
 
     Parameters
     ----------
-    tempgen
-    filename
-
-    Returns
-    -------
+    tempgen: TemplateGenerator
+        TemplateGenerator object to be saved
+    filename: str
+        Path to .h5 file or folder
 
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
@@ -310,14 +331,14 @@ def save_template_generator(tempgen, filename=None):
 
 def save_recording_generator(recgen, filename=None):
     '''
+    Saves recordings to disk.
 
     Parameters
     ----------
-    recgen
-    filename
-
-    Returns
-    -------
+    recgen: RecordingGenerator
+        RecordingGenerator object to be saved
+    filename: str
+        Path to .h5 file or folder
 
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
@@ -383,8 +404,18 @@ def save_recording_generator(recgen, filename=None):
 
 
 ### H5 TOOLS ###
-
 def hdf5_to_recordings(input_file, output_folder):
+    '''
+    Converts recordings .h5 to folder format.
+
+    Parameters
+    ----------
+    input_file: str
+        Path to .h5 file
+    output_folder: str
+        Path to output folder
+
+    '''
     if os.path.exists(output_folder):
         raise Exception('Output folder already exists: ' + output_folder)
 
@@ -424,6 +455,17 @@ def hdf5_to_recordings(input_file, output_folder):
 
 
 def hdf5_to_templates(input_file, output_folder):
+    '''
+    Converts templates .h5 to folder format.
+
+    Parameters
+    ----------
+    input_file: str
+        Path to .h5 file
+    output_folder: str
+        Path to output folder
+
+    '''
     if os.path.exists(output_folder):
         raise Exception('Output folder already exists: ' + output_folder)
 
@@ -444,10 +486,21 @@ def hdf5_to_templates(input_file, output_folder):
         np.save(output_folder + '/templates.npy', templates)
 
 
-def recordings_to_hdf5(recording_folder, output_fname):
+def recordings_to_hdf5(recordings_folder, output_fname):
+    '''
+    Converts recordings folder to .h5 format.
+
+    Parameters
+    ----------
+    recordings_folder: str
+        Path to recording folder
+    output_fname: str
+        Path to output .h5
+
+    '''
     F = h5py.File(output_fname, 'w')
 
-    with open(recording_folder + '/info.yaml', 'r') as f:
+    with open(recordings_folder + '/info.yaml', 'r') as f:
         if use_loader:
             info = yaml.load(f, Loader=yaml.FullLoader)
         else:
@@ -455,15 +508,15 @@ def recordings_to_hdf5(recording_folder, output_fname):
 
     F.create_dataset('info', data=json.dumps(info))
 
-    voltage_peaks = np.load(recording_folder + '/voltage_peaks.npy')
+    voltage_peaks = np.load(recordings_folder + '/voltage_peaks.npy')
     F.create_dataset('voltage_peaks', data=voltage_peaks)
-    channel_positions = np.load(recording_folder + '/channel_positions.npy')
+    channel_positions = np.load(recordings_folder + '/channel_positions.npy')
     F.create_dataset('channel_positions', data=channel_positions)
-    recordings = np.load(recording_folder + '/recordings.npy')
+    recordings = np.load(recordings_folder + '/recordings.npy')
     F.create_dataset('recordings', data=recordings)
-    psike_traces = np.load(recording_folder + '/spike_traces.npy')
+    psike_traces = np.load(recordings_folder + '/spike_traces.npy')
     F.create_dataset('spike_traces', data=spike_traces)
-    spiketrains = np.load(recording_folder + '/spiketrains.npy')
+    spiketrains = np.load(recordings_folder + '/spiketrains.npy')
     for ii in range(len(spiketrains)):
         st = spiketrains[ii]
         F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
@@ -478,14 +531,25 @@ def recordings_to_hdf5(recording_folder, output_fname):
                 annotations_no_pq[k] = v
         annotations_str = json.dumps(annotations_no_pq)
         F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
-    templates = np.load(recording_folder + '/templates.npy')
+    templates = np.load(recordings_folder + '/templates.npy')
     F.create_dataset('templates', data=templates)
-    templates = np.load(recording_folder + '/timestamps.npy')
+    templates = np.load(recordings_folder + '/timestamps.npy')
     F.create_dataset('timestamps', data=timestamps)
     F.close()
 
 
 def templates_to_hdf5(templates_folder, output_fname):
+    '''
+    Converts templates folder to .h5 format.
+
+    Parameters
+    ----------
+    templates_folder: str
+        Path to templates folder
+    output_fname: str
+        Path to output .h5
+
+    '''
     F = h5py.File(output_fname, 'w')
 
     with open(templates_folder + '/info.yaml', 'r') as f:
@@ -510,19 +574,23 @@ def templates_to_hdf5(templates_folder, output_fname):
 
 
 ### TEMPLATES INFO ###
-
 def get_binary_cat(celltypes, excit, inhib):
     '''
+    Returns binary category depending on cell type.
 
     Parameters
     ----------
-    celltypes: np.array with celltypes
-    excit: list of excitatory celltypes
-    inhib: list of inhibitory celltypes
+    celltypes: np.array
+        String array with cell types
+    excit: list
+        List of substrings for excitatory cell types (e.g. ['PC', 'UTPC'])
+    inhib: list
+        List of substrings for inhibitory celltypes (e.g. ['BP', 'MC'])
 
     Returns
     -------
-    bin_cat: binary celltype (E-I) - np.array
+    np.array
+        Array with binary cell type (E-I)
 
     '''
     binary_cat = []
@@ -534,87 +602,83 @@ def get_binary_cat(celltypes, excit, inhib):
     return np.array(binary_cat, dtype=str)
 
 
-def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0, normalize=False):
+def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False):
     '''
+    Computes several templates features.
 
     Parameters
     ----------
-    EAP
-    feat_list
-    dt
-    EAP_times
-    threshold_detect
-    normalize
+    templates: np.array
+        EAP templates
+    feat_list: list
+        List of features to be computed (amp, width, fwhm, ratio, speed, na, rep)
+    dt:
+    templates_times:
+    threshold_detect:
+    normalize:
 
     Returns
     -------
+    dict
+        Dictionary with features
 
     '''
     reference_mode = 't0'
-    if EAP_times is not None and dt is not None:
-        test_dt = (EAP_times[-1] - EAP_times[0]) / (len(EAP_times) - 1)
+    if templates_times is not None and dt is not None:
+        test_dt = (templates_times[-1] - templates_times[0]) / (len(templates_times) - 1)
         if dt != test_dt:
-            raise ValueError('EAP_times and dt do not match.')
-    elif EAP_times is not None:
-        dt = (EAP_times[-1] - EAP_times[0]) / (len(EAP_times) - 1)
+            raise ValueError('templates_times and dt do not match.')
+    elif templates_times is not None:
+        dt = (templates_times[-1] - templates_times[0]) / (len(templates_times) - 1)
     elif dt is not None:
-        EAP_times = np.arange(EAP.shape[-1]) * dt
+        templates_times = np.arange(templates.shape[-1]) * dt
     else:
-        raise NotImplementedError('Please, specify either dt or EAP_times.')
+        raise NotImplementedError('Please, specify either dt or templates_times.')
 
-    if len(EAP.shape) == 1:
-        EAP = np.reshape(EAP, [1, 1, -1])
-    elif len(EAP.shape) == 2:
-        EAP = np.reshape(EAP, [1, EAP.shape[0], EAP.shape[1]])
-    if len(EAP.shape) != 3:
-        raise ValueError('Cannot handle EAPs with shape', EAP.shape)
+    if len(templates.shape) == 1:
+        templates = np.reshape(templates, [1, 1, -1])
+    elif len(templates.shape) == 2:
+        templates = np.reshape(templates, [1, templates.shape[0], templates.shape[1]])
+    if len(templates.shape) != 3:
+        raise ValueError('Cannot handle templatess with shape', templates.shape)
 
     if normalize:
-        signs = np.sign(np.min(EAP.reshape([EAP.shape[0], -1]), axis=1))
-        norm = np.abs(np.min(EAP.reshape([EAP.shape[0], -1]), axis=1))
-        EAP = np.array([EAP[i] / n if signs[i] > 0 else EAP[i] / n - 2. for i, n in enumerate(norm)])
+        signs = np.sign(np.min(templates.reshape([templates.shape[0], -1]), axis=1))
+        norm = np.abs(np.min(templates.reshape([templates.shape[0], -1]), axis=1))
+        templates = np.array([templates[i] / n if signs[i] > 0 else templates[i] / n - 2. for i, n in enumerate(norm)])
 
     features = {}
 
-    amps = np.zeros((EAP.shape[0], EAP.shape[1]))
-    na_peak = np.zeros((EAP.shape[0], EAP.shape[1]))
-    rep_peak = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'W' in feat_list:
-        features['widths'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'F' in feat_list:
-        features['fwhm'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'R' in feat_list:
-        features['ratio'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'S' in feat_list:
-        features['speed'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'Aids' in feat_list:
-        features['Aids'] = np.zeros((EAP.shape[0], EAP.shape[1], 2), dtype=int)
-    if 'Fids' in feat_list:
-        features['Fids'] = []
-    if 'FV' in feat_list:
-        features['fwhm_V'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'Na' in feat_list:
-        features['na'] = np.zeros((EAP.shape[0], EAP.shape[1]))
-    if 'Rep' in feat_list:
-        features['rep'] = np.zeros((EAP.shape[0], EAP.shape[1]))
+    amps = np.zeros((templates.shape[0], templates.shape[1]))
+    na_peak = np.zeros((templates.shape[0], templates.shape[1]))
+    rep_peak = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'width' in feat_list:
+        features['width'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'fwhm' in feat_list:
+        features['fwhm'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'ratio' in feat_list:
+        features['ratio'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'speed' in feat_list:
+        features['speed'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'na' in feat_list:
+        features['na'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'rep' in feat_list:
+        features['rep'] = np.zeros((templates.shape[0], templates.shape[1]))
 
-    for i in range(EAP.shape[0]):
+    for i in range(templates.shape[0]):
         # For AMP feature
-        min_idx = np.array([np.unravel_index(EAP[i, e].argmin(), EAP[i, e].shape)[0] for e in
-                            range(EAP.shape[1])])
-        max_idx = np.array([np.unravel_index(EAP[i, e, min_idx[e]:].argmax(),
-                                             EAP[i, e, min_idx[e]:].shape)[0]
-                            + min_idx[e] for e in range(EAP.shape[1])])
+        min_idx = np.array([np.unravel_index(templates[i, e].argmin(), templates[i, e].shape)[0] for e in
+                            range(templates.shape[1])])
+        max_idx = np.array([np.unravel_index(templates[i, e, min_idx[e]:].argmax(),
+                                             templates[i, e, min_idx[e]:].shape)[0]
+                            + min_idx[e] for e in range(templates.shape[1])])
         # for na and rep
-        min_elid, min_idx_na = np.unravel_index(EAP[i].argmin(), EAP[i].shape)
-        max_idx_rep = EAP[i, min_elid, min_idx_na:].argmax() + min_idx_na
-        na_peak[i, :] = EAP[i, :, min_idx_na]
-        rep_peak[i, :] = EAP[i, :, max_idx_rep]
+        min_elid, min_idx_na = np.unravel_index(templates[i].argmin(), templates[i].shape)
+        max_idx_rep = templates[i, min_elid, min_idx_na:].argmax() + min_idx_na
+        na_peak[i, :] = templates[i, :, min_idx_na]
+        rep_peak[i, :] = templates[i, :, max_idx_rep]
 
-        if 'Aids' in feat_list:
-            features['Aids'][i] = np.vstack((min_idx, max_idx)).T
-
-        amps[i, :] = np.array([EAP[i, e, max_idx[e]] - EAP[i, e, min_idx[e]] for e in range(EAP.shape[1])])
+        amps[i, :] = np.array([templates[i, e, max_idx[e]] - templates[i, e, min_idx[e]] for e in range(templates.shape[1])])
         # If below 'detectable threshold, set amp and width to 0
         if normalize:
             too_low = np.where(amps[i, :] < threshold_detect / norm[i])
@@ -622,80 +686,78 @@ def get_EAP_features(EAP, feat_list, dt=None, EAP_times=None, threshold_detect=0
             too_low = np.where(amps[i, :] < threshold_detect)
         amps[i, too_low] = 0
 
-        if 'R' in feat_list:
-            min_id_ratio = np.array([np.unravel_index(EAP[i, e, min_idx_na:].argmin(),
-                                                      EAP[i, e, min_idx_na:].shape)[0]
-                                     + min_idx_na for e in range(EAP.shape[1])])
-            max_id_ratio = np.array([np.unravel_index(EAP[i, e, min_idx_na:].argmax(),
-                                                      EAP[i, e, min_idx_na:].shape)[0]
-                                     + min_idx_na for e in range(EAP.shape[1])])
-            features['ratio'][i, :] = np.array([np.abs(EAP[i, e, max_id_ratio[e]]) /
-                                                np.abs(EAP[i, e, min_id_ratio[e]])
-                                                for e in range(EAP.shape[1])])
+        if 'ratio' in feat_list:
+            min_id_ratio = np.array([np.unravel_index(templates[i, e, min_idx_na:].argmin(),
+                                                      templates[i, e, min_idx_na:].shape)[0]
+                                     + min_idx_na for e in range(templates.shape[1])])
+            max_id_ratio = np.array([np.unravel_index(templates[i, e, min_idx_na:].argmax(),
+                                                      templates[i, e, min_idx_na:].shape)[0]
+                                     + min_idx_na for e in range(templates.shape[1])])
+            features['ratio'][i, :] = np.array([np.abs(templates[i, e, max_id_ratio[e]]) /
+                                                np.abs(templates[i, e, min_id_ratio[e]])
+                                                for e in range(templates.shape[1])])
             # If below 'detectable threshold, set amp and width to 0
             too_low = np.where(amps[i, :] < threshold_detect)
             features['ratio'][i, too_low] = 1
-        if 'S' in feat_list:
+        if 'speed' in feat_list:
             features['speed'][i, :] = np.array((min_idx - min_idx_na) * dt)
             features['speed'][i, too_low] = min_idx_na * dt
 
-        if 'W' in feat_list:
-            features['widths'][i, :] = np.abs(EAP_times[max_idx] - EAP_times[min_idx])
-            features['widths'][i, too_low] = EAP.shape[2] * dt  # EAP_times[-1]-EAP_times[0]
+        if 'width' in feat_list:
+            features['width'][i, :] = np.abs(templates_times[max_idx] - templates_times[min_idx])
+            features['width'][i, too_low] = templates.shape[2] * dt  # templates_times[-1]-templates_times[0]
 
-        if 'F' in feat_list:
-            min_peak = np.min(EAP[i], axis=1)
+        if 'fwhm' in feat_list:
+            min_peak = np.min(templates[i], axis=1)
             if reference_mode == 't0':
                 # reference voltage is zeroth voltage entry
-                fwhm_ref = np.array([EAP[i, e, 0] for e in range(EAP.shape[1])])
-            elif reference_mode == 'maxd2EAP':
+                fwhm_ref = np.array([templates[i, e, 0] for e in range(templates.shape[1])])
+            elif reference_mode == 'maxd2templates':
                 # reference voltage is taken at peak onset
-                # peak onset is defined as id of maximum 2nd derivative of EAP
-                peak_onset = np.array([np.argmax(savitzky_golay(EAP[i, e], 5, 2, deriv=2)[:min_idx[e]])
-                                       for e in range(EAP.shape[1])])
-                fwhm_ref = np.array([EAP[i, e, peak_onset[e]] for e in range(EAP.shape[1])])
+                # peak onset is defined as id of maximum 2nd derivative of templates
+                peak_onset = np.array([np.argmax(savitzky_golay(templates[i, e], 5, 2, deriv=2)[:min_idx[e]])
+                                       for e in range(templates.shape[1])])
+                fwhm_ref = np.array([templates[i, e, peak_onset[e]] for e in range(templates.shape[1])])
             else:
                 raise NotImplementedError('Reference mode ' + reference_mode + ' for FWHM calculation not implemented.')
             fwhm_V = (fwhm_ref + min_peak) / 2.
-            id_trough = [np.where(EAP[i, e] < fwhm_V[e])[0] for e in range(EAP.shape[1])]
-            if 'Fids' in feat_list:
-                features['Fids'].append(id_trough)
-            if 'FV' in feat_list:
-                features['fwhm_V'][i, :] = fwhm_V
-
-            # linear interpolation due to little number of data points during peak
-
-            # features['fwhm'][i,:] = np.array([(len(t)+1)*dt+(fwhm_V[e]-EAP[i,e,t[0]-1])/(EAP[i,e,t[0]]-EAP[i,e,t[0]-1])*dt -(fwhm_V[e]-EAP[i,e,t[-1]])/(EAP[i,e,min(t[-1]+1,EAP.shape[2]-1)]-EAP[i,e,t[-1]])*dt if len(t)>0 else np.infty for e,t in enumerate(id_trough)])
+            id_trough = [np.where(templates[i, e] < fwhm_V[e])[0] for e in range(templates.shape[1])]
 
             # no linear interpolation
             features['fwhm'][i, :] = [(id_trough[e][-1] - id_trough[e][0]) * dt if len(id_trough[e]) > 1 \
-                                          else EAP.shape[2] * dt for e in range(EAP.shape[1])]
-            features['fwhm'][i, too_low] = EAP.shape[2] * dt  # EAP_times[-1]-EAP_times[0]
+                                          else templates.shape[2] * dt for e in range(templates.shape[1])]
+            features['fwhm'][i, too_low] = templates.shape[2] * dt  # EAP_times[-1]-EAP_times[0]
 
-    if 'A' in feat_list:
-        features.update({'amps': amps})
-    if 'Na' in feat_list:
+    if 'amp' in feat_list:
+        features.update({'amp': amps})
+    if 'na' in feat_list:
         features.update({'na': na_peak})
-    if 'Rep' in feat_list:
+    if 'rep' in feat_list:
         features.update({'rep': rep_peak})
 
     return features
 
 
 ### TEMPLATES OPERATIONS ###
-
 def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
     '''
+    Check if position is within given boundaries.
 
     Parameters
     ----------
-    position
-    x_lim
-    y_lim
-    z_lim
+    position: np.array
+        3D position
+    x_lim: list
+        Boundaries in x dimension (low, high)
+    y_lim: list
+        Boundaries in y dimension (low, high)
+    z_lim: list
+        Boundaries in z dimension (low, high)
 
     Returns
     -------
+    bool
+        If True the position is within boundaries
 
     '''
     valid_position = True
@@ -710,32 +772,55 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
             valid_position = False
     return valid_position
 
-
-def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
+#TODO make drift_dir_ang and preferred dir as 3D directions
+def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
                      min_amp=None, max_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15,
                      verbose=False):
     '''
+    Select templates given specified rules.
 
     Parameters
     ----------
-    loc
-    spikes
-    bin_cat
-    n_exc
-    n_inh
-    min_dist
-    x_lim
-    y_lim
-    z_lim
-    min_amp
-    drifting
-    drift_dir_ang
-    preferred_dir
-    angle_tol
-    verbose
+    loc: np.array
+        Array with 3D soma locations
+    templates: np.array
+        Array with eap templates (n_eap, n_channels, n_samples)
+    bin_cat: np.array
+        Array with binary category (E-I)
+    n_exc: int
+        Number of excitatory cells to be selected
+    n_inh: int
+        Number of inhibitory cells to be selected
+    min_dist: float
+        Minimum allowed distance between somata (in um)
+    x_lim: list
+        Boundaries in x dimension (low, high)
+    y_lim: list
+        Boundaries in y dimension (low, high)
+    z_lim: list
+        Boundaries in z dimension (low, high)
+    min_amp: float
+        Minimum amplitude in uV
+    max_amp: float
+        Maximum amplitude in uV
+    drifting: bool
+        If True drifting templates are selected
+    drift_dir_ang:
+
+    preferred_dir:
+
+    angle_tol: float
+        Tollerance in degrees for selecting final drift position
+    verbose: bool
+        If True the output is verbose
 
     Returns
     -------
+    np.array
+        Selected template indexes
+    list
+        Selected templates binary type
+
 
     '''
     pos_sel = []
@@ -784,7 +869,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Distance violation', dist, iter)
                         pass
                     else:
-                        amp = np.max(np.abs(spikes[id_cell]))
+                        amp = np.max(np.abs(templates[id_cell]))
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -822,7 +907,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                             print('Distance violation', dist, iter)
                         pass
                     else:
-                        amp = np.max(np.abs(spikes[id_cell]))
+                        amp = np.max(np.abs(templates[id_cell]))
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -860,7 +945,7 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
                     print('Distance violation', dist, iter)
                 pass
             else:
-                amp = np.max(np.abs(spikes[id_cell]))
+                amp = np.max(np.abs(templates[id_cell]))
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -897,29 +982,33 @@ def select_templates(loc, spikes, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None
     return idxs_sel, selected_cat
 
 
-def cubic_padding(spike, pad_len, fs, percent_mean=0.2):
+def cubic_padding(template, pad_len, fs):
     '''
-    Cubic spline padding on left and right side to 0
+    Cubic spline padding on left and right side to 0. The initial offset of the templates is also removed.
 
     Parameters
     ----------
-    spike
-    pad_len
-    fs
+    template: np.array
+        Templates to be padded (n_elec, n_samples)
+    pad_len: list
+        Padding in ms before and after the template
+    fs: quantity
+        Sampling frequency
 
     Returns
     -------
-    padded_template
+    np.array
+        Padded template
 
     '''
     import scipy.interpolate as interp
     n_pre = int(pad_len[0] * fs)
     n_post = int(pad_len[1] * fs)
 
-    padded_template = np.zeros((spike.shape[0], int(n_pre) + spike.shape[1] + n_post))
-    splines = np.zeros((spike.shape[0], int(n_pre) + spike.shape[1] + n_post))
+    padded_template = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
+    splines = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
 
-    for i, sp in enumerate(spike):
+    for i, sp in enumerate(template):
         # Remove inital offset
         padded_sp = np.zeros(n_pre + len(sp) + n_post)
         padded_t = np.arange(len(padded_sp))
@@ -947,19 +1036,24 @@ def cubic_padding(spike, pad_len, fs, percent_mean=0.2):
         padded_template[i, n_pre:-n_post] = sp
         padded_template[i, -n_post:] = f(np.arange(n_pre + len(sp), n_pre + len(sp) + n_post))
 
-    return padded_template, splines
+    return padded_template
 
 
 def find_overlapping_templates(templates, thresh=0.7):
     '''
+    Find spatially overlapping templates.
 
     Parameters
     ----------
-    templates
-    thresh
+    templates: np.array
+        Array with templates (n_templates, n_elec, n_samples)
+    thresh: float
+        Percent threshold to consider two templates to be overlapping.
 
     Returns
     -------
+    np.array
+        Array with overlapping pairs (n_overlapping, 2)
 
     '''
     overlapping_pairs = []
@@ -979,52 +1073,56 @@ def find_overlapping_templates(templates, thresh=0.7):
                 peak_2_on_max = np.abs(np.min(temp_2[peak_electrode_idx]))
                 peak_2 = np.abs(np.min(temp_2))
 
-                # max_peak_2 = (np.array([np.max(np.abs(t)) for t in temp_2]).max())
                 if peak_2_on_max > thresh * peak_2:
                     if [i, j] not in overlapping_pairs and [j, i] not in overlapping_pairs:
                         overlapping_pairs.append(sorted([i, j]))
 
     return np.array(overlapping_pairs)
 
-### SPIKETRAIN OPERATIONS ###
 
-def annotate_overlapping_spikes(gtst, t_jitt=1 * pq.ms, overlapping_pairs=None, verbose=False, parallel=True):
+### SPIKETRAIN OPERATIONS ###
+def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs=None, parallel=True, verbose=True):
     '''
+    Annotate spike trains with temporal and spatio-temporal overlapping labels.
+    NO - Non overlap
+    O - Temporal overlap
+    SO - Spatio-temporal overlap
 
     Parameters
     ----------
-    gtst
-    t_jitt
-    overlapping_pairs
-    verbose
-
-    Returns
-    -------
+    spiketrains: list
+        List of neo spike trains to be annotated
+    t_jitt: Quantity
+        Time jitter to consider overlapping spikes in time (default 1 ms)
+    overlapping_pairs: np.array
+        Array with overlapping information between spike trains (n_spiketrains, 2)
+    parallel: bool
+        If True spike trains are processed in parallel with multiprocessing
+    verbose: bool
+        If True output is verbose
 
     '''
-    nprocesses = len(gtst)
+    nprocesses = len(spiketrains)
     if parallel:
         import multiprocessing
         # t_start = time.time()
         pool = multiprocessing.Pool(nprocesses)
-        results = [pool.apply_async(annotate_parallel(i, st_i, gtst, overlapping_pairs, t_jitt, ))
-                   for i, st_i in enumerate(gtst)]
+        results = [pool.apply_async(annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose, ))
+                   for i, st_i in enumerate(spiketrains)]
     else:
         # find overlapping spikes
-        for i, st_i in enumerate(gtst):
+        for i, st_i in enumerate(spiketrains):
             if verbose:
-                print('SPIKETRAIN ', i)
+                print('Spike train ', i)
             over = np.array(['NO'] * len(st_i))
             for i_sp, t_i in enumerate(st_i):
-                for j, st_j in enumerate(gtst):
+                for j, st_j in enumerate(spiketrains):
                     if i != j:
                         # find overlapping
                         id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                         if not np.any(overlapping_pairs):
                             if len(id_over) != 0:
                                 over[i_sp] = 'O'
-                                # if verbose:
-                                #     print('found overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
                         else:
                             pair = [i, j]
                             pair_i = [j, i]
@@ -1032,43 +1130,43 @@ def annotate_overlapping_spikes(gtst, t_jitt=1 * pq.ms, overlapping_pairs=None, 
                                     np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                                 if len(id_over) != 0:
                                     over[i_sp] = 'SO'
-                                    # if verbose:
-                                    #     print('found spatial overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
                             else:
                                 if len(id_over) != 0:
                                     over[i_sp] = 'O'
-                                    # if verbose:
-                                    #     print('found overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
             st_i.annotate(overlap=over)
 
 
-def annotate_parallel(i, st_i, gtst, overlapping_pairs, t_jitt):
+def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
     '''
+    Helper function to annotate spike trains in parallel.
 
     Parameters
     ----------
-    i
-    st_i
-    gtst
-    overlapping_pairs
-    t_jitt
-
-    Returns
-    -------
+    i: int
+        Index of spike train
+    st_i: neo.SpikeTrain
+        Spike train to be processed
+    spiketrains: list
+        List of neo spiketrains
+    t_jitt: Quantity
+        Time jitter to consider overlapping spikes in time (default 1 ms)
+    overlapping_pairs: np.array
+        Array with overlapping information between spike trains (n_spiketrains, 2)
+    verbose: bool
+        If True output is verbose
 
     '''
-    print('SPIKETRAIN ', i)
+    if verbose:
+        print('Spike train ', i)
     over = np.array(['NO'] * len(st_i))
     for i_sp, t_i in enumerate(st_i):
-        for j, st_j in enumerate(gtst):
+        for j, st_j in enumerate(spiketrains):
             if i != j:
                 # find overlapping
                 id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                 if not np.any(overlapping_pairs):
                     if len(id_over) != 0:
                         over[i_sp] = 'O'
-                        # if verbose:
-                        #     print('found overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
                 else:
                     pair = [i, j]
                     pair_i = [j, i]
@@ -1076,27 +1174,29 @@ def annotate_parallel(i, st_i, gtst, overlapping_pairs, t_jitt):
                             np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                         if len(id_over) != 0:
                             over[i_sp] = 'SO'
-                            # if verbose:
-                            #     print('found spatial overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
                     else:
                         if len(id_over) != 0:
                             over[i_sp] = 'O'
-                            # if verbose:
-                            #     print('found overlap! spike 1: ', i, t_i, ' spike 2: ', j, st_j[id_over])
     st_i.annotate(overlap=over)
 
 
 def resample_spiketrains(spiketrains, fs=None, T=None):
     '''
     Resamples spike trains. Provide either fs or T parameters
+
     Parameters
     ----------
-    fs: new sampling frequency (quantity)
-    T: new period (quantity)
+    spiketrains: list
+        List of neo spiketrains to be resampled
+    fs: Quantity
+        New sampling frequency
+    T: Quantity
+        New sampling period
 
     Returns
     -------
-    matrix with resampled binned spike trains
+    np.array
+        Matrix with resampled binned spike trains
 
     '''
     import elephant.conversion as conv
@@ -1127,21 +1227,38 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
 
 
 ### CONVOLUTION OPERATIONS ###
-
-def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, mem_ISI=100 * pq.ms):
+def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, max_burst_duration=100 * pq.ms):
     '''
+    Computes modulation value for an input spike train.
 
     Parameters
     ----------
-    st
-    mrand
-    sdrand
-    n_spikes
-    exp
-    mem_ISI
+    st: neo.SpikeTrain
+        Input spike train
+    n_el: int
+        Number of electrodes to compute modulation.
+        If 1, modulation is computed at the template level.
+        If n_elec, modulation is computed at the electrode level.
+    mrand: float
+        Mean for Gaussian modulation (should be 1)
+    sdrand: float
+        Standard deviation for Gaussian modulation
+    n_spikes: int
+        Number of spikes for bursting behavior.
+        If 1, no bursting behavior.
+        If > 1, up to n_spikes consecutive spike are modulated with an exponentially decaying function.
+    exp: float
+        Exponent for exponential modulation (default 0.2)
+    max_burst_duration: Quantity
+        Maximum duration of a bursting event. After this duration, bursting modulation is reset.
+
 
     Returns
     -------
+    np.array
+        Modulation value for each spike in the spike train
+    np.array
+        Number of consecutive spikes computed for each spike
 
     '''
 
@@ -1149,24 +1266,25 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
 
     if n_el == 1:
         ISI = stat.isi(st).rescale('ms')
-        # mem_ISI = 2*mean_ISI
-        amp_mod = np.zeros(len(st))
-        amp_mod[0] = sdrand * np.random.randn() + mrand
+        # max_burst_duration = 2*mean_ISI
+        mod = np.zeros(len(st))
+        mod[0] = sdrand * np.random.randn() + mrand
         cons = np.zeros(len(st))
 
         last_burst_event = 0 * pq.s
         for i, isi in enumerate(ISI):
             if n_spikes == 0:
                 # no isi-dependent modulation
-                amp_mod[i + 1] = sdrand * np.random.randn() + mrand
+                mod[i + 1] = sdrand * np.random.randn() + mrand
             elif n_spikes == 1:
-                if isi > mem_ISI:
-                    amp_mod[i + 1] = sdrand * np.random.randn() + mrand
+                if isi > max_burst_duration:
+                    mod[i + 1] = sdrand * np.random.randn() + mrand
                 else:
-                    amp_mod[i + 1] = isi.magnitude ** exp * (1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn()
+                    mod[i + 1] = isi.magnitude ** exp * (1. / max_burst_duration.magnitude ** exp) \
+                                     + sdrand * np.random.randn()
             else:
                 if last_burst_event.magnitude == 0:
-                    consecutive_idx = np.where((st > st[i] - mem_ISI) & (st <= st[i]))[0]
+                    consecutive_idx = np.where((st > st[i] - max_burst_duration) & (st <= st[i]))[0]
                     consecutive = len(consecutive_idx)
                 else:
                     consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
@@ -1178,46 +1296,49 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                 if consecutive == n_spikes:
                     last_burst_event = st[i + 1]
                 if consecutive >= 1:
-                    if st[i + 1] - st[consecutive_idx[0]] >= mem_ISI:
+                    if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
                         last_burst_event = st[i + 1]
 
                 if consecutive == 0:
-                    amp_mod[i + 1] = sdrand * np.random.randn() + mrand
+                    mod[i + 1] = sdrand * np.random.randn() + mrand
                 elif consecutive == 1:
-                    amp = (isi / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                    amp = (isi / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
                     # scale std by amp
-                    amp_mod[i + 1] = amp + amp * sdrand * np.random.randn()
+                    mod[i + 1] = amp + amp * sdrand * np.random.randn()
                 else:
                     if i != len(ISI):
                         isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
                     else:
                         isi_mean = np.mean(ISI[i - consecutive + 1:])
-                    amp = (isi_mean / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                    amp = (isi_mean / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
                     # scale std by amp
-                    amp_mod[i + 1] = amp + amp * sdrand * np.random.randn()
+                    mod[i + 1] = amp + amp * sdrand * np.random.randn()
 
                 cons[i + 1] = consecutive
     else:
         if n_spikes == 0:
-            amp_mod = sdrand * np.random.randn(len(st), n_el) + mrand
+            mod = sdrand * np.random.randn(len(st), n_el) + mrand
             cons = []
         else:
             ISI = stat.isi(st).rescale('ms')
-            amp_mod = np.zeros((len(st), n_el))
-            amp_mod[0] = sdrand * np.random.randn(n_el) + mrand
+            mod = np.zeros((len(st), n_el))
+            mod[0] = sdrand * np.random.randn(n_el) + mrand
             cons = np.zeros(len(st))
 
             last_burst_event = 0 * pq.s
             for i, isi in enumerate(ISI):
                 if n_spikes == 1:
-                    if isi > mem_ISI:
-                        amp_mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
+                    if isi > max_burst_duration:
+                        mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
                     else:
-                        amp_mod[i + 1] = isi.magnitude ** exp * (
-                                    1. / mem_ISI.magnitude ** exp) + sdrand * np.random.randn(n_el)
+                        mod[i + 1] = isi.magnitude ** exp * (
+                                    1. / max_burst_duration.magnitude ** exp) + sdrand * np.random.randn(n_el)
                 else:
-                    if last_burst_event.magnitude == 0:
-                        consecutive_idx = np.where((st > st[i] - mem_ISI) & (st <= st[i]))[0]
+                    if isi > max_burst_duration:
+                        mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
+                        consecutive = 0
+                    elif last_burst_event.magnitude == 0:
+                        consecutive_idx = np.where((st > st[i] - max_burst_duration) & (st <= st[i]))[0]
                         consecutive = len(consecutive_idx)
                     else:
                         consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
@@ -1229,42 +1350,61 @@ def ISI_amplitude_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0
                     if consecutive == n_spikes:
                         last_burst_event = st[i + 1]
                     if consecutive >= 1:
-                        if st[i + 1] - st[consecutive_idx[0]] >= mem_ISI:
+                        if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
                             last_burst_event = st[i + 1]
 
                     if consecutive == 0:
-                        amp_mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
+                        mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
                     elif consecutive == 1:
-                        amp = (isi / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                        amp = (isi.magnitude / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
                         # scale std by amp
-                        amp_mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
+                        if amp > 1:
+                            raise Exception
+                        mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
                     else:
                         if i != len(ISI):
                             isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
                         else:
                             isi_mean = np.mean(ISI[i - consecutive + 1:])
-                        amp = (isi_mean / float(consecutive)) ** exp * (1. / mem_ISI.magnitude ** exp)
+                        amp = (isi_mean / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
                         # scale std by amp
-                        amp_mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
-
+                        mod[i + 1] = amp + amp * sdrand * np.random.randn(n_el)
                     cons[i + 1] = consecutive
 
-    return np.array(amp_mod), cons
+    return np.array(mod), cons
 
 
-def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, amp_mod=None):
+def compute_bursting_template(template, mod, wc_mod):
+    b, a = ss.butter(3, wc_mod)
+    temp_filt = ss.filtfilt(b, a, template)
+    # temp_mod[i, e] = ttt
+    return mod * np.min(template) / np.min(temp_filt) * temp_filt
+
+
+def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
+                             bursting=False, fc=None, fs=None):
     '''
+    Convolve single template with spike train. Used to compute 'spike_traces'.
 
     Parameters
     ----------
-    spike_id
-    spike_bin
-    template
-    modulation
-    amp_mod
+    spike_id: int
+        Index of spike trains - template.
+    spike_bin: np.array
+        Binary array with spike times
+    template: np.array
+        Array with template on single electrode (n_samples)
+    cut_out: list
+        Number of samples before and after the peak
+    modulation: bool
+        If True modulation is applied
+    mod_array: np.array
+        Array with modulation value for each spike
 
     Returns
     -------
+    np.array
+        Trace with convolved signal (n_samples)
 
     '''
     if len(template.shape) == 2:
@@ -1272,13 +1412,14 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         len_spike = template.shape[1]
     else:
         len_spike = template.shape[0]
+    if cut_out is None:
+        cut_out = [len_spike // 2, len_spike // 2]
     spike_pos = np.where(spike_bin == 1)[0]
     n_samples = len(spike_bin)
     gt_source = np.zeros(n_samples)
 
     if len(template.shape) == 2:
         rand_idx = np.random.randint(njitt)
-        # print('rand_idx: ', rand_idx)
         temp_jitt = template[rand_idx]
         if not modulation:
             for pos, spos in enumerate(spike_pos):
@@ -1291,49 +1432,89 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
                     diff = n_samples - (spos - cut_out[0])
                     gt_source[spos - cut_out[0]:] += temp_jitt[:diff]
         else:
-            # print('Template-Electrode modulation')
+            if bursting:
+                assert len(fc) == 2 and fs is not None
+                wc_mod_array = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0] / fs
+                for pos, spos in enumerate(spike_pos):
+                    if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                        gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
+                            compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                    elif spos - cut_out[0] < 0:
+                        diff = -(spos - cut_out[0])
+                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                        gt_source[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
+                    else:
+                        diff = n_samples - (spos - cut_out[0])
+                        temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_array[pos])
+                        gt_source[spos - cut_out[0]:] += temp_filt[:diff]
+            else:
+                for pos, spos in enumerate(spike_pos):
+                    if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                        gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_array[pos] * temp_jitt
+                    elif spos - cut_out[0] < 0:
+                        diff = -(spos - cut_out[0])
+                        gt_source[:spos - cut_out[0] + len_spike] += mod_array[pos] * temp_jitt[diff:]
+                    else:
+                        diff = n_samples - (spos - cut_out[0])
+                        gt_source[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:diff]
+    else:
+        if bursting:
+            assert len(fc) == 2 and fs is not None
+            wc_mod_array = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0] / fs
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += amp_mod[pos] * temp_jitt
+                    gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
+                        compute_bursting_template(template, mod_array[pos], wc_mod_array[pos])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    gt_source[:spos - cut_out[0] + len_spike] += amp_mod[pos] * temp_jitt[diff:]
+                    temp_filt = compute_bursting_template(template, mod_array[pos], wc_mod_array[pos])
+                    gt_source[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    gt_source[spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:diff]
-    else:
-        # print('No modulation')
+                    temp_filt = compute_bursting_template(templat   , mod_array[pos], wc_mod_array[pos])
+                    gt_source[spos - cut_out[0]:] += temp_filt[:diff]
         for pos, spos in enumerate(spike_pos):
             if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += template
+                gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_array[pos] * template
             elif spos - cut_out[0] < 0:
                 diff = -(spos - cut_out[0])
-                gt_source[:spos - cut_out[0] + len_spike] += template[diff:]
+                gt_source[:spos - cut_out[0] + len_spike] += mod_array[pos] * template[diff:]
             else:
                 diff = n_samples - (spos - cut_out[0])
-                gt_source[spos - cut_out[0]:] += template[:diff]
-
+                gt_source[spos - cut_out[0]:] += mod_array[pos] * template[:diff]
     return gt_source
 
 
-def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, amp_mod=None,
-                                   recordings=[]):
+def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
+                                   verbose=False):
     '''
+    Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
     Parameters
     ----------
-    spike_id
-    spike_bin
-    template
-    modulation
-    amp_mod
-    recordings
+    spike_id: int
+        Index of spike trains - template.
+    spike_bin: np.array
+        Binary array with spike times
+    template: np.array
+        Array with template on single electrode (n_samples)
+    cut_out: list
+        Number of samples before and after the peak
+    modulation: bool
+        If True modulation is applied
+    mod_array: np.array
+        Array with modulation value for each spike
+    verbose: bool
+        If True output is verbose
 
     Returns
     -------
+    np.array
+        Trace with convolved signals (n_elec, n_samples)
 
     '''
-    print('START: convolution with spike ', spike_id)
+    if verbose:
+        print('Starting convolution with spike ', spike_id)
     if len(template.shape) == 3:
         njitt = template.shape[0]
         n_elec = template.shape[1]
@@ -1342,133 +1523,156 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         n_elec = template.shape[0]
         len_spike = template.shape[1]
     n_samples = len(spike_bin)
-    if len(recordings) == 0:
-        recordings = np.zeros((n_elec, n_samples))
+    recordings = np.zeros((n_elec, n_samples))
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
-
-        # recordings_test = np.zeros((n_elec, n_samples))
     if not modulation:
+        # No modulation
         spike_pos = np.where(spike_bin == 1)[0]
-        amp_mod = np.ones_like(spike_pos)
+        mod_array = np.ones_like(spike_pos)
         if len(template.shape) == 3:
+            # Jitter
             rand_idx = np.random.randint(njitt)
-            # print('rand_idx: ', rand_idx)
             temp_jitt = template[rand_idx]
-            # print('No modulation')
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp_jitt
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
+                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
+                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
         else:
-            # print('No jitter')
+            # No jitter
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[
                                                                               pos] * template
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
+                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * template[:, diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += amp_mod[pos] * template[:, :diff]
+                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * template[:, :diff]
     else:
-        assert amp_mod is not None
+        assert mod_array is not None
         spike_pos = np.where(spike_bin == 1)[0]
         if len(template.shape) == 3:
+            # Jitter
             rand_idx = np.random.randint(njitt)
-            # print('rand_idx: ', rand_idx)
             temp_jitt = template[rand_idx]
-            if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                # print('Template modulation')
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # Template modulation
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp_jitt
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
+                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
+                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
-                # print('Electrode modulation')
-                for pos, spos in enumerate(spike_pos):
-                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp_jitt)]
-                    elif spos - cut_out[0] < 0:
-                        diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, diff:])]
-                        # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
-                    else:
-                        diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, :diff])]
+                # Electrode modulation
+                if bursting:
+                    pass
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            recordings[:, :spos + cut_out[1]] += \
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            recordings[:, spos - cut_out[0]:] += \
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
         else:
-            if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                # print('Template modulation')
+            # No jitter
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # Template modulation
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[
                                                                                   pos] * template
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
+                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * template[:, diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += amp_mod[pos] * template[:, :diff]
+                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * template[:, :diff]
 
             else:
-                # print('Electrode modulation')
-                for pos, spos in enumerate(spike_pos):
-                    if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], template)]
-                    elif spos - cut_out[0] < 0:
-                        diff = -(spos - cut_out[0])
-                        recordings[:, : spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], template[:, diff:])]
-                        # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
-                    else:
-                        diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], template[:, :diff])]
-                        # recordings[:, spos - cut_out[0]:] += amp_mod[pos] * template[:, :diff]
-
-    # print('DONE: convolution with spike ', spike_id)
+                # Electrode modulation
+                if bursting:
+                    pass
+                else:
+                    for pos, spos in enumerate(spike_pos):
+                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                                [a * t for (a, t) in zip(mod_array[pos], template)]
+                        elif spos - cut_out[0] < 0:
+                            diff = -(spos - cut_out[0])
+                            recordings[:, : spos + cut_out[1]] += \
+                                [a * t for (a, t) in zip(mod_array[pos], template[:, diff:])]
+                        else:
+                            diff = n_samples - (spos - cut_out[0])
+                            recordings[:, spos - cut_out[0]:] += \
+                                [a * t for (a, t) in zip(mod_array[pos], template[:, :diff])]
+    if verbose:
+        print('Done convolution with spike ', spike_id)
 
     return recordings
 
 
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
-                                            cut_out=None, modulation=False, amp_mod=None, recordings=[], n_step_sec=1):
+                                            cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
+                                            verbose=False):
     '''
+    Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
     Parameters
     ----------
-    spike_id
-    spike_bin
-    template
-    fs
-    loc
-    v_drift
-    t_start_drift
-    modulation
-    amp_mod
-    recordings
-    n_step_sec
+    spike_id: int
+        Index of spike trains - template.
+    spike_bin: np.array
+        Binary array with spike times
+    template: np.array
+        Array with template on single electrode (n_samples)
+    fs: Quantity
+        Sampling frequency
+    loc: np.array
+        Locations of drifting templates
+    v_drift: float
+        Drifting speed in um/s
+    t_start_drift: Quantity
+        Drifting start time
+    cut_out: list
+        Number of samples before and after the peak
+    modulation: bool
+        If True modulation is applied
+    mod_array: np.array
+        Array with modulation value for each spike
+    n_step_sec: int
+        Number of drifting steps in a second
+    verbose: bool
+        If True output is verbose
 
     Returns
     -------
+    np.array
+        Trace with convolved signals (n_elec, n_samples)
+    np.array
+        Final 3D location of neuron
+    np.array
+        Drifting peak images (n_steps, n_elec)
 
     '''
-    print('START: convolution with spike ', spike_id)
+    if verbose:
+        print('Starting drifting convolution with spike ', spike_id)
     if len(template.shape) == 4:
         njitt = template.shape[1]
         n_elec = template.shape[2]
@@ -1477,47 +1681,44 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         n_elec = template.shape[1]
         len_spike = template.shape[2]
     n_samples = len(spike_bin)
-    n_step_sec = 1
     dur = (n_samples / fs).rescale('s').magnitude
     t_steps = np.arange(0, dur, n_step_sec)
-    n_step_sample = n_step_sec * int(fs.magnitude)
     dt = 1. / fs.magnitude
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
 
-    mixing = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
-    if len(recordings) == 0:
-        recordings = np.zeros((n_elec, n_samples))
+    peaks = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
+    recordings = np.zeros((n_elec, n_samples))
 
     # recordings_test = np.zeros((n_elec, n_samples))
     if not modulation:
+        # No modulation
         spike_pos = np.where(spike_bin == 1)[0]
-        amp_mod = np.ones_like(spike_pos)
+        mod_array = np.ones_like(spike_pos)
         if len(template.shape) == 4:
+            # Jitter
             rand_idx = np.random.randint(njitt)
-            print('rand_idx: ', rand_idx)
-            print('No modulation')
             for pos, spos in enumerate(spike_pos):
                 sp_time = spos / fs
                 if sp_time < t_start_drift:
-                    print(sp_time, 'No drift', loc[0])
                     temp_idx = 0
                     temp_jitt = template[temp_idx, rand_idx]
                 else:
                     # compute current position
                     new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
-                    print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
+                    if verbose:
+                        print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                     temp_jitt = template[temp_idx, rand_idx]
 
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp_jitt
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
+                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
+                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
 
             for i, t in enumerate(t_steps):
                 if t < t_start_drift:
@@ -1529,10 +1730,10 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                     temp_jitt = template[temp_idx, rand_idx]
 
-                feat = get_EAP_features(np.squeeze(temp_jitt), ['Na'], dt=dt)
-                mixing[i] = -np.squeeze(feat['na'])
+                feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                peaks[i] = -np.squeeze(feat['na'])
         else:
-            print('No jitter')
+            # No jitter
             for pos, spos in enumerate(spike_pos):
                 sp_time = spos / fs
                 if sp_time < t_start_drift:
@@ -1544,13 +1745,13 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                     temp = template[temp_idx]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp[:, diff:]
+                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp[:, diff:]
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp[:, :diff]
+                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp[:, :diff]
             for i, t in enumerate(t_steps):
                 if t < t_start_drift:
                     temp_idx = 0
@@ -1561,20 +1762,18 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                     temp_jitt = template[temp_idx]
 
-                feat = get_EAP_features(np.squeeze(temp_jitt), ['Na'], dt=dt)
-                mixing[i] = -np.squeeze(feat['na'])
+                feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                peaks[i] = -np.squeeze(feat['na'])
     else:
-        assert amp_mod is not None
+        assert mod_array is not None
         spike_pos = np.where(spike_bin == 1)[0]
         if len(template.shape) == 4:
             rand_idx = np.random.randint(njitt)
-            print('rand_idx: ', rand_idx)
-            if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                print('Template modulation')
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # Template modulation
                 for pos, spos in enumerate(spike_pos):
                     sp_time = spos / fs
                     if sp_time < t_start_drift:
-                        print(sp_time, 'No drift', loc[0])
                         temp_idx = 0
                         temp_jitt = template[temp_idx, rand_idx]
                     else:
@@ -1582,54 +1781,53 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp_jitt = template[temp_idx, rand_idx]
-                        print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
+                        if verbose:
+                            print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] \
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] \
                                                                               * temp_jitt
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp_jitt[:, diff:]
+                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp_jitt[:, :diff]
+                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
-                print('Electrode modulation')
+                # Electrode modulation
                 for pos, spos in enumerate(spike_pos):
                     sp_time = spos / fs
                     if sp_time < t_start_drift:
                         temp_idx = 0
                         temp_jitt = template[temp_idx, rand_idx]
-                        print(sp_time, 'No drift', loc[0])
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], temp_jitt)]
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
                         elif spos - cut_out[0] < 0:
                             diff = -(spos - cut_out[0])
                             recordings[:, :spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, diff:])]
-                            # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
                         else:
                             diff = n_samples - (spos - cut_out[0])
                             recordings[:, spos - cut_out[0]:] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], temp_jitt[:, :diff])]
+                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
                     else:
                         # compute current position
                         new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         new_temp_jitt = template[temp_idx, rand_idx]
-                        print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
+                        if verbose:
+                            print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], new_temp_jitt)]
+                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt)]
                         elif spos - cut_out[0] < 0:
                             diff = -(spos - cut_out[0])
                             recordings[:, :spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], new_temp_jitt[:, diff:])]
-                            # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
+                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, diff:])]
                         else:
                             diff = n_samples - (spos - cut_out[0])
                             recordings[:, spos - cut_out[0]:] += \
-                                [a * t for (a, t) in zip(amp_mod[pos], new_temp_jitt[:, :diff])]
+                                [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, :diff])]
                 for i, t in enumerate(t_steps):
                     if t < t_start_drift:
                         temp_idx = 0
@@ -1640,12 +1838,12 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp_jitt = template[temp_idx, rand_idx]
 
-                    feat = get_EAP_features(np.squeeze(temp_jitt), ['Na'], dt=dt)
-                    mixing[i] = -np.squeeze(feat['na'])
+                    feat = get_EAP_features(np.squeeze(temp_jitt), ['na'], dt=dt)
+                    peaks[i] = -np.squeeze(feat['na'])
         else:
-            print('No jitter')
-            if not isinstance(amp_mod[0], (list, tuple, np.ndarray)):
-                print('Template modulation')
+            # No jitter
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # Template modulation
                 for pos, spos in enumerate(spike_pos):
                     sp_time = spos / fs
                     if sp_time < t_start_drift:
@@ -1657,16 +1855,16 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
                         temp = template[temp_idx]
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += amp_mod[pos] * temp
+                        recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        recordings[:, :spos + cut_out[1]] += amp_mod[pos] * temp[:, diff:]
+                        recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp[:, diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        recordings[:, spos - cut_out[0]:] += amp_mod[pos] * temp[:, :diff]
+                        recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp[:, :diff]
 
             else:
-                print('Electrode modulation')
+                # Electrode modulation
                 for pos, spos in enumerate(spike_pos):
                     sp_time = spos / fs
                     if sp_time < t_start_drift:
@@ -1679,16 +1877,15 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp = template[temp_idx]
                     if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                         recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp)]
+                            [a * t for (a, t) in zip(mod_array[pos], temp)]
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
                         recordings[:, :spos + cut_out[1]] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp[:, diff:])]
-                        # recordings[:, :spos + cut_out[1]] += amp_mod[pos] * template[:, diff:]
+                            [a * t for (a, t) in zip(mod_array[pos], temp[:, diff:])]
                     else:
                         diff = n_samples - (spos - cut_out[0])
                         recordings[:, spos - cut_out[0]:] += \
-                            [a * t for (a, t) in zip(amp_mod[pos], temp[:, :diff])]
+                            [a * t for (a, t) in zip(mod_array[pos], temp[:, :diff])]
 
             for i, t in enumerate(t_steps):
                 if t < t_start_drift:
@@ -1701,85 +1898,86 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx]
 
     final_pos = loc[temp_idx]
-    print('DONE: convolution with spike ', spike_id)
+    if verbose:
+        print('Done drifting convolution with spike ', spike_id)
 
-    return recordings, final_pos, mixing
+    return recordings, final_pos, peaks
 
 
 ### RECORDING OPERATION ###
-
-def extract_wf(spiketrains, recordings, timestamps, fs, n_pad=2):
+def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
     '''
+    Extract waveforms from recordings and load it in waveform field of neo spike trains.
 
     Parameters
     ----------
-    spiketrains
-    recordings
-    timestamps
-    fs
-    n_pad
-
-    Returns
-    -------
-
+    spiketrains: list
+        List of neo spike trains
+    recordings: np.array
+        Array with recordings (n_elec, n_samples)
+    fs: Quantity
+        Sampling frequency
+    pad_len: Quantity (single or list)
+         Length in ms to cut before and after spike peak. If a single value the cut is symmetrical
+    timestamps: Quantity array (optional)
+        Array with recordings timestamps
     '''
-    n_pad = int(n_pad * pq.ms * fs.rescale('kHz'))
-    unit = timestamps[0].rescale('ms').units
+    if not isinstance(pad_len, list):
+        n_pad = int(pad_len * fs.rescale('kHz'))
+        n_pad = [n_pad, n_pad]
+    else:
+        n_pad = [int(p * fs.rescale('kHz')) for p in pad_len]
 
-    nChs, nPts = recordings.shape
+    n_elec, n_samples = recordings.shape
+    if timestamps is None:
+        timestamps = np.arange(n_samples) / fs
+    unit = timestamps[0].rescale('ms').units
 
     for st in spiketrains:
         sp_rec_wf = []
         sp_amp = []
-        first_spike = True
-
         for t in st:
             idx = np.where(timestamps >= t)[0][0]
             # find single waveforms crossing thresholds
-            if idx - n_pad > 0 and idx + n_pad < nPts:
-                t_spike = timestamps[idx - n_pad:idx + n_pad]
-                spike_rec = recordings[:, idx - n_pad:idx + n_pad]
-            elif idx - n_pad < 0:
-                t_spike = timestamps[:idx + n_pad]
-                t_spike = np.pad(t_spike, (np.abs(idx - n_pad), 0), 'constant') * unit
-                spike_rec = recordings[:, :idx + n_pad]
-                spike_rec = np.pad(spike_rec, ((0, 0), (np.abs(idx - n_pad), 0)), 'constant')
-            elif idx + n_pad > nPts:
-                t_spike = timestamps[idx - n_pad:]
-                t_spike = np.pad(t_spike, (0, idx + n_pad - nPts), 'constant') * unit
-                spike_rec = recordings[:, idx - n_pad:]
-                spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad - nPts)), 'constant')
-            if first_spike:
-                nsamples = len(spike_rec)
-                first_spike = False
-
-            min_amp = np.min(spike_rec)
+            if idx - n_pad[0] > 0 and idx + n_pad[1] < n_samples:
+                t_spike = timestamps[idx - n_pad[0]:idx + n_pad[1]]
+                spike_rec = recordings[:, idx - n_pad[0]:idx + n_pad[1]]
+            elif idx - n_pad[0] < 0:
+                t_spike = timestamps[:idx + n_pad[1]]
+                t_spike = np.pad(t_spike, (np.abs(idx - n_pad[0]), 0), 'constant') * unit
+                spike_rec = recordings[:, :idx + n_pad[1]]
+                spike_rec = np.pad(spike_rec, ((0, 0), (np.abs(idx - n_pad[0]), 0)), 'constant')
+            elif idx + n_pad[1] > n_samples:
+                t_spike = timestamps[idx - n_pad[0]:]
+                t_spike = np.pad(t_spike, (0, idx + n_pad[1] - n_samples), 'constant') * unit
+                spike_rec = recordings[:, idx - n_pad[0]:]
+                spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad[1] - n_samples)), 'constant')
             sp_rec_wf.append(spike_rec)
-            sp_amp.append(min_amp)
-
         st.waveforms = np.array(sp_rec_wf)
 
 
-def filter_analog_signals(anas, freq, fs, filter_type='bandpass', order=3, copy_signal=False):
-    """Filters analog signals with zero-phase Butterworth filter.
+def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3, copy_signal=False):
+    """
+    Filter analog signals with zero-phase Butterworth filter.
     The function raises an Exception if the required filter is not stable.
 
     Parameters
     ----------
-    anas : np.array
-           2d array of analog signals
+    signals : np.array
+        Array of analog signals (n_elec, n_samples)
     freq : list or float
-           cutoff frequency-ies in Hz
-    fs : float
-         sampling frequency
+        Cutoff frequency-ies in Hz
+    fs : Quantity
+        Sampling frequency
     filter_type : string
-                  'lowpass', 'highpass', 'bandpass', 'bandstop'
+        Filter type ('lowpass', 'highpass', 'bandpass', 'bandstop')
     order : int
-            filter order
+        Filter order
 
     Returns
     -------
-    anas_filt : filtered signals
+    np.array
+        Filtered signals
     """
     from scipy.signal import butter, filtfilt
     fn = fs / 2.
@@ -1791,36 +1989,54 @@ def filter_analog_signals(anas, freq, fs, filter_type='bandpass', order=3, copy_
 
     if np.all(np.abs(np.roots(a)) < 1) and np.all(np.abs(np.roots(a)) < 1):
         # print('Filtering signals with ', filter_type, ' filter at ', freq, '...')
-        if len(anas.shape) == 2:
-            anas_filt = filtfilt(b, a, anas, axis=1)
-        elif len(anas.shape) == 1:
-            anas_filt = filtfilt(b, a, anas)
-        return anas_filt
+        if len(signals.shape) == 2:
+            signals_filt = filtfilt(b, a, signals, axis=1)
+        elif len(signals.shape) == 1:
+            signals_filt = filtfilt(b, a, signals)
+        return signals_filt
     else:
         raise ValueError('Filter is not stable')
 
 
 ### PLOTTING ###
-
-def raster_plots(st, bintype=False, ax=None, overlap=False, labels=False, color_st=None, color=None, fs=10,
+def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None, fs=10,
                  marker='|', mew=2, markersize=5):
     '''
 
     Parameters
     ----------
-    st
-    bintype
-    ax
+    spiketrains: list
+        List of neo spike trains
+    bintype: bool
+        If True and 'bintype' in spike train annotation spike trains are plotted based on their type
+    ax: axes
+        Plot on the given axes
+    overlap: bool
+        Plot spike colors based on overlap
+    labels: bool
+        Plot spike colors based on labels
+    color: matplotlib color (single or list)
+        Color or color list
+    fs: int
+        Font size
+    marker: matplotlib arg
+        Marker type
+    mew: matplotlib arg
+        Width of marker
+    markersize: int
+        Marker size
 
     Returns
     -------
-
+    axis
+        Matplotlib axis
     '''
+
     import matplotlib.pylab as plt
     if not ax:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    for i, spiketrain in enumerate(st):
+    for i, spiketrain in enumerate(spiketrains):
         t = spiketrain.rescale(pq.s)
         if bintype:
             if spiketrain.annotations['bintype'] == 'E':
@@ -1828,16 +2044,8 @@ def raster_plots(st, bintype=False, ax=None, overlap=False, labels=False, color_
             elif spiketrain.annotations['bintype'] == 'I':
                 ax.plot(t, i * np.ones_like(t), 'r', marker=marker, mew=mew, markersize=markersize, ls='')
         else:
-            if not overlap and not labels:
-                if np.any(color_st):
-                    import seaborn as sns
-                    colors = sns.color_palette("Paired", len(color_st))
-                    if i in color_st:
-                        idx = np.where(color_st == i)[0][0]
-                        ax.plot(t, i * np.ones_like(t), marker=marker, mew=mew, color=colors[idx], markersize=5, ls='')
-                    else:
-                        ax.plot(t, i * np.ones_like(t), 'k', marker=marker, mew=mew, markersize=markersize, ls='')
-                elif color is not None:
+            if not overlap:
+                if color is not None:
                     if isinstance(color, list) or isinstance(color, np.ndarray):
                         ax.plot(t, i * np.ones_like(t), color=color[i], marker=marker, mew=mew, markersize=markersize,
                                 ls='')
@@ -1854,56 +2062,63 @@ def raster_plots(st, bintype=False, ax=None, overlap=False, labels=False, color_
                         ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
                     elif spiketrain.annotations['overlap'][j] == 'NO':
                         ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
-            elif labels:
-                for j, t_sp in enumerate(spiketrain):
-                    if 'TP' in spiketrain.annotations['labels'][j]:
-                        ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
-                    elif 'CL' in spiketrain.annotations['labels'][j]:
-                        ax.plot(t_sp, i, 'y', marker=marker, mew=mew, markersize=markersize, ls='')
-                    elif 'FN' in spiketrain.annotations['labels'][j]:
-                        ax.plot(t_sp, i, 'r', marker=marker, mew=mew, markersize=markersize, ls='')
-                    elif 'FP' in spiketrain.annotations['labels'][j]:
-                        ax.plot(t_sp, i, 'm', marker=marker, mew=mew, markersize=markersize, ls='')
-                    else:
-                        ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
+            # elif labels:
+            #     for j, t_sp in enumerate(spiketrain):
+            #         if 'TP' in spiketrain.annotations['labels'][j]:
+            #             ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
+            #         elif 'CL' in spiketrain.annotations['labels'][j]:
+            #             ax.plot(t_sp, i, 'y', marker=marker, mew=mew, markersize=markersize, ls='')
+            #         elif 'FN' in spiketrain.annotations['labels'][j]:
+            #             ax.plot(t_sp, i, 'r', marker=marker, mew=mew, markersize=markersize, ls='')
+            #         elif 'FP' in spiketrain.annotations['labels'][j]:
+            #             ax.plot(t_sp, i, 'm', marker=marker, mew=mew, markersize=markersize, ls='')
+            #         else:
+            #             ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
 
     ax.axis('tight')
-    ax.set_xlim([st[0].t_start.rescale(pq.s), st[0].t_stop.rescale(pq.s)])
+    ax.set_xlim([spiketrains[0].t_start.rescale(pq.s), spiketrains[0].t_stop.rescale(pq.s)])
     ax.set_xlabel('Time (ms)', fontsize=fs)
     ax.set_ylabel('Spike Train Index', fontsize=fs)
-    plt.gca().tick_params(axis='both', which='major')
+    ax.set_yticks(np.arange(len(spiketrains)))
+    ax.set_yticklabels(np.arange(len(spiketrains)))
 
     return ax
 
 
-def plot_templates(templates, mea, single_figure=True):
+def plot_templates(gen, single_axes=False):
     '''
 
     Parameters
     ----------
-    templates
-    mea_pos
-    mea_pitch
+    gen: TemplateGenerator or RecordingGenerator
+        Generator object containing templates
+    single_axes: bool
+        If True all templates are plotted on the same axis.
 
     Returns
     -------
+    figure
+        Matplotlib figure
 
     '''
     import matplotlib.pylab as plt
 
+    templates = gen.templates
+    mea = mu.return_mea(info=gen.info['electrodes'])
+
     n_sources = len(templates)
     fig_t = plt.figure()
 
-    if single_figure:
-        colors = plt.rcParams['axes.color_cycle']
+    if single_axes:
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         ax_t = fig_t.add_subplot(111)
 
         for n, t in enumerate(templates):
             print('Plotting spike ', n, ' out of ', n_sources)
             if len(t.shape) == 3:
-                MEA.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
             else:
-                MEA.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
 
     else:
         cols = int(np.ceil(np.sqrt(n_sources)))
@@ -1911,32 +2126,139 @@ def plot_templates(templates, mea, single_figure=True):
 
         for n in range(n_sources):
             ax_t = fig_t.add_subplot(rows, cols, n + 1)
-            MEA.plot_mea_recording(templates[n], mea, ax=ax_t)
+            mu.plot_mea_recording(templates[n], mea, ax=ax_t)
 
     return fig_t
 
 
-def plot_waveforms(spiketrains, mea):
+def plot_recordings(recgen, ax=None, **kwargs):
     '''
 
     Parameters
     ----------
-    spiketrains
-    mea
+    recgen: RecordingGenerator
+        Recording generator object to plot
 
     Returns
     -------
+    axis
+        Matplotlib axis
 
     '''
     import matplotlib.pylab as plt
 
-    wf = [s.waveforms for s in spiketrains]
-    fig_w = plt.figure()
-    ax_w = fig_w.add_subplot(111)
-    colors = plt.rcParams['axes.color_cycle']
+    recordings = recgen.recordings
+    mea = mu.return_mea(info=recgen.info['electrodes'])
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
 
-    for n, w in enumerate(wf):
-        print('Plotting spike ', n, ' out of ', len(wf))
-        MEA.plot_mea_recording(w.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_w, lw=2)
+    mu.plot_mea_recording(recordings, mea, ax=ax, **kwargs)
+    return ax
 
-    return fig_w
+
+def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None):
+    '''
+    Plot waveforms of a spike train.
+
+    Parameters
+    ----------
+    recgen: RecordingGenerator
+        Recording generator object to plot spike train waveform from
+    spiketrain_id: int
+        Indes of spike train
+    ax: axis
+        Matplotlib  axis
+    color_isi: bool
+        If True the color is mapped to the isi
+    color: matplotlib color
+        Color of the waveforms
+    cmap: matplotlib colormap
+        Colormap if color_isi is True
+    electrode: int or 'max'
+        Electrode id or 'max'
+
+    Returns
+    -------
+    axis
+        Matplotlib axis
+
+    '''
+    import matplotlib.pylab as plt
+    import matplotlib as mpl
+
+    wf = recgen.spiketrains[spiketrain_id].waveforms
+
+    if wf is None:
+        fs = recgen.info['recordings']['fs'] * pq.Hz
+        extract_wf([recgen.spiketrains[spiketrain_id]], recgen.recordings, fs)
+        wf = recgen.spiketrains[spiketrain_id].waveforms
+    mea = mu.return_mea(info=recgen.info['electrodes'])
+
+    if color_isi:
+        import elephant.statistics as stat
+        isi = stat.isi(recgen.spiketrains[spiketrain_id]).rescale('ms')
+        cm = mpl.cm.get_cmap(cmap)
+        color = [cm(1)]
+        for i in isi:
+            color.append(cm(i/np.max(isi)))
+
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+    if electrode is None:
+        vscale = 1.5 * np.max(np.abs(wf))
+        ax = mu.plot_mea_recording(wf, mea, colors=color, ax=ax, lw=0.1, vscale=vscale)
+        ax = mu.plot_mea_recording(wf.mean(axis=0), mea, colors=color, ax=ax, lw=2, vscale=vscale)
+    else:
+        assert isinstance(electrode, (int, np.integer)) or electrode == 'max', "electrode must be int or 'max'"
+        if electrode == 'max':
+            electrode = np.unravel_index(np.argmin(wf.mean(axis=0)), wf.mean(axis=0).shape)[0]
+            print('max electrode: ', electrode)
+        if not color_isi:
+            ax.plot(wf[:, electrode], color=color, lw=0.1)
+            ax.plot(wf[:, electrode].mean(axis=0), color=color, lw=2)
+        else:
+            for i in range(wf.shape[0]):
+                ax.plot(wf[i, electrode], color=color[i], lw=0.5)
+
+    return ax
+
+
+if __name__ == '__main__':
+    import MEArec as mr
+    import elephant.statistics as stat
+    import scipy.signal as ss
+
+    recgen = mr.load_recordings('/home/alessio/Documents/Codes/MEArec/data/recordings/recordings_20cells_Neuronexus-32_10.0_10.0uV_19-01-2019:17:56.h5')
+
+    n_elec, n_samples = recgen.recordings.shape
+    spiketrain = recgen.spiketrains[0]
+    isi = stat.isi(spiketrain).rescale('ms')
+    mod, cons = compute_modulation(spiketrain, n_el=n_elec, mrand=1, sdrand=0.02,
+                                   n_spikes=100, exp=0.2, max_burst_duration=100 * pq.ms)
+
+    fc = [1000., 6000.]
+    fn = 16000.
+
+    temp = recgen.templates[0]
+    temp_mod = np.zeros((mod.shape[0], n_elec, temp.shape[-1]))
+
+    map_mod = (fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]
+
+    for i, (m, a) in enumerate(zip(map_mod, mod)):
+        rand_idx = np.random.permutation(temp.shape[0])[0]
+        t = temp[rand_idx]
+        print('spike ', i)
+        print('avg freq: ', np.mean(m))
+        # temp_mod[i] = [aa * tt for (aa, tt) in zip(a, t)]
+        # print(np.min(temp_mod[i]))
+        for e, (mm, aa, tt) in enumerate(zip(m, a, t)):
+            b, a  = ss.butter(3, mm / fn)
+            ttt = ss.lfilter(b, a, tt)
+            # temp_mod[i, e] = ttt
+            temp_mod[i, e] = aa * np.min(tt) / np.min(ttt) * ttt
+        print(np.min(temp_mod[i]))
+
+

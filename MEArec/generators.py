@@ -677,6 +677,7 @@ class RecordingGenerator:
             print('Templates selection seed: ', temp_seed)
             np.random.seed(temp_seed)
 
+            # TODO change drift direction to 3d vector
             if drifting:
                 drift_dir = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
                 drift_dir_angle = np.array(
@@ -711,9 +712,9 @@ class RecordingGenerator:
             for tem in templates:
                 dt = 1. / fs.magnitude
                 if not drifting:
-                    feat = get_EAP_features(tem, ['Na'], dt=dt)
+                    feat = get_EAP_features(tem, ['na'], dt=dt)
                 else:
-                    feat = get_EAP_features(tem[0], ['Na'], dt=dt)
+                    feat = get_EAP_features(tem[0], ['na'], dt=dt)
                 peak.append(-np.squeeze(feat['na']))
             peak = np.array(peak)
 
@@ -754,13 +755,13 @@ class RecordingGenerator:
             print('Padding template edges')
             for t, tem in enumerate(templates_pol):
                 if not drifting:
-                    tem, _ = cubic_padding(tem, pad_len, fs)
+                    tem = cubic_padding(tem, pad_len, fs)
                     templates_pad.append(tem)
                 else:
                     print('Padding edges: neuron ', t + 1, ' of ', len(templates_pol))
                     templates_pad_p = []
                     for tem_p in tem:
-                        tem_p, spl = cubic_padding(tem_p, pad_len, fs)
+                        tem_p = cubic_padding(tem_p, pad_len, fs)
                         templates_pad_p.append(tem_p)
                         # templates_spl.append(spl)
                     templates_pad.append(templates_pad_p)
@@ -849,28 +850,28 @@ class RecordingGenerator:
             if modulation == 'template':
                 print('Template modulation')
                 for st in spiketrains:
-                    amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
+                    amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
                                                          n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode':
                 print('Electrode modulaton')
                 for st in spiketrains:
-                    amp, cons = ISI_amplitude_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
+                    amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
                                                          n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'template-isi':
                 print('Template-ISI modulation')
                 for st in spiketrains:
-                    amp, cons = ISI_amplitude_modulation(st, mrand=mrand, sdrand=sdrand,
+                    amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
                                                          n_spikes=n_isi, exp=exp_decay, mem_ISI=mem_isi)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode-isi':
                 print('Electrode-ISI modulation')
                 for st in spiketrains:
-                    amp, cons = ISI_amplitude_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
+                    amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
                                                          n_spikes=n_isi, exp=exp_decay, mem_ISI=mem_isi)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
