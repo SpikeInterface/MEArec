@@ -1445,8 +1445,9 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
             if bursting:
                 assert len(fc) == 2 and fs is not None
                 fs = fs.rescale('Hz').magnitude
-                wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (fs / 2.)
-                wc_mod_mean = np.mean(wc_mod_array, axis=1)
+                wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                                (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
+                wc_mod_mean = wc_mod_array
                 for pos, spos in enumerate(spike_pos):
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                         gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
@@ -1473,8 +1474,9 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         if bursting:
             assert len(fc) == 2 and fs is not None
             fs = fs.rescale('Hz').magnitude
-            wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (fs / 2.)
-            wc_mod_mean = np.mean(wc_mod_array, axis=1)
+            wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                            (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
+            wc_mod_mean = wc_mod_array
             for pos, spos in enumerate(spike_pos):
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     gt_source[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
@@ -1582,8 +1584,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                 if bursting:
                     assert len(fc) == 2 and fs is not None
                     fs = fs.rescale('Hz').magnitude
-                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
-                                fs / 2.)
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
                     wc_mod_mean = wc_mod_array
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
@@ -1592,11 +1594,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                         elif spos - cut_out[0] < 0:
                             diff = -(spos - cut_out[0])
                             temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
-                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                            recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
                         else:
                             diff = n_samples - (spos - cut_out[0])
                             temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
-                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:, diff]
                 else:
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1612,8 +1614,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                 if bursting:
                     assert len(fc) == 2 and fs is not None
                     fs = fs.rescale('Hz').magnitude
-                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
-                                fs / 2.)
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
                     wc_mod_mean = np.mean(wc_mod_array, axis=1)
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
@@ -1622,11 +1624,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                         elif spos - cut_out[0] < 0:
                             diff = -(spos - cut_out[0])
                             temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
-                            recordings[:, :spos + cut_out[1]] += temp_filt[diff:]
+                            recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
                         else:
                             diff = n_samples - (spos - cut_out[0])
                             temp_filt = compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
-                            recordings[:, spos - cut_out[0]:] += temp_filt[:diff]
+                            recordings[:, spos - cut_out[0]:] += temp_filt[:, diff]
                 else:
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1647,8 +1649,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                 if bursting:
                     assert len(fc) == 2 and fs is not None
                     fs = fs.rescale('Hz').magnitude
-                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
-                                fs / 2.)
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
                     wc_mod_mean = wc_mod_array
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
@@ -1679,8 +1681,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                 if bursting:
                     assert len(fc) == 2 and fs is not None
                     fs = fs.rescale('Hz').magnitude
-                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / (
-                            fs / 2.)
+                    wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
                     wc_mod_mean = np.mean(wc_mod_array, axis=1)
                     for pos, spos in enumerate(spike_pos):
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:

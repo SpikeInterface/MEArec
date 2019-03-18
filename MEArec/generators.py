@@ -4,7 +4,8 @@ import numpy as np
 import neo
 import elephant.spike_train_generation as stg
 import elephant.conversion as conv
-import matplotlib.pylab as plt
+import elephant.statistics as stat
+import scipy.signal as ss
 import time
 from copy import copy
 from MEArec.tools import *
@@ -538,6 +539,17 @@ class RecordingGenerator:
                 params['recordings']['modulation'] = 'electrode'
             modulation = params['recordings']['modulation']
 
+            if 'bursting' not in rec_params.keys():
+                params['recordings']['bursting'] = False
+            bursting = params['recordings']['bursting']
+
+            if bursting:
+                if 'bursting_fc' not in rec_params.keys():
+                    params['recordings']['bursting_fc'] = [500., 12000.]
+                bursting_fc = params['recordings']['bursting_fc']
+
+            print(bursting, bursting_fc)
+
             if 'isi' in modulation:
                 if 'exp_decay' not in rec_params.keys():
                     params['recordings']['exp_decay'] = 0.2
@@ -918,13 +930,19 @@ class RecordingGenerator:
                         recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
-                                                                     mod_array=amp_mod[st])
+                                                                     mod_array=amp_mod[st],
+                                                                     bursting=bursting,
+                                                                     fc=bursting_fc,
+                                                                     fs=fs)
                         np.random.seed(seed)
                         gt_spikes.append(convolve_single_template(st, spike_bin,
                                                                   templates[st, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  mod_array=amp_mod[st][:, np.argmax(peak[st])]))
+                                                                  mod_array=amp_mod[st][:, np.argmax(peak[st])],
+                                                                  bursting=bursting,
+                                                                  fc=bursting_fc,
+                                                                  fs=fs))
                     else:
                         rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
                                                                                     cut_out=cut_outs_samples,
@@ -942,7 +960,7 @@ class RecordingGenerator:
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
                                                                   mod_array=amp_mod[st][:,
-                                                                          np.argmax(peak[st])]))
+                                                                            np.argmax(peak[st])]))
                 elif 'template' in modulation:
                     seed = np.random.randint(10000)
                     np.random.seed(seed)
@@ -950,13 +968,19 @@ class RecordingGenerator:
                         recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
-                                                                     mod_array=amp_mod[st])
+                                                                     mod_array=amp_mod[st],
+                                                                     bursting=bursting,
+                                                                     fc=bursting_fc,
+                                                                     fs=fs)
                         np.random.seed(seed)
                         gt_spikes.append(convolve_single_template(st, spike_bin,
                                                                   templates[st, :, np.argmax(peak[st])],
                                                                   cut_out=cut_outs_samples,
                                                                   modulation=True,
-                                                                  mod_array=amp_mod[st]))
+                                                                  mod_array=amp_mod[st],
+                                                                  bursting=bursting,
+                                                                  fc=bursting_fc,
+                                                                  fs=fs))
                     else:
                         rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
                                                                                     cut_out=cut_outs_samples,

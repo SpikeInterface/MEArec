@@ -57,6 +57,8 @@ recordings:
   exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
   n_isi: 10 # max number of 'bursting' consecutive spikes
   mem_isi: 100 # duration in ms of maximum burst modulation
+  bursting: True # if True waveforms are modulated in shape with a low pass filter depending on the isi
+  bursting_fc: [1000., 12000.]  # min and max frequencies to be mapped to modulation value
 
   noise_level: 20 # noise standard deviation in uV
   noise_mode: uncorrelated # [uncorrelated | distance-correlated]
