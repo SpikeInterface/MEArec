@@ -359,7 +359,10 @@ def save_recording_generator(recgen, filename=None):
                 if isinstance(v, pq.Quantity):
                     annotations_no_pq[k] = float(v.magnitude)
                 elif isinstance(v, np.ndarray):
-                    annotations_no_pq[k] = list(v)
+                    if len(v.shape) == 1:
+                        annotations_no_pq[k] = list(v)
+                    elif len(v.shape) == 2:
+                        annotations_no_pq[k] = list([list(vv) for vv in v])
                 else:
                     annotations_no_pq[k] = str(v)
             annotations_str = json.dumps(annotations_no_pq)
@@ -777,7 +780,7 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 #TODO make drift_dir_ang and preferred dir as 3D directions
 def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
-                     min_amp=None, max_amp=None, drifting=False, drift_dir_ang=None, preferred_dir=None, angle_tol=15,
+                     min_amp=None, max_amp=None, drifting=False, drift_dir=None, preferred_dir=None, angle_tol=15,
                      verbose=False):
     '''
     Select templates given specified rules.
@@ -808,10 +811,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
         Maximum amplitude in uV
     drifting: bool
         If True drifting templates are selected
-    drift_dir_ang:
-
-    preferred_dir:
-
+    drift_dir: np.array
+        3D array with drift direction for each template
+    preferred_dir: np.array
+        3D array with preferred
     angle_tol: float
         Tollerance in degrees for selecting final drift position
     verbose: bool
@@ -848,9 +851,8 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     if max_amp is None:
         max_amp = np.inf
 
-
     if drifting:
-        if drift_dir_ang is None or preferred_dir is None:
+        if drift_dir is None or preferred_dir is None:
             raise Exception('For drift selection provide drifting angles and preferred drift direction')
 
     n_sel = 0
@@ -872,7 +874,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             print('Distance violation', dist, iter)
                         pass
                     else:
-                        amp = np.max(np.abs(templates[id_cell]))
+                        amp = np.max(np.abs(np.min(templates[id_cell])))
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -886,9 +888,12 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                                    amp < max_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
+                                drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
+                                if drift_angle - angle_tol <= 0:
+                                    print(drift_dir[id_cell], preferred_dir, drift_angle)
                                     pos_sel.append(loc[id_cell])
                                     selected_idxs.append(id_cell)
                                     n_sel += 1
@@ -910,7 +915,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             print('Distance violation', dist, iter)
                         pass
                     else:
-                        amp = np.max(np.abs(templates[id_cell]))
+                        amp = np.max(np.abs(np.min(templates[id_cell])))
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -927,8 +932,9 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                                 # save cell
-                                if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
-                                    pos_sel.append(loc[id_cell])
+                                drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
+                                if drift_angle - angle_tol <= 0:
+                                    print(drift_dir[id_cell], preferred_dir, drift_angle)
                                     selected_idxs.append(id_cell)
                                     n_sel += 1
                                     placed = True
@@ -948,7 +954,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     print('Distance violation', dist, iter)
                 pass
             else:
-                amp = np.max(np.abs(templates[id_cell]))
+                amp = np.max(np.abs(np.min(templates[id_cell])))
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -964,7 +970,9 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                         # save cell
-                        if np.abs(drift_dir_ang[id_cell] - preferred_dir) < angle_tol:
+                        drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
+                        if drift_angle - angle_tol <= 0:
+                            print(drift_angle)
                             pos_sel.append(loc[id_cell])
                             selected_idxs.append(id_cell)
                             placed = True
@@ -1005,8 +1013,8 @@ def cubic_padding(template, pad_len, fs):
 
     '''
     import scipy.interpolate as interp
-    n_pre = int(pad_len[0] * fs)
-    n_post = int(pad_len[1] * fs)
+    n_pre = int(pad_len[0] * fs.rescale('kHz'))
+    n_post = int(pad_len[1] * fs.rescale('kHz'))
 
     padded_template = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
     splines = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
@@ -1789,6 +1797,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         Trace with convolved signals (n_elec, n_samples)
     final_loc: np.array
         Final 3D location of neuron
+    final_idx: int
+        Final index among n drift steps
     peaks: np.array
         Drifting peak images (n_steps, n_elec)
 
@@ -2148,10 +2158,11 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx]
 
     final_loc = loc[temp_idx]
+    final_idx = temp_idx
     if verbose:
         print('Done drifting convolution with spike ', spike_id)
 
-    return recordings, final_loc, peaks
+    return recordings, final_loc, final_idx, peaks
 
 
 ### RECORDING OPERATION ###

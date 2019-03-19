@@ -37,10 +37,8 @@ def cli():
               help='folder containing bbp cell models')
 @click.option('--rot', '-r', default=None,
               help='possible rotation arguments: Norot-physrot-3drot (default=physrot)')
-@click.option('--probe', '-p', default=None,
+@click.option('--probe', '-prb', default=None,
               help='probe name from available electrodes (default=None)')
-@click.option('--intraonly', '-i', default=False, type=bool, is_flag=True,
-              help='if True it only simulate intracellular (default=False)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=1000)')
 @click.option('--ncontacts', '-nc', default=None, type=int,
@@ -62,7 +60,7 @@ def cli():
 @click.option('--intraonly', '-io', is_flag=True,
               help='only run intracellular simulations')
 @click.option('--no-parallel', '-nopar', is_flag=True,
-              help='run with multiprocessing tool')
+              help='run without multiprocessing tool')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting templates')
 @click.option('--min-drift', '-mind', type=float,
@@ -77,9 +75,10 @@ def cli():
               help='limits ( low high ) for neuron drift locations in the y-axis (default=None)')
 @click.option('--drift-zlim', '-dzl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron drift locations in the z-axis (default=None)')
+@click.option('--verbose', '-v', is_flag=True,
+              help='produce verbose output')
 def gen_templates(params, **kwargs):
     """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
-    this_dir, this_filename = os.path.split(__file__)
     info, config_folder = get_default_config()
 
     if params is None:
@@ -119,7 +118,6 @@ def gen_templates(params, **kwargs):
         templates_folder = info['templates_folder']
     intraonly = kwargs['intraonly']
 
-    # TODO add missing params
     if kwargs['rot'] is not None:
         params_dict['rot'] = kwargs['rot']
     if kwargs['n'] is not None:
@@ -158,15 +156,20 @@ def gen_templates(params, **kwargs):
 
     if kwargs['probe'] is not None:
         params_dict['probe'] = kwargs['probe']
-    else:
-        intraonly = True
     if kwargs['no_parallel']:
-        parallel = True
-    else:
         parallel = False
+    else:
+        parallel = True
+    verbose = kwargs['verbose']
+
     params_dict['templates_folder'] = templates_folder
 
-    tempgen = generators.gen_templates(model_folder, params_dict, templates_folder, intraonly, parallel)
+    tempgen = generators.gen_templates(cell_models_folder=model_folder,
+                                       params=params_dict,
+                                       templates_folder=templates_folder,
+                                       intraonly=intraonly,
+                                       parallel=parallel,
+                                       verbose=verbose)
 
     # Merge simulated data and cleanup
     if not intraonly:
@@ -174,7 +177,10 @@ def gen_templates(params, **kwargs):
         n = params_dict['n']
         probe = params_dict['probe']
         if kwargs['fname'] is None:
-            fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
+            if params_dict['drifting']:
+                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
+            else:
+                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
@@ -182,7 +188,6 @@ def gen_templates(params, **kwargs):
         print('\nSaved eap templates in', save_fname, '\n')
 
 
-#TODO add drifting args
 @cli.command()
 @click.option('--templates', '-t', default=None,
               help='eap templates path')
@@ -268,6 +273,8 @@ def gen_templates(params, **kwargs):
               help='drift velocity in um/min')
 @click.option('--t-start-drift', '-tsd', type=float,
               help='drifting start time in s')
+@click.option('--verbose', '-v', is_flag=True,
+              help='produce verbose output')
 def gen_recordings(params, **kwargs):
     """Generates recordings from TEMPLATESS"""
     # Retrieve default_params file
@@ -396,8 +403,9 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['drift_velocity'] = kwargs['drift_velocity']
     if kwargs['t_start_drift']:
         params_dict['recordings']['t_start_drift'] = kwargs['t_start_drift']
+    verbose = kwargs['verbose']
 
-    recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict)
+    recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
     info = recgen.info
 
     n_neurons = info['recordings']['n_neurons']
@@ -406,8 +414,12 @@ def gen_recordings(params, **kwargs):
     noise_level = info['recordings']['noise_level']
 
     if kwargs['fname'] is None:
-        fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
-                                                           noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+        if kwargs['drifting']:
+            fname = 'recordings_%dcells_%s_%s_%.1fuV_drift_%s.h5' % (n_neurons, electrode_name, duration,
+                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+        else:
+            fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
+                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
     else:
         fname = kwargs['fname']
 

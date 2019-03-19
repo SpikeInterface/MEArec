@@ -332,7 +332,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, **kwargs):
 
     else:
         if verbose:
-            if verbose:('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
+            print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
 
 
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):
@@ -875,6 +875,7 @@ if __name__ == '__main__':
 
         print('Intracellular simulation: ', cell_model)
         run_cell_model(cell_model, vm_im_sim_folder, verbose=verbose, **params)
+        print(intraonly)
         if not intraonly:
             print('Extracellular simulation: ', cell_model)
             calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, verbose=verbose, **params)

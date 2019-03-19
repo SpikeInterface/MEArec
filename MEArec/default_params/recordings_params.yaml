@@ -20,7 +20,7 @@ spiketrains:
   gamma_shape: 2 # gamma shape (for gamma process)
   seed: null # random seed for spiketrain generation
   t_start: 0 # start time in s
-  duration: 10 # duration in s
+  duration: 30 # duration in s
 
 cell_types:
   # excitatory and inhibitory cell names
@@ -31,7 +31,7 @@ templates:
   # recording generation parameters
   min_dist: 25 # minimum distance between neurons
   min_amp: 50 # minimum spike amplitude in uV
-  max_amp: 500 # maximum spike amplitude in uV
+  max_amp: 300 # maximum spike amplitude in uV
   xlim: null # limits for neuron depths (x-coord) in um [min, max]
   ylim: null # limits for neuron depths (y-coord) in um [min, max]
   zlim: null # limits for neuron depths (z-coord) in um [min, max]
@@ -77,8 +77,8 @@ recordings:
   overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
   extract_waveforms: False # if True, waveforms are extracted from recordings
 
-  drifting: False # if True templates are drifted
-  preferred_dir: 90  # preferred drifting direction (90 is positive z)
-  angle_tol: 15  # tollerance for direction (e.g. preferred_dir = 90 and angle_tol = 15 -> dir: [75, 105]
-  drift_velocity: 300  # drift velocity in um/min
+  drifting: True # if True templates are drifted
+  preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
+  angle_tol: 15  # tollerance for direction in degrees
+  drift_velocity: 30  # drift velocity in um/min
   t_start_drift: 0  # tim in s from which drifting starts

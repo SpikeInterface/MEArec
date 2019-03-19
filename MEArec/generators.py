@@ -104,7 +104,8 @@ class TemplateGenerator:
             if 'probe' not in params.keys():
                 available_mea = mu.return_mea_list()
                 probe = available_mea[np.random.randint(len(available_mea))]
-                print("Probe randomly set to: %s" % probe)
+                if self.verbose:
+                    print("Probe randomly set to: %s" % probe)
                 params['probe'] = probe
             if 'ncontacts' not in params.keys():
                 params['ncontacts'] = 1
@@ -351,6 +352,7 @@ class SpikeTrainGenerator:
         ax: matplotlib axes
 
         '''
+        import matplotlib.pylab as plt
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -613,11 +615,15 @@ class RecordingGenerator:
 
             if drifting:
                 assert temp_info['params']['drifting'] is True
-                preferred_dir = rec_params['preferred_dir']
+                preferred_dir = np.array(rec_params['preferred_dir'])
+                preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
                 angle_tol = rec_params['angle_tol']
                 drift_velocity = rec_params['drift_velocity']
                 t_start_drift = rec_params['t_start_drift'] * pq.s
             else:
+                # if drifting templates, but not recordings, consider initial template
+                if temp_info['params']['drifting'] is True:
+                    eaps = eaps[:, 0]
                 preferred_dir = None
                 angle_tol = None
                 drift_velocity = None
@@ -669,8 +675,6 @@ class RecordingGenerator:
                 params['templates']['seed'] = np.random.randint(1, 1000)
             temp_seed = params['templates']['seed']
 
-            parallel = False
-
             if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
                 exc_categories = celltype_params['excitatory']
                 inh_categories = celltype_params['inhibitory']
@@ -694,35 +698,32 @@ class RecordingGenerator:
             spike_duration = np.sum(temp_info['params']['cut_out']) * pq.ms
             spike_fs = 1. / temp_info['params']['dt'] * pq.kHz
 
-            print('Selecting cells')
+            if self.verbose:
+                print('Selecting cells')
             if 'type' in spiketrains[0].annotations.keys():
                 n_exc = [st.annotations['type'] for st in spiketrains].count('E')
                 n_inh = n_neurons - n_exc
-
-            print('Templates selection seed: ', temp_seed)
+            if self.verbose:
+                print('Templates selection seed: ', temp_seed)
             np.random.seed(temp_seed)
 
-            # TODO change drift direction to 3d vector
             if drifting:
-                drift_dir = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
-                drift_dir_angle = np.array(
-                    [np.sign(p[2]) * np.rad2deg(np.arccos(np.dot(p[1:], [1, 0]))) for p in drift_dir])
-                drift_dist = np.array([np.linalg.norm(p[-1] - p[0]) for p in locs])
-                init_loc = locs[:, 0]
+                drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
                 drift_velocity_ums = drift_velocity / 60.
-                velocity_vector = drift_velocity_ums * np.array([np.cos(np.deg2rad(preferred_dir)),
-                                                       np.sin(np.deg2rad(preferred_dir))])
-
+                velocity_vector = drift_velocity_ums * preferred_dir
+                if self.verbose:
+                    print('Drift velocity vector: ', velocity_vector)
                 n_elec = eaps.shape[2]
             else:
-                drift_dir_angle = None
+                drift_directions = None
                 preferred_dir = None
+                velocity_vector = None
                 n_elec = eaps.shape[1]
 
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
                                                         z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
                                                         min_dist=min_dist, drifting=drifting,
-                                                        drift_dir_ang=drift_dir_angle,
+                                                        drift_dir=drift_directions,
                                                         preferred_dir=preferred_dir, angle_tol=angle_tol,
                                                         verbose=False)
 
@@ -743,16 +744,17 @@ class RecordingGenerator:
                 peak.append(-np.squeeze(feat['na']))
             peak = np.array(peak)
 
+            # resample spikes
             up = fs
             down = spike_fs
             sampling_ratio = float(up / down)
-            # resample spikes
             pad_samples = [int((pp * fs).magnitude) for pp in pad_len]
             n_resample = int((fs * spike_duration).magnitude)
             if not drifting:
                 if templates.shape[2] != n_resample:
                     templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-                    print('Resampling spikes')
+                    if self.verbose:
+                        print('Resampling spikes')
                     for t, tem in enumerate(templates):
                         tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
                         tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
@@ -764,7 +766,8 @@ class RecordingGenerator:
             else:
                 if templates.shape[3] != n_resample:
                     templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-                    print('Resampling spikes')
+                    if self.verbose:
+                        print('Resampling spikes')
                     for t, tem in enumerate(templates):
                         tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
                         tem_poly = ss.resample_poly(tem_pad, up, down, axis=2)
@@ -776,13 +779,15 @@ class RecordingGenerator:
 
             templates_pad = []
 
-            print('Padding template edges')
+            if self.verbose:
+                print('Padding template edges')
             for t, tem in enumerate(templates_pol):
                 if not drifting:
                     tem = cubic_padding(tem, pad_len, fs)
                     templates_pad.append(tem)
                 else:
-                    print('Padding edges: neuron ', t + 1, ' of ', len(templates_pol))
+                    if self.verbose:
+                        print('Padding edges: neuron ', t + 1, ' of ', len(templates_pol))
                     templates_pad_p = []
                     for tem_p in tem:
                         tem_p = cubic_padding(tem_p, pad_len, fs)
@@ -790,7 +795,8 @@ class RecordingGenerator:
                     templates_pad.append(templates_pad_p)
             templates_pad = np.array(templates_pad)
 
-            print('Creating time jittering')
+            if self.verbose:
+                print('Creating time jittering')
             jitter = 1. / fs
             templates_jitter = []
             if not drifting:
@@ -812,7 +818,8 @@ class RecordingGenerator:
                     templates_jitter.append(temp_jitt)
             else:
                 for t, temp in enumerate(templates_pad):
-                    print('Jittering: neuron ', t + 1, ' of ', len(templates_pol))
+                    if self.verbose:
+                        print('Jittering: neuron ', t + 1, ' of ', len(templates_pol))
                     templates_jitter_p = []
                     for tem_p in temp:
                         temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
@@ -842,27 +849,32 @@ class RecordingGenerator:
 
             overlapping_computed = False
             if sync_rate != 0:
-                print('Adding synchrony on overlapping spikes')
+                if self.verbose:
+                    print('Adding synchrony on overlapping spikes')
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
                 overlapping_computed = True
-                print('Overlapping templates: ', overlapping)
+                if self.verbose:
+                    print('Overlapping templates: ', overlapping)
                 for over in overlapping:
                     spgen.add_synchrony(over, rate=sync_rate)
             else:
                 overlapping = []
 
             # find SNR and annotate
-            print('Computing spike train SNR')
+            if self.verbose:
+                print('Computing spike train SNR')
             for t_i, temp in enumerate(templates):
                 min_peak = np.min(temp)
                 snr = np.abs(min_peak / float(noise_level))
                 spiketrains[t_i].annotate(snr=snr)
 
-            print('Adding spiketrain annotations')
+            if self.verbose:
+                print('Adding spiketrain annotations')
             for i, st in enumerate(spiketrains):
                 st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
             if overlap:
-                print('Finding overlapping spikes')
+                if self.verbose:
+                    print('Finding overlapping spikes')
                 if not overlapping_computed:
                     overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
                 annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
@@ -871,28 +883,32 @@ class RecordingGenerator:
             cons_spikes = []
 
             if modulation == 'template':
-                print('Template modulation')
+                if self.verbose:
+                    print('Template modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
                                                    n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode':
-                print('Electrode modulaton')
+                if self.verbose:
+                    print('Electrode modulaton')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
                                                    n_spikes=0)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'template-isi':
-                print('Template-ISI modulation')
+                if self.verbose:
+                    print('Template-ISI modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
                                                    n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode-isi':
-                print('Electrode-ISI modulation')
+                if self.verbose:
+                    print('Electrode-ISI modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
                                                    n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
@@ -905,13 +921,14 @@ class RecordingGenerator:
             recordings = np.zeros((n_elec, n_samples))
             timestamps = np.arange(recordings.shape[1]) / fs
             final_loc = []
+            final_idxs = []
 
             # # modulated convolution
-            t_start = time.time()
-            gt_spikes = []
+            spike_traces = []
 
             for st, spike_bin in enumerate(spike_matrix):
-                print('Convolving with spike ', st, ' out of ', spike_matrix.shape[0])
+                if self.verbose:
+                    print('Convolving with spike ', st, ' out of ', spike_matrix.shape[0])
                 if modulation == 'none':
                     # reset random seed to keep sampling of jitter spike same
                     seed = np.random.randint(10000)
@@ -921,22 +938,25 @@ class RecordingGenerator:
                         recordings += convolve_templates_spiketrains(st, spike_bin, templates[st],
                                                                      cut_out=cut_outs_samples)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples))
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples))
                     else:
-                        rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
-                                                                                    cut_out=cut_outs_samples,
-                                                                                    fs=fs,
-                                                                                    loc=template_locs[st],
-                                                                                    v_drift=velocity_vector,
-                                                                                    t_start_drift=t_start_drift)
+                        rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
+                                                                                               templates[st],
+                                                                                               cut_out=cut_outs_samples,
+                                                                                               fs=fs,
+                                                                                               loc=template_locs[st],
+                                                                                               v_drift=velocity_vector,
+                                                                                               t_start_drift=
+                                                                                               t_start_drift)
                         recordings += rec
                         final_loc.append(fin_pos)
+                        final_idxs.append(final_idx)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, 0, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples))
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, 0, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples))
 
                 elif 'electrode' in modulation:
                     seed = np.random.randint(10000)
@@ -951,32 +971,34 @@ class RecordingGenerator:
                                                                      fc=bursting_fc,
                                                                      fs=fs)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples,
-                                                                  modulation=True,
-                                                                  mod_array=amp_mod[st][:, np.argmax(peak[st])],
-                                                                  bursting=bursting,
-                                                                  fc=bursting_fc,
-                                                                  fs=fs))
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples,
+                                                                     modulation=True,
+                                                                     mod_array=amp_mod[st][:, np.argmax(peak[st])],
+                                                                     bursting=bursting,
+                                                                     fc=bursting_fc,
+                                                                     fs=fs))
                     else:
-                        rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
-                                                                                    cut_out=cut_outs_samples,
-                                                                                    modulation=True,
-                                                                                    mod_array=amp_mod[st],
-                                                                                    fs=fs,
-                                                                                    loc=template_locs[st],
-                                                                                    v_drift=velocity_vector,
-                                                                                    t_start_drift=t_start_drift)
+                        rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
+                                                                                               templates[st],
+                                                                                               cut_out=cut_outs_samples,
+                                                                                               modulation=True,
+                                                                                               mod_array=amp_mod[st],
+                                                                                               fs=fs,
+                                                                                               loc=template_locs[st],
+                                                                                               v_drift=velocity_vector,
+                                                                                               t_start_drift=
+                                                                                               t_start_drift)
                         recordings += rec
                         final_loc.append(fin_pos)
+                        final_idxs.append(final_idx)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, 0, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples,
-                                                                  modulation=True,
-                                                                  mod_array=amp_mod[st][:,
-                                                                            np.argmax(peak[st])]))
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, 0, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples,
+                                                                     modulation=True,
+                                                                     mod_array=amp_mod[st][:, np.argmax(peak[st])]))
                 elif 'template' in modulation:
                     seed = np.random.randint(10000)
                     np.random.seed(seed)
@@ -989,42 +1011,44 @@ class RecordingGenerator:
                                                                      fc=bursting_fc,
                                                                      fs=fs)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples,
-                                                                  modulation=True,
-                                                                  mod_array=amp_mod[st],
-                                                                  bursting=bursting,
-                                                                  fc=bursting_fc,
-                                                                  fs=fs))
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples,
+                                                                     modulation=True,
+                                                                     mod_array=amp_mod[st],
+                                                                     bursting=bursting,
+                                                                     fc=bursting_fc,
+                                                                     fs=fs))
                     else:
-                        rec, fin_pos, mix = convolve_drifting_templates_spiketrains(st, spike_bin, templates[st],
-                                                                                    cut_out=cut_outs_samples,
-                                                                                    modulation=True,
-                                                                                    mod_array=amp_mod[st],
-                                                                                    fs=fs,
-                                                                                    loc=template_locs[st],
-                                                                                    v_drift=velocity_vector,
-                                                                                    t_start_drift=t_start_drift)
+                        rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
+                                                                                               templates[st],
+                                                                                               cut_out=cut_outs_samples,
+                                                                                               modulation=True,
+                                                                                               mod_array=amp_mod[st],
+                                                                                               fs=fs,
+                                                                                               loc=template_locs[st],
+                                                                                               v_drift=velocity_vector,
+                                                                                               t_start_drift=
+                                                                                               t_start_drift)
                         recordings += rec
+                        final_idxs.append(final_idx)
                         final_loc.append(fin_pos)
                         np.random.seed(seed)
-                        gt_spikes.append(convolve_single_template(st, spike_bin,
-                                                                  templates[st, 0, :, np.argmax(peak[st])],
-                                                                  cut_out=cut_outs_samples,
-                                                                  modulation=True,
-                                                                  mod_array=amp_mod[st]))
-            gt_spikes = np.array(gt_spikes)
+                        spike_traces.append(convolve_single_template(st, spike_bin,
+                                                                     templates[st, 0, :, np.argmax(peak[st])],
+                                                                     cut_out=cut_outs_samples,
+                                                                     modulation=True,
+                                                                     mod_array=amp_mod[st]))
+            spike_traces = np.array(spike_traces)
 
             if drifting:
                 for i, st in enumerate(spiketrains):
                     st.annotate(initial_soma_position=template_locs[i, 0])
                     st.annotate(final_soma_position=final_loc[i])
+                    st.annotate(final_idx=final_idxs[i])
 
-            print('Elapsed time ', time.time() - t_start)
-            # clean_recordings = copy(recordings)
-
-            print('Adding noise')
+            if self.verbose:
+                print('Adding noise')
             # divide in chunks
             chunks_noise = []
             if duration > chunk_noise_duration and chunk_noise_duration != 0:
@@ -1036,16 +1060,19 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
-            print('Noise seed: ', noise_seed)
+            if self.verbose:
+                print('Noise seed: ', noise_seed)
             if noise_color:
-                print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                      ' and random noise level: ', random_noise_floor)
+                if self.verbose:
+                    print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                          ' and random noise level: ', random_noise_floor)
             np.random.seed(noise_seed)
             if noise_level > 0:
                 if noise_mode == 'uncorrelated':
                     if len(chunks_noise) > 0:
                         for ch, chunk in enumerate(chunks_noise):
-                            print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
+                            if self.verbose:
+                                print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                             idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                             additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                            len(idxs))
@@ -1080,7 +1107,8 @@ class RecordingGenerator:
 
                     if len(chunks_noise) > 0:
                         for ch, chunk in enumerate(chunks_noise):
-                            print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
+                            if self.verbose:
+                                print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                             idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                             additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                                          size=(len(idxs))).T
@@ -1108,9 +1136,12 @@ class RecordingGenerator:
                     pass
                     # print( 'experimental noise model'
             else:
-                print('Noise level is set to 0')
+                if self.verbose:
+                    print('Noise level is set to 0')
 
             if filter:
+                if self.verbose:
+                    print('Filtering')
                 chunks_filter = []
                 if duration > chunk_filter_duration and chunk_filter_duration != 0:
                     start = 0 * pq.s
@@ -1122,8 +1153,8 @@ class RecordingGenerator:
                             finished = True
                 if len(chunks_filter) > 0:
                     for ch, chunk in enumerate(chunks_filter):
-                        print('Filtering in: ', chunk[0], chunk[1], ' chunk')
-                        # print( 'Generating chunk ', ch+1, ' of ', len(chunks)
+                        if self.verbose:
+                            print('Filtering in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         if fs / 2. < cutoff[1]:
                             recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
@@ -1137,7 +1168,8 @@ class RecordingGenerator:
                         recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs)
 
             if extract_waveforms:
-                print('Extracting spike waveforms')
+                if self.verbose:
+                    print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, timestamps, fs)
 
             params['templates']['overlapping'] = str([list(ov) for ov in overlapping])
@@ -1148,7 +1180,7 @@ class RecordingGenerator:
             self.templates = templates
             self.spiketrains = spiketrains
             self.voltage_peaks = peak
-            self.spike_traces = gt_spikes
+            self.spike_traces = spike_traces
             self.info = params
 
 
@@ -1170,6 +1202,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
         Generated recording generator object
 
     '''
+    t_start = time.time()
     if isinstance(params, str):
         if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
             with open(params, 'r') as pf:
@@ -1228,6 +1261,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
+
+    print('Elapsed time: ', time.time() - t_start)
 
     return recgen
 
