@@ -25,7 +25,8 @@ else:
 
 
 class simulationThread(threading.Thread):
-    def __init__(self, threadID, name, simulate_script, numb, tot, cell_model, model_folder, intraonly, params):
+    def __init__(self, threadID, name, simulate_script, numb, tot, cell_model,
+                 model_folder, intraonly, params, verbose):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
@@ -36,12 +37,13 @@ class simulationThread(threading.Thread):
         self.model_folder = model_folder
         self.intra = intraonly
         self.params = params
+        self.verbose = verbose
 
     def run(self):
         print("Starting " + self.name)
         print('\n\n', self.cell_model, self.numb + 1, '/', self.tot, '\n\n')
-        os.system('python %s %s %s %s' \
-                  % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params))
+        os.system('python %s %s %s %s %s' \
+                  % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params, self.verbose))
         print("Exiting " + self.name)
 
 
@@ -51,7 +53,8 @@ class TemplateGenerator:
     The list of parameters is in default_params/templates_params.yaml.
     '''
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
-                 params=None, intraonly=False, parallel=True, delete_tmp=True):
+                 params=None, intraonly=False, parallel=True, delete_tmp=True, verbose=False):
+        self.verbose = verbose
         if temp_dict is not None and info is not None:
             self.templates = temp_dict['templates']
             self.locations = temp_dict['locations']
@@ -62,7 +65,8 @@ class TemplateGenerator:
             if cell_models_folder is None:
                 raise AttributeError("Specify cell folder!")
             if params is None:
-                print("Using default parameters")
+                if self.verbose:
+                    print("Using default parameters")
                 params = {}
 
             if os.path.isdir(cell_models_folder):
@@ -78,7 +82,8 @@ class TemplateGenerator:
 
             # Compile NEURON models (nrnivmodl)
             if not os.path.isdir(join(cell_models_folder, 'mods')):
-                print('Compiling NEURON models')
+                if self.verbose:
+                    print('Compiling NEURON models')
                 os.system('python %s compile %s' % (simulate_script, cell_models_folder))
 
             if 'sim_time' not in params.keys():
@@ -140,13 +145,14 @@ class TemplateGenerator:
             # Simulate neurons and EAP for different cell models sparately
             if parallel:
                 start_time = time.time()
-                print('Parallel')
+                if self.verbose:
+                    print('Parallel')
                 tot = len(cell_models)
                 threads = []
                 for numb, cell_model in enumerate(cell_models):
                     threads.append(simulationThread(numb, "Thread-" + str(numb), simulate_script,
                                                     numb, tot, cell_model, cell_models_folder, intraonly,
-                                                    tmp_params_path))
+                                                    tmp_params_path, self.verbose))
                 for t in threads:
                     t.start()
                 for t in threads:
@@ -155,7 +161,8 @@ class TemplateGenerator:
             else:
                 start_time = time.time()
                 for numb, cell_model in enumerate(cell_models):
-                    print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
+                    if self.verbose:
+                        print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
                     os.system('python %s %s %s %s' \
                               % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
                 print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
@@ -181,13 +188,16 @@ class SpikeTrainGenerator:
     Class for generation of spike trains called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml (spiketrains field).
     '''
-    def __init__(self, params=None, spiketrains=None):
+    def __init__(self, params=None, spiketrains=None, verbose=False):
+        self.verbose = verbose
         if params is None:
-            print("Using default parameters")
+            if self.verbose:
+                print("Using default parameters")
             params = {}
         if spiketrains is None:
             self.params = copy(params)
-            print('Spiketrains seed: ', self.params['seed'])
+            if self.verbose:
+                print('Spiketrains seed: ', self.params['seed'])
             np.random.seed(self.params['seed'])
 
             if 't_start' not in self.params.keys():
@@ -439,7 +449,8 @@ class SpikeTrainGenerator:
                     added_spikes += 1
                     st2.annotations = self.all_spiketrains[idx2].annotations
                     self.set_spiketrain(idx2, st2)
-        print("Added ", added_spikes, " overlapping spikes!")
+        if self.verbose:
+            print("Added ", added_spikes, " overlapping spikes!")
 
 
 class RecordingGenerator:
@@ -447,7 +458,8 @@ class RecordingGenerator:
     Class for generation of recordings called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml.
     '''
-    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None):
+    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
+        self.verbose=verbose
         if rec_dict is not None and info is not None:
             self.recordings = rec_dict['recordings']
             self.spiketrains = rec_dict['spiketrains']
@@ -461,7 +473,8 @@ class RecordingGenerator:
             if spgen is None or tempgen is None:
                 raise AttributeError("Specify SpikeGenerator and TemplateGenerator objects!")
             if params is None:
-                print("Using default parameters")
+                if self.verbose:
+                    print("Using default parameters")
                 params = {'spiketrains': {},
                           'celltypes': {},
                           'templates': {},
@@ -525,7 +538,8 @@ class RecordingGenerator:
             if 'noise_level' not in rec_params.keys():
                 params['recordings']['noise_level'] = 10
             noise_level = params['recordings']['noise_level']
-            print('Noise Level ', noise_level)
+            if self.verbose:
+                print('Noise Level ', noise_level)
 
             if 'filter' not in rec_params.keys():
                 params['recordings']['filter'] = True
@@ -547,8 +561,10 @@ class RecordingGenerator:
                 if 'bursting_fc' not in rec_params.keys():
                     params['recordings']['bursting_fc'] = [500., 12000.]
                 bursting_fc = params['recordings']['bursting_fc']
-
-            print(bursting, bursting_fc)
+                if self.verbose:
+                    print('Bursting with modulation frequencies: ', bursting_fc, ' Hz')
+            else:
+                bursting_fc = None
 
             if 'isi' in modulation:
                 if 'exp_decay' not in rec_params.keys():
@@ -1136,7 +1152,7 @@ class RecordingGenerator:
             self.info = params
 
 
-def gen_recordings(params=None, templates=None, tempgen=None):
+def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
     '''
 
     Parameters
@@ -1205,19 +1221,19 @@ def gen_recordings(params=None, templates=None, tempgen=None):
         params_dict['recordings'].update({'recordings': np.random.randint(1, 10000)})
 
     # Generate spike trains
-    spgen = SpikeTrainGenerator(params_dict['spiketrains'])
+    spgen = SpikeTrainGenerator(params_dict['spiketrains'], verbose=verbose)
     spgen.generate_spikes()
     spiketrains = spgen.all_spiketrains
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
-    recgen = RecordingGenerator(spgen, tempgen, params_dict)
+    recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
 
     return recgen
 
 
 def gen_templates(cell_models_folder, params=None, templates_folder=None,
-                  intraonly=False, parallel=True, delete_tmp=True):
+                  intraonly=False, parallel=True, delete_tmp=True, verbose=True):
     '''
 
     Parameters
@@ -1258,6 +1274,7 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
                                 templates_folder=templates_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
-                                delete_tmp=delete_tmp)
+                                delete_tmp=delete_tmp,
+                                verbose=verbose)
 
     return tempgen

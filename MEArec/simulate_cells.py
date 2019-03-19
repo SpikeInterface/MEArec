@@ -47,7 +47,7 @@ def get_templatename(f):
     return templatename
 
 
-def compile_all_mechanisms(cell_folder):
+def compile_all_mechanisms(cell_folder, verbose=False):
     """ Attempt to set up a folder with all unique mechanism *.mod files and 
         compile them all. assumes all cell models are in a folder 'cell_models'
     
@@ -63,13 +63,14 @@ def compile_all_mechanisms(cell_folder):
     neurons = [join(cell_folder, f) \
                for f in os.listdir(join(cell_folder)) \
                if f != 'mods']
-    print(neurons)
+    if verbose:
+        print(neurons)
 
     for nrn in neurons:
         for nmodl in glob(join(nrn, 'mechanisms', '*.mod')):
-            print(nmodl)
             while not os.path.isfile(join(cell_folder, 'mods', os.path.split(nmodl)[-1])):
-                print('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
+                if verbose:
+                    print('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
                 os.system('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
     starting_dir = os.getcwd()
     os.chdir(join(cell_folder, 'mods'))
@@ -77,7 +78,7 @@ def compile_all_mechanisms(cell_folder):
     os.chdir(starting_dir)
 
 
-def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
+def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T, verbose=False):
     """ Function to load cell models
     
     Parameters:
@@ -108,7 +109,8 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T):
 
     cwd = os.getcwd()
     os.chdir(cell_folder)
-    print("Simulating ", cell_name)
+    if verbose:
+        print("Simulating ", cell_name)
 
     if model_type == 'bbp':
         neuron.load_mechanisms('../mods')
@@ -237,7 +239,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model, sim_folder, seed, **kwargs):
+def run_cell_model(cell_model, sim_folder, seed, verbose, **kwargs):
     """ Run simulation and adjust input strength to have a certain number of 
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
         where target_spikes=[10,30] by default)
@@ -300,7 +302,8 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
             spikes = list(np.array(spikes) + cut_out[0])
             num_spikes = len(spikes)
 
-            print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
+            if verbose:
+                print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
             if num_spikes >= target_spikes[1]:
                 weight *= weights[0]
             elif num_spikes <= target_spikes[0]:
@@ -328,10 +331,11 @@ def run_cell_model(cell_model, sim_folder, seed, **kwargs):
         np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes - 1, cell_name)), v_spikes)
 
     else:
-        print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
+        if verbose:
+            if verbose:('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
 
 
-def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, position=None, **kwargs):
+def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
          arbitrary number of spikes above a certain noise level.
 
@@ -407,7 +411,8 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
     if not os.path.isdir(save_folder):
         os.makedirs(save_folder)
 
-    print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
+    if verbose:
+        print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
     mea = mu.return_mea(info=elinfo)
     pos = mea.positions
@@ -456,7 +461,8 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
     while len(save_spikes) < target_num_spikes:
         if i > 1000 * target_num_spikes:
-            print("Gave up finding spikes above noise level for %s" % cell_name)
+            if verbose:
+                print("Gave up finding spikes above noise level for %s" % cell_name)
             break
         spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
         cell.imem = i_spikes[spike_idx, :, :]
@@ -477,7 +483,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                 save_rot.append(rot)
                 save_offs.append(offs)
                 plot_spike = False
-                print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
+                if verbose:
+                    print('Cell: ' + cell_name + ' Progress: [' +
+                          str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
                 saved += 1
         else:
             espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
@@ -517,7 +525,8 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
                                                                                   pos=final_pos)
                             # check final position spike amplitude
                             if (np.max(np.abs(espikes)) >= min_amp).any():
-                                print('Found final drifting position')
+                                if verbose:
+                                    print('Found final drifting position')
                                 drift_ok = True
                             else:
                                 tr += 1
@@ -550,21 +559,25 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, posit
 
                         drift_spikes = np.array(drift_spikes)
                         drift_pos = np.array(drift_pos)
-                        print('Drift done from ', init_pos, ' to ', final_pos, ' with ', drift_steps, ' steps')
+                        if verbose:
+                            print('Drift done from ', init_pos, ' to ', final_pos, ' with ', drift_steps, ' steps')
 
                         save_spikes.append(drift_spikes)
                         save_pos.append(drift_pos)
                         save_rot.append(rot)
                         save_offs.append(offs)
-                        print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' +
-                              str(target_num_spikes) + ']')
+                        if verbose:
+                            print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' +
+                                  str(target_num_spikes) + ']')
                         saved += 1
                     else:
-                        print('Discarded for trials')
+                        if verbose:
+                            print('Discarded for trials')
                 else:
                     pass
             else:
-                print('Discarded position: ', pos)
+                if verbose:
+                    print('Discarded position: ', pos)
         i += 1
 
     save_spikes = np.array(save_spikes)
@@ -841,10 +854,11 @@ if __name__ == '__main__':
         cell_folder = sys.argv[2]
         compile_all_mechanisms(cell_folder)
         sys.exit(0)
-    elif len(sys.argv) == 4:
+    elif len(sys.argv) == 5:
         cell_model = sys.argv[1]
         intraonly = str2bool(sys.argv[2])
         params_path = sys.argv[3]
+        verbose = str2bool(sys.argv[4])
 
         with open(params_path, 'r') as f:
             if use_loader:
@@ -859,6 +873,8 @@ if __name__ == '__main__':
         extra_sim_folder = params['templates_folder']
         vm_im_sim_folder = join(params['templates_folder'], 'intracellular')
 
-        run_cell_model(cell_model, vm_im_sim_folder, **params)
+        print('Intracellular simulation: ', cell_model)
+        run_cell_model(cell_model, vm_im_sim_folder, verbose=verbose, **params)
         if not intraonly:
-            calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, **params)
+            print('Extracellular simulation: ', cell_model)
+            calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, verbose=verbose, **params)
