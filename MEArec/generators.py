@@ -7,7 +7,7 @@ import elephant.conversion as conv
 import elephant.statistics as stat
 import scipy.signal as ss
 import time
-from copy import copy
+from copy import copy, deepcopy
 from MEArec.tools import *
 import MEAutility as mu
 import threading
@@ -67,7 +67,9 @@ class TemplateGenerator:
             if params is None:
                 if self.verbose:
                     print("Using default parameters")
-                params = {}
+                self.params = {}
+            else:
+                self.params = deepcopy(params)
 
             if os.path.isdir(cell_models_folder):
                 cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
@@ -78,7 +80,7 @@ class TemplateGenerator:
 
             this_dir, this_filename = os.path.split(__file__)
             simulate_script = join(this_dir, 'simulate_cells.py')
-            params['cell_models_folder'] = cell_models_folder
+            self.params['cell_models_folder'] = cell_models_folder
 
             # Compile NEURON models (nrnivmodl)
             if not os.path.isdir(join(cell_models_folder, 'mods')):
@@ -86,62 +88,62 @@ class TemplateGenerator:
                     print('Compiling NEURON models')
                 os.system('python %s compile %s' % (simulate_script, cell_models_folder))
 
-            if 'sim_time' not in params.keys():
-                params['sim_time'] = 1
-            if 'target_spikes' not in params.keys():
-                params['target_spikes'] = [3, 50]
-            if 'cut_out' not in params.keys():
-                params['cut_out'] = [2, 5]
-            if 'dt' not in params.keys():
-                params['dt'] = 2 ** -5
-            if 'delay' not in params.keys():
-                params['delay'] = 10
-            if 'weights' not in params.keys():
-                params['weights'] = [0.25, 1.75]
+            if 'sim_time' not in self.params.keys():
+                self.params['sim_time'] = 1
+            if 'target_spikes' not in self.params.keys():
+                self.params['target_spikes'] = [3, 50]
+            if 'cut_out' not in self.params.keys():
+                self.params['cut_out'] = [2, 5]
+            if 'dt' not in self.params.keys():
+                self.params['dt'] = 2 ** -5
+            if 'delay' not in self.params.keys():
+                self.params['delay'] = 10
+            if 'weights' not in self.params.keys():
+                self.params['weights'] = [0.25, 1.75]
 
-            if 'rot' not in params.keys():
-                params['rot'] = 'physrot'
-            if 'probe' not in params.keys():
+            if 'rot' not in self.params.keys():
+                self.params['rot'] = 'physrot'
+            if 'probe' not in self.params.keys():
                 available_mea = mu.return_mea_list()
                 probe = available_mea[np.random.randint(len(available_mea))]
                 if self.verbose:
                     print("Probe randomly set to: %s" % probe)
-                params['probe'] = probe
-            if 'ncontacts' not in params.keys():
-                params['ncontacts'] = 1
-            if 'overhang' not in params.keys():
-                params['overhang'] = 1
-            if 'xlim' not in params.keys():
-                params['xlim'] = [10, 80]
-            if 'ylim' not in params.keys():
-                params['ylim'] = None
-            if 'zlim' not in params.keys():
-                params['zlim'] = None
-            if 'offset' not in params.keys():
-                params['offset'] = 0
-            if 'det_thresh' not in params.keys():
-                params['det_thresh'] = 30
-            if 'n' not in params.keys():
-                params['n'] = 50
-            if 'seed' not in params.keys():
-                params['seed'] = np.random.randint(1, 10000)
-            elif params['seed'] is None:
-                params['seed'] = np.random.randint(1, 10000)
+                self.params['probe'] = probe
+            if 'ncontacts' not in self.params.keys():
+                self.params['ncontacts'] = 1
+            if 'overhang' not in self.params.keys():
+                self.params['overhang'] = 1
+            if 'xlim' not in self.params.keys():
+                self.params['xlim'] = [10, 80]
+            if 'ylim' not in self.params.keys():
+                self.params['ylim'] = None
+            if 'zlim' not in self.params.keys():
+                self.params['zlim'] = None
+            if 'offset' not in self.params.keys():
+                self.params['offset'] = 0
+            if 'det_thresh' not in self.params.keys():
+                self.params['det_thresh'] = 30
+            if 'n' not in self.params.keys():
+                self.params['n'] = 50
+            if 'seed' not in self.params.keys():
+                self.params['seed'] = np.random.randint(1, 10000)
+            elif self.params['seed'] is None:
+                self.params['seed'] = np.random.randint(1, 10000)
             if templates_folder is None:
-                params['templates_folder'] = os.getcwd()
-                templates_folder = params['templates_folder']
+                self.params['templates_folder'] = os.getcwd()
+                templates_folder = self.params['templates_folder']
             else:
-                params['templates_folder'] = templates_folder
-            if 'drifting' not in params.keys():
-                params['drifting'] = False
+                self.params['templates_folder'] = templates_folder
+            if 'drifting' not in self.params.keys():
+                self.params['drifting'] = False
 
-            rot = params['rot']
-            n = params['n']
-            probe = params['probe']
+            rot = self.params['rot']
+            n = self.params['n']
+            probe = self.params['probe']
 
             tmp_params_path = 'tmp_params_path'
             with open(tmp_params_path, 'w') as f:
-                yaml.dump(params, f)
+                yaml.dump(self.params, f)
 
             # Simulate neurons and EAP for different cell models sparately
             if parallel:
@@ -180,7 +182,7 @@ class TemplateGenerator:
             self.locations = locations
             self.rotations = rotations
             self.celltypes = celltypes
-            self.info['params'] = params
+            self.info['params'] = self.params
             self.info['electrodes'] = mu.return_mea_info(probe)
 
 
@@ -194,9 +196,9 @@ class SpikeTrainGenerator:
         if params is None:
             if self.verbose:
                 print("Using default parameters")
-            params = {}
+            self.params = {}
         if spiketrains is None:
-            self.params = copy(params)
+            self.params = deepcopy(params)
             if self.verbose:
                 print('Spiketrains seed: ', self.params['seed'])
             np.random.seed(self.params['seed'])
@@ -467,7 +469,7 @@ class RecordingGenerator:
             self.spiketrains = rec_dict['spiketrains']
             self.templates = rec_dict['templates']
             self.channel_positions = rec_dict['channel_positions']
-            self.times = rec_dict['timestamps']
+            self.timestamps = rec_dict['timestamps']
             self.voltage_peaks = rec_dict['voltage_peaks']
             self.spike_traces = rec_dict['spike_traces']
             self.info = info
@@ -481,7 +483,7 @@ class RecordingGenerator:
                           'celltypes': {},
                           'templates': {},
                           'recordings': {}}
-            self.params = copy(params)
+            self.params = deepcopy(params)
 
             temp_params = self.params['templates']
             rec_params = self.params['recordings']
@@ -1172,7 +1174,7 @@ class RecordingGenerator:
                     print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, timestamps, fs)
 
-            params['templates']['overlapping'] = str([list(ov) for ov in overlapping])
+            params['templates']['overlapping'] = np.array(overlapping)
 
             self.recordings = recordings
             self.timestamps = timestamps

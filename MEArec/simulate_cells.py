@@ -477,7 +477,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
 
-            if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
+            if np.max(np.abs(np.min(espikes))) >= min_amp:
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -498,7 +498,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
             if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
                     pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
                     pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
-                if (np.max(np.abs(espikes), axis=1) >= min_amp).any():
+                if np.max(np.abs(np.min(espikes))) >= min_amp:
                     drift_ok = False
                     # fix rotation while drifting
                     cell.set_rotation(rot[0], rot[1], rot[2])
@@ -524,7 +524,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
                                                                                   rotation=None,
                                                                                   pos=final_pos)
                             # check final position spike amplitude
-                            if (np.max(np.abs(espikes)) >= min_amp).any():
+                            if np.max(np.abs(np.min(espikes))) >= min_amp:
                                 if verbose:
                                     print('Found final drifting position')
                                 drift_ok = True
@@ -635,7 +635,7 @@ def get_physrot_specs(cell_name, model):
         return polarlim[cell_name.split('_')[1]], pref_orient[cell_name.split('_')[1]]
     else:
         raise NotImplementedError('Cell model %s is not implemented' \
-                                  % model_type)
+                                  % model)
 
 
 def return_extracellular_spike(cell, cell_name, model_type,

@@ -185,7 +185,7 @@ def load_templates(templates, verbose=False):
                 info = yaml.load(f)
     elif templates.endswith('h5') or templates.endswith('hdf5'):
         with h5py.File(templates, 'r') as F:
-            info = json.loads(str(F['info'][()]))
+            info = load_dict_from_hdf5(F, 'info/')
             celltypes = np.array(F.get('celltypes'))
             temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
             temp_dict['locations'] = np.array(F.get('locations'))
@@ -251,7 +251,7 @@ def load_recordings(recordings, verbose=False):
                 info = yaml.load(f)
     elif recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
-            info = json.loads(str(F['info'][()]))
+            info = load_dict_from_hdf5(F, 'info/')
             rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
             rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
             rec_dict['recordings'] = np.array(F.get('recordings'))
@@ -259,11 +259,12 @@ def load_recordings(recordings, verbose=False):
             rec_dict['templates'] = np.array(F.get('templates'))
             rec_dict['timestamps'] = np.array(F.get('timestamps'))
             spiketrains = []
-            for ii in range(info['recordings']['n_neurons']):
-                times = np.array(F.get('spiketrains/{}/times'.format(ii)))
-                t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
-                annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
-                annotations = json.loads(annotations_str)
+            sorted_units = sorted([int(u) for u in F.get('spiketrains/')])
+            for unit in sorted_units:
+                unit = str(unit)
+                times = np.array(F.get('spiketrains/' + unit + '/times'))
+                t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
+                annotations = load_dict_from_hdf5(F, 'spiketrains/' + unit + '/annotations/')
                 st = neo.core.SpikeTrain(
                     times,
                     t_stop=t_stop,
@@ -295,7 +296,7 @@ def save_template_generator(tempgen, filename=None):
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
-        F.create_dataset('info', data=json.dumps(tempgen.info))
+        save_dict_to_hdf5(tempgen.info, F, 'info/')
         celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
         F.create_dataset('celltypes', data=celltypes)
         F.create_dataset('locations', data=tempgen.locations)
@@ -345,7 +346,7 @@ def save_recording_generator(recgen, filename=None):
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
-        F.create_dataset('info', data=json.dumps(recgen.info))
+        save_dict_to_hdf5(recgen.info, F, 'info/')
         F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
         F.create_dataset('channel_positions', data=recgen.channel_positions)
         F.create_dataset('recordings', data=recgen.recordings)
@@ -354,19 +355,7 @@ def save_recording_generator(recgen, filename=None):
             st = recgen.spiketrains[ii]
             F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
             F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
-            annotations_no_pq = {}
-            for k, v in st.annotations.items():
-                if isinstance(v, pq.Quantity):
-                    annotations_no_pq[k] = float(v.magnitude)
-                elif isinstance(v, np.ndarray):
-                    if len(v.shape) == 1:
-                        annotations_no_pq[k] = list(v)
-                    elif len(v.shape) == 2:
-                        annotations_no_pq[k] = list([list(vv) for vv in v])
-                else:
-                    annotations_no_pq[k] = str(v)
-            annotations_str = json.dumps(annotations_no_pq)
-            F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
+            save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
         F.create_dataset('templates', data=recgen.templates)
         F.create_dataset('timestamps', data=recgen.timestamps)
         F.close()
@@ -406,6 +395,131 @@ def save_recording_generator(recgen, filename=None):
         with open(join(save_folder, 'info.yaml'), 'w') as f:
             yaml.dump(info, f, default_flow_style=False)
         print('\nSaved recordings in', save_folder, ' folder\n')
+
+
+def save_dict_to_hdf5(dic, h5file, path):
+    '''
+    Save dictionary to h5 file.
+    Parameters
+    ----------
+    dic: dict
+        Dictionary to be saved
+    h5file: file
+        Hdf5 file object
+    path: str
+        Path to the h5 field
+    '''
+    recursively_save_dict_contents_to_group(h5file, path, dic)
+
+
+def recursively_save_dict_contents_to_group(h5file, path, dic):
+    '''
+    Save dictionary recursively  to h5 file (helper function).
+    Parameters
+    ----------
+    dic: dict
+        Dictionary to be saved
+    h5file: file
+        Hdf5 file object
+    path: str
+        Path to the h5 field
+    '''
+    for key, item in dic.items():
+        if isinstance(item, (int, float, np.int64, np.float64, str, bytes)):
+            if isinstance(item, np.str_):
+                item = str(item)
+            h5file[path + key] = item
+        elif isinstance(item, pq.Quantity):
+            h5file[path + key] = float(item.magnitude)
+        elif isinstance(item, (list, np.ndarray)):
+            if len(item) > 0:
+                if isinstance(item[0], (str, bytes)):
+                    item = [n.encode("ascii", "ignore") for n in item]
+                    h5file[path + key] = np.array(item)
+                else:
+                    h5file[path + key] = np.array(item)
+            else:
+                item = '[]'
+                h5file[path + key] = item
+        elif item is None:
+            h5file[path + key] = 'null'
+        elif isinstance(item, dict):
+            recursively_save_dict_contents_to_group(h5file, path + key + '/', item)
+        else:
+            raise ValueError('Cannot save %s type' % type(item))
+
+
+def load_dict_from_hdf5(h5file, path):
+    '''
+    Load h5 object as dict.
+
+    Parameters
+    ----------
+    h5file:file
+        Hdf5 file object
+    path: str
+        Path to the h5 field
+    Returns
+    -------
+    dictionary: dict
+        Loaded dictionary
+    '''
+    return recursively_load_dict_contents_from_group(h5file, path)
+
+
+def recursively_load_dict_contents_from_group(h5file, path):
+    '''
+    Load h5 object as dict recursively (helper function).
+
+    Parameters
+    ----------
+    h5file:file
+        Hdf5 file object
+    path: str
+        Path to the h5 field
+    Returns
+    -------
+    dictionary: dict
+        Loaded dictionary
+    '''
+    ans = {}
+    for key, item in h5file[path].items():
+        if isinstance(item, h5py._hl.dataset.Dataset):
+            ans[key] = item.value
+        elif isinstance(item, h5py._hl.group.Group):
+            ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
+    return clean_dict(ans)
+
+
+def clean_dict(d):
+    '''
+    Clean dictionary loaded from h5 file.
+
+    Parameters
+    ----------
+    d: dict
+        Dictionary to be cleaned.
+
+    Returns
+    -------
+    d: dict
+        Cleaned dictionary
+    '''
+    for key, item in d.items():
+        if isinstance(item, dict):
+            clean_dict(item)
+        elif isinstance(item, str):
+            if item == 'null':
+                d[key] = None
+            elif item == '[]':
+                d[key] = np.array([])
+        elif isinstance(item, np.ndarray):
+            if len(item) > 0:
+                if isinstance(item[0], np.bytes_):
+                    d[key] = list([n.decode() for n in item])
+                else:
+                    d[key] = list(item)
+    return d
 
 
 ### H5 TOOLS ###
@@ -778,7 +892,7 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
             valid_position = False
     return valid_position
 
-#TODO make drift_dir_ang and preferred dir as 3D directions
+
 def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
                      min_amp=None, max_amp=None, drifting=False, drift_dir=None, preferred_dir=None, angle_tol=15,
                      verbose=False):
@@ -875,6 +989,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
+                        print(amp)
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -893,7 +1008,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
-                                    print(drift_dir[id_cell], preferred_dir, drift_angle)
                                     pos_sel.append(loc[id_cell])
                                     selected_idxs.append(id_cell)
                                     n_sel += 1
@@ -916,6 +1030,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
+                        print(amp)
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -934,7 +1049,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
-                                    print(drift_dir[id_cell], preferred_dir, drift_angle)
                                     selected_idxs.append(id_cell)
                                     n_sel += 1
                                     placed = True
@@ -955,6 +1069,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                 pass
             else:
                 amp = np.max(np.abs(np.min(templates[id_cell])))
+                print(amp)
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -972,7 +1087,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         # save cell
                         drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                         if drift_angle - angle_tol <= 0:
-                            print(drift_angle)
                             pos_sel.append(loc[id_cell])
                             selected_idxs.append(id_cell)
                             placed = True
@@ -1031,8 +1145,7 @@ def cubic_padding(template, pad_len, fs):
         x_post = float(n_post)
         x_post_pad = np.arange(n_post)[::-1]
 
-        off_pre = sp[0]
-        off_post = sp[-1]
+        # fill pre and post intervals with linear values from sp[0] - sp[-1] to 0 for better fit
         m_pre = sp[0] / x_pre
         m_post = sp[-1] / x_post
 
@@ -1837,8 +1950,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx, rand_idx]
                 else:
                     # compute current position
-                    new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                    new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                     if verbose:
                         print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                     temp_jitt = template[temp_idx, rand_idx]
@@ -1858,8 +1971,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx, rand_idx]
                 else:
                     # compute current position
-                    new_pos = np.array(loc[0, 1:] + v_drift * (t - t_start_drift.rescale('s').magnitude))
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                    new_pos = np.array(loc[0] + v_drift * (t - t_start_drift.rescale('s').magnitude))
+                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                     temp_jitt = template[temp_idx, rand_idx]
 
                 feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
@@ -1873,8 +1986,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp = template[temp_idx]
                 else:
                     # compute current position
-                    new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                    new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                     temp = template[temp_idx]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                     recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp
@@ -1890,8 +2003,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx]
                 else:
                     # compute current position
-                    new_pos = np.array(loc[0, 1:] + v_drift * (t - t_start_drift.rescale('s').magnitude))
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                    new_pos = np.array(loc[0] + v_drift * (t - t_start_drift.rescale('s').magnitude))
+                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                     temp_jitt = template[temp_idx]
 
                 feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
@@ -1916,8 +2029,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             temp_jitt = template[temp_idx, rand_idx]
                         else:
                             # compute current position
-                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp_jitt = template[temp_idx, rand_idx]
                             if verbose:
                                 print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
@@ -1940,8 +2053,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             temp_jitt = template[temp_idx, rand_idx]
                         else:
                             # compute current position
-                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp_jitt = template[temp_idx, rand_idx]
                             if verbose:
                                 print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
@@ -1980,8 +2093,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                                 recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
                         else:
                             # compute current position
-                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             new_temp_jitt = template[temp_idx, rand_idx]
                             if verbose:
                                 print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
@@ -2016,8 +2129,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                                     [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
                         else:
                             # compute current position
-                            new_pos = np.array(loc[0, 1:] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             new_temp_jitt = template[temp_idx, rand_idx]
                             if verbose:
                                 print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
@@ -2038,8 +2151,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         temp_jitt = template[temp_idx, rand_idx]
                     else:
                         # compute current position
-                        new_pos = np.array(loc[0, 1:] + v_drift * (t - t_start_drift.rescale('s').magnitude))
-                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                        new_pos = np.array(loc[0] + v_drift * (t - t_start_drift.rescale('s').magnitude))
+                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                         temp_jitt = template[temp_idx, rand_idx]
 
                     feat = get_templates_features(np.squeeze(temp_jitt), ['na'], dt=dt)
@@ -2062,7 +2175,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         else:
                             # compute current position
                             new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp = template[temp_idx]
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
@@ -2084,7 +2197,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         else:
                             # compute current position
                             new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp = template[temp_idx]
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp
@@ -2111,7 +2224,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         else:
                             # compute current position
                             new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp = template[temp_idx]
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
@@ -2133,7 +2246,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                         else:
                             # compute current position
                             new_pos = np.array(pos[0, 1:] + v_drift * (sp_time - t_start_drift))
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp = template[temp_idx]
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
@@ -2153,8 +2266,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     temp_jitt = template[temp_idx]
                 else:
                     # compute current position
-                    new_pos = np.array(loc[0, 1:] + v_drift * (t - t_start_drift.rescale('s').magnitude))
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc[:, 1:]])
+                    new_pos = np.array(loc[0] + v_drift * (t - t_start_drift.rescale('s').magnitude))
+                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                     temp_jitt = template[temp_idx]
 
     final_loc = loc[temp_idx]
