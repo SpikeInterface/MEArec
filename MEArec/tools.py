@@ -164,26 +164,7 @@ def load_templates(templates, verbose=False):
 
     temp_dict = {}
 
-    if os.path.isdir(templates):
-        templates_folder = templates
-        if os.path.isfile(join(templates_folder, 'templates.npy')):
-            templates = np.load(join(templates_folder, 'templates.npy'))
-            temp_dict.update({'templates': templates})
-        if os.path.isfile(join(templates_folder, 'locations.npy')):
-            locations = np.load(join(templates_folder, 'locations.npy'))
-            temp_dict.update({'locations': locations})
-        if os.path.isfile(join(templates_folder, 'rotations.npy')):
-            rotations = np.load(join(templates_folder, 'rotations.npy'))
-            temp_dict.update({'rotations': rotations})
-        if os.path.isfile(join(templates_folder, 'celltypes.npy')):
-            celltypes = np.load(join(templates_folder, 'celltypes.npy'))
-            temp_dict.update({'celltypes': celltypes})
-        with open(join(templates_folder, 'info.yaml'), 'r') as f:
-            if use_loader:
-                info = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                info = yaml.load(f)
-    elif templates.endswith('h5') or templates.endswith('hdf5'):
+    if templates.endswith('h5') or templates.endswith('hdf5'):
         with h5py.File(templates, 'r') as F:
             info = load_dict_from_hdf5(F, 'info/')
             celltypes = np.array(F.get('celltypes'))
@@ -191,6 +172,8 @@ def load_templates(templates, verbose=False):
             temp_dict['locations'] = np.array(F.get('locations'))
             temp_dict['rotations'] = np.array(F.get('rotations'))
             temp_dict['templates'] = np.array(F.get('templates'))
+    else:
+        raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
     if verbose:
         print("Done loading templates...")
@@ -221,35 +204,7 @@ def load_recordings(recordings, verbose=False):
 
     rec_dict = {}
 
-    if os.path.isdir(recordings):
-        recording_folder = recordings
-        if os.path.isfile(join(recording_folder, 'recordings.npy')):
-            recordings = np.load(join(recording_folder, 'recordings.npy'))
-            rec_dict.update({'recordings': recordings})
-        if os.path.isfile(join(recording_folder, 'channel_positions.npy')):
-            channel_positions = np.load(join(recording_folder, 'channel_positions.npy'))
-            rec_dict.update({'channel_positions': channel_positions})
-        if os.path.isfile(join(recording_folder, 'timestamps.npy')):
-            timestamps = np.load(join(recording_folder, 'timestamps.npy'))
-            rec_dict.update({'timestamps': timestamps})
-        if os.path.isfile(join(recording_folder, 'templates.npy')):
-            templates = np.load(join(recording_folder, 'templates.npy'))
-            rec_dict.update({'templates': templates})
-        if os.path.isfile(join(recording_folder, 'spiketrains.npy')):
-            spiketrains = np.load(join(recording_folder, 'spiketrains.npy'))
-            rec_dict.update({'spiketrains': spiketrains})
-        if os.path.isfile(join(recording_folder, 'spike_traces.npy')):
-            spike_traces = np.load(join(recording_folder, 'spike_traces.npy'))
-            rec_dict.update({'spike_traces': spike_traces})
-        if os.path.isfile(join(recording_folder, 'voltage_peaks.npy')):
-            voltage_peaks = np.load(join(recording_folder, 'voltage_peaks.npy'))
-            rec_dict.update({'voltage_peaks': voltage_peaks})
-        with open(join(recording_folder, 'info.yaml'), 'r') as f:
-            if use_loader:
-                info = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                info = yaml.load(f)
-    elif recordings.endswith('h5') or recordings.endswith('hdf5'):
+    if recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
             info = load_dict_from_hdf5(F, 'info/')
             rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
@@ -278,6 +233,8 @@ def load_recordings(recordings, verbose=False):
                 st.annotations = annotations
                 spiketrains.append(st)
             rec_dict['spiketrains'] = spiketrains
+    else:
+        raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
     if verbose:
         print("Done loading recordings...")
@@ -527,176 +484,6 @@ def clean_dict(d):
                 else:
                     d[key] = list(item)
     return d
-
-
-### H5 TOOLS ###
-def hdf5_to_recordings(input_file, output_folder):
-    '''
-    Converts recordings .h5 to folder format.
-
-    Parameters
-    ----------
-    input_file: str
-        Path to .h5 file
-    output_folder: str
-        Path to output folder
-
-    '''
-    if os.path.exists(output_folder):
-        raise Exception('Output folder already exists: ' + output_folder)
-
-    os.mkdir(output_folder)
-
-    with h5py.File(input_file, 'r') as F:
-        info = json.loads(str(F['info'][()]))
-        with open(output_folder + '/info.yaml', 'w') as f:
-            yaml.dump(info, f, default_flow_style=False)
-
-        voltage_peaks = np.array(F.get('voltage_peaks'))
-        np.save(output_folder + '/voltage_peaks.npy', voltage_peaks)
-        channel_positions = np.array(F.get('channel_positions'))
-        np.save(output_folder + '/channel_positions.npy', channel_positions)
-        recordings = np.array(F.get('recordings'))
-        np.save(output_folder + '/recordings.npy', recordings)
-        spike_traces = np.array(F.get('spike_traces'))
-        np.save(output_folder + '/spike_traces.npy', spike_traces)
-        templates = np.array(F.get('templates'))
-        np.save(output_folder + '/templates.npy', templates)
-        timestamps = np.array(F.get('timestamps'))
-        np.save(output_folder + '/timestamps.npy', timestamps)
-        spiketrains = []
-        for ii in range(info['recordings']['n_neurons']):
-            times = np.array(F.get('spiketrains/{}/times'.format(ii)))
-            t_stop = np.array(F.get('spiketrains/{}/t_stop'.format(ii)))
-            annotations_str = str(F.get('spiketrains/{}/annotations'.format(ii))[()])
-            annotations = json.loads(annotations_str)
-            st = neo.core.SpikeTrain(
-                times,
-                t_stop=t_stop,
-                units=pq.s
-            )
-            st.annotations = annotations
-            spiketrains.append(st)
-        np.save(output_folder + '/spiketrains.npy', spiketrains)
-
-
-def hdf5_to_templates(input_file, output_folder):
-    '''
-    Converts templates .h5 to folder format.
-
-    Parameters
-    ----------
-    input_file: str
-        Path to .h5 file
-    output_folder: str
-        Path to output folder
-
-    '''
-    if os.path.exists(output_folder):
-        raise Exception('Output folder already exists: ' + output_folder)
-
-    os.mkdir(output_folder)
-
-    with h5py.File(input_file, 'r') as F:
-        info = json.loads(str(F['info'][()]))
-        with open(output_folder + '/info.yaml', 'w') as f:
-            yaml.dump(info, f, default_flow_style=False)
-
-        celltypes = np.array(F.get('celltypes'))
-        np.save(output_folder + '/celltypes.npy', celltypes)
-        locations = np.array(F.get('locations'))
-        np.save(output_folder + '/locations.npy', locations)
-        rotations = np.array(F.get('rotations'))
-        np.save(output_folder + '/rotations.npy', rotations)
-        templates = np.array(F.get('templates'))
-        np.save(output_folder + '/templates.npy', templates)
-
-
-def recordings_to_hdf5(recordings_folder, output_fname):
-    '''
-    Converts recordings folder to .h5 format.
-
-    Parameters
-    ----------
-    recordings_folder: str
-        Path to recording folder
-    output_fname: str
-        Path to output .h5
-
-    '''
-    F = h5py.File(output_fname, 'w')
-
-    with open(recordings_folder + '/info.yaml', 'r') as f:
-        if use_loader:
-            info = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            info = yaml.load(f)
-
-    F.create_dataset('info', data=json.dumps(info))
-
-    voltage_peaks = np.load(recordings_folder + '/voltage_peaks.npy')
-    F.create_dataset('voltage_peaks', data=voltage_peaks)
-    channel_positions = np.load(recordings_folder + '/channel_positions.npy')
-    F.create_dataset('channel_positions', data=channel_positions)
-    recordings = np.load(recordings_folder + '/recordings.npy')
-    F.create_dataset('recordings', data=recordings)
-    spike_traces = np.load(recordings_folder + '/spike_traces.npy')
-    F.create_dataset('spike_traces', data=spike_traces)
-    spiketrains = np.load(recordings_folder + '/spiketrains.npy')
-    for ii in range(len(spiketrains)):
-        st = spiketrains[ii]
-        F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
-        F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
-        annotations_no_pq = {}
-        for k, v in st.annotations.items():
-            if isinstance(v, pq.Quantity):
-                annotations_no_pq[k] = float(v.magnitude)
-            elif isinstance(v, np.ndarray):
-                annotations_no_pq[k] = list(v)
-            else:
-                annotations_no_pq[k] = v
-        annotations_str = json.dumps(annotations_no_pq)
-        F.create_dataset('spiketrains/{}/annotations'.format(ii), data=annotations_str)
-    templates = np.load(recordings_folder + '/templates.npy')
-    F.create_dataset('templates', data=templates)
-    timestamps = np.load(recordings_folder + '/timestamps.npy')
-    F.create_dataset('timestamps', data=timestamps)
-    F.close()
-
-
-def templates_to_hdf5(templates_folder, output_fname):
-    '''
-    Converts templates folder to .h5 format.
-
-    Parameters
-    ----------
-    templates_folder: str
-        Path to templates folder
-    output_fname: str
-        Path to output .h5
-
-    '''
-    F = h5py.File(output_fname, 'w')
-
-    with open(templates_folder + '/info.yaml', 'r') as f:
-        if use_loader:
-            info = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            info = yaml.load(f)
-
-    F.create_dataset('info', data=json.dumps(info))
-
-    celltypes = np.load(templates_folder + '/celltypes.npy')
-    celltypes = [str(x).encode('utf-8') for x in celltypes]
-    F.create_dataset('celltypes', data=celltypes)
-    locations = np.load(templates_folder + '/locations.npy')
-    F.create_dataset('locations', data=locations)
-    rotations = np.load(templates_folder + '/rotations.npy')
-    F.create_dataset('rotations', data=rotations)
-    templates = np.load(templates_folder + '/templates.npy')
-    F.create_dataset('templates', data=templates)
-
-    F.close()
 
 
 ### TEMPLATES INFO ###
@@ -1554,7 +1341,7 @@ def compute_bursting_template(template, mod, wc_mod):
     b, a = ss.butter(3, wc_mod)
     if len(template.shape) == 2:
         temp_filt = ss.filtfilt(b, a, template, axis=1)
-        if len(mod) > 1:
+        if mod.size > 1:
             temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
                                   temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
         else:

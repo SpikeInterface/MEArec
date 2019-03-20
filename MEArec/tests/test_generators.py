@@ -1,4 +1,5 @@
 import pytest
+import os
 import numpy as np
 import unittest
 import MEArec as mr
@@ -65,6 +66,8 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['n_inh'] = ni
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['filter'] = False
+        rec_params['recordings']['extract_waveforms'] = True
+        rec_params['recordings']['overlap'] = True
         rec_params['spiketrains']['duration'] = 2
         rec_params['templates']['min_dist'] = 1
 
@@ -130,69 +133,7 @@ class TestGenerators(unittest.TestCase):
             assert np.all(isi.magnitude > sp_params['ref_per'])
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
-    def test_gen_recordings_mod_none(self):
-        print('Test recording generation - modulation None')
-        info, info_folder = mr.get_default_config()
-        ne = 3
-        ni = 1
-        num_chan = self.num_chan
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = rec_params['templates']['n_jitters']
-
-        rec_params['recordings']['modulation'] = 'none'
-        rec_params['recordings']['filter'] = False
-        rec_params['spiketrains']['duration'] = 2
-        rec_params['templates']['min_dist'] = 1
-
-        recgen_none = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-
-        assert recgen_none.recordings.shape[0] == num_chan
-        assert len(recgen_none.spiketrains) == n_neurons
-        assert recgen_none.channel_positions.shape == (num_chan, 3)
-        assert recgen_none.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_none.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_none.spike_traces) == n_neurons
-
-    def test_gen_recordings_mod_temp(self):
-        print('Test recording generation - modulation template')
-        info, info_folder = mr.get_default_config()
-        ne = 2
-        ni = 2
-        num_chan = self.num_chan
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 6
-        rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'template'
-        rec_params['templates']['min_dist'] = 1
-
-        recgen_temp = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-
-        assert recgen_temp.recordings.shape[0] == num_chan
-        assert len(recgen_temp.spiketrains) == n_neurons
-        assert recgen_temp.channel_positions.shape == (num_chan, 3)
-        assert recgen_temp.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_temp.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_temp.spike_traces) == n_neurons
-
-    def test_gen_recordings_mod_elec(self):
+    def test_gen_recordings_modulations(self):
         print('Test recording generation - modulation electrode')
         info, info_folder = mr.get_default_config()
         ne = 1
@@ -210,77 +151,19 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['n_inh'] = ni
         n_jitter = 15
         rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'electrode'
+        modulations = ['none', 'electrode', 'template', 'template-isi', 'electrode-isi']
         rec_params['templates']['min_dist'] = 1
 
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+        for mod in modulations:
+            rec_params['recordings']['modulation'] = mod
+            recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_elec.spike_traces) == n_neurons
-
-    def test_gen_recordings_mod_temp_isi(self):
-        print('Test recording generation - modulation template-isi')
-        info, info_folder = mr.get_default_config()
-        ne = 2
-        ni = 2
-        num_chan = self.num_chan
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 3
-        rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'template-isi'
-        rec_params['templates']['min_dist'] = 1
-
-        recgen_temp = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-
-        assert recgen_temp.recordings.shape[0] == num_chan
-        assert len(recgen_temp.spiketrains) == n_neurons
-        assert recgen_temp.channel_positions.shape == (num_chan, 3)
-        assert recgen_temp.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_temp.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_temp.spike_traces) == n_neurons
-
-    def test_gen_recordings_mod_elec_isi(self):
-        print('Test recording generation - modulation electrode-isi')
-        info, info_folder = mr.get_default_config()
-        ne = 3
-        ni = 1
-        num_chan = self.num_chan
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 4
-        rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'electrode-isi'
-        rec_params['templates']['min_dist'] = 1
-
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_elec.spike_traces) == n_neurons
+            assert recgen_elec.recordings.shape[0] == num_chan
+            assert len(recgen_elec.spiketrains) == n_neurons
+            assert recgen_elec.channel_positions.shape == (num_chan, 3)
+            assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+            assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
+            assert len(recgen_elec.spike_traces) == n_neurons
 
     def test_gen_recordings_mod_bursting_sync(self):
         print('Test recording generation - bursting')
@@ -316,38 +199,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_elec.spike_traces) == n_neurons
 
-    def test_gen_recordings_dist_corr(self):
-        print('Test recording generation - noise distance-correlated')
-        info, info_folder = mr.get_default_config()
-        ne = 1
-        ni = 1
-        num_chan = self.num_chan
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 3
-        rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['templates']['min_dist'] = 1
-        rec_params['recordings']['modulation'] = 'none'
-        rec_params['recordings']['noise_mode'] = 'distance-correlated'
-
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_elec.spike_traces) == n_neurons
-
-    def test_gen_recordings_color_noise(self):
+    def test_gen_recordings_noise(self):
         print('Test recording generation - noise distance-correlated - color')
         info, info_folder = mr.get_default_config()
         ne = 1
@@ -367,16 +219,24 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
         rec_params['recordings']['modulation'] = 'none'
-        rec_params['recordings']['noise_mode'] = 'distance-correlated'
-        rec_params['recordings']['noise_color'] = True
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+        noise_modes = ['uncorrelated', 'distance-correlated']
+        chunk_noise = [0, 2]
+        noise_color = [True, False]
 
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_elec.spike_traces) == n_neurons
+        for mode in noise_modes:
+            for ch in chunk_noise:
+                for color in noise_color:
+                    rec_params['recordings']['noise_mode'] = mode
+                    rec_params['recordings']['noise_chunk'] = mode
+                    rec_params['recordings']['noise_color'] = color
+                    recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+
+                    assert recgen_elec.recordings.shape[0] == num_chan
+                    assert len(recgen_elec.spiketrains) == n_neurons
+                    assert recgen_elec.channel_positions.shape == (num_chan, 3)
+                    assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+                    assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
+                    assert len(recgen_elec.spike_traces) == n_neurons
 
     def test_gen_recordings_only_noise(self):
         print('Test recording generation - only noise')
@@ -432,13 +292,18 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['drifting'] = True
         rec_params['templates']['min_dist'] = 1
 
-        recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
+        modulations = ['none', 'template', 'electrode']
 
-        assert recgen_drift.recordings.shape[0] == num_chan
-        assert len(recgen_drift.spiketrains) == n_neurons
-        assert recgen_drift.channel_positions.shape == (num_chan, 3)
-        assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, n_jitter, num_chan)
-        assert len(recgen_drift.spike_traces) == n_neurons
+        for i, mod in enumerate(modulations):
+            rec_params['recordings']['modulation'] = mod
+            if i == len(modulations) - 1:
+                rec_params['recordings']['fs'] = 30
+            recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
+            assert recgen_drift.recordings.shape[0] == num_chan
+            assert len(recgen_drift.spiketrains) == n_neurons
+            assert recgen_drift.channel_positions.shape == (num_chan, 3)
+            assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, n_jitter, num_chan)
+            assert len(recgen_drift.spike_traces) == n_neurons
 
     def test_gen_recordings_drift_burst(self):
         print('Test recording generation - drift bursting')
@@ -473,7 +338,7 @@ class TestGenerators(unittest.TestCase):
         assert len(recgen_drift.spike_traces) == n_neurons
 
     def test_save_load_templates(self):
-        tempgen = mr.load_templates(self.test_dir + '/templates.h5')
+        tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
         tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
 
         assert np.allclose(tempgen.templates, self.tempgen.templates)
@@ -484,7 +349,7 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(tempgen_drift.rotations, self.tempgen_drift.rotations)
 
     def test_save_load_recordings(self):
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5')
+        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
 
         assert np.allclose(recgen_loaded.templates, self.recgen.templates)
         assert np.allclose(recgen_loaded.recordings, self.recgen.recordings)
@@ -493,6 +358,25 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(recgen_loaded.channel_positions, self.recgen.channel_positions)
         assert np.allclose(recgen_loaded.timestamps, self.recgen.timestamps.magnitude)
 
+    def test_plots(self):
+        _ = mr.plot_rasters(self.recgen.spiketrains)
+        _ = mr.plot_recordings(self.recgen)
+        _ = mr.plot_templates(self.recgen)
+        _ = mr.plot_waveforms(self.recgen)
+        _ = mr.plot_waveforms(self.recgen, electrode=0)
+        _ = mr.plot_waveforms(self.recgen, electrode='max')
+
+    def test_cli(self):
+        default_config, mearec_home = mr.get_default_config()
+        os.system('mearec --help')
+        os.system('mearec default-config')
+        os.system('mearec gen-templates -n 2 --no-par')
+        os.system('mearec gen-recordings -t ' + self.test_dir + '/templates.h5 ' + ' -ne 2 -ni 1')
+        os.system('mearec set-cell-models-folder ' + default_config['cell_models_folder'])
+        os.system('mearec set-recordings-folder ' + default_config['recordings_folder'])
+        os.system('mearec set-recordings-params ' + default_config['recordings_params'])
+        os.system('mearec set-templates-folder ' + default_config['templates_folder'])
+        os.system('mearec set-templates-params ' + default_config['templates_params'])
 
 if __name__ == '__main__':
     unittest.main()

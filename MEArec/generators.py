@@ -260,13 +260,13 @@ class SpikeTrainGenerator:
                     params['n_inh'] = 5
                 self.params['n_inh'] = params['n_inh']
 
-                for exc in range(self.params['n_exc']):
+                for exc in np.arange(self.params['n_exc']):
                     rate = self.params['st_exc'] * np.random.randn() + self.params['f_exc']
                     if rate < self.params['min_rate']:
                         rate = self.params['min_rate']
                     rates.append(rate)
                     types.append('e')
-                for inh in range(self.params['n_inh']):
+                for inh in np.arange(self.params['n_inh']):
                     rate = self.params['st_inh'] * np.random.randn() + self.params['f_inh']
                     if rate < self.params['min_rate']:
                         rate = self.params['min_rate']
@@ -306,7 +306,7 @@ class SpikeTrainGenerator:
         if not self.spiketrains:
             self.all_spiketrains = []
             idx = 0
-            for n in range(self.n_neurons):
+            for n in np.arange(self.n_neurons):
                 if not self.changing and not self.intermittent:
                     rate = self.params['rates'][n]
                     if self.params['process'] == 'poisson':
@@ -496,7 +496,7 @@ class RecordingGenerator:
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
             fs = params['recordings']['fs'] * pq.kHz
         else:
-            fs = params['recordings']['fs'] * pq.Hz
+            fs = params['recordings']['fs'] * pq.kHz
 
         if 'noise_mode' not in rec_params.keys():
             params['recordings']['noise_mode'] = 'uncorrelated'
@@ -769,7 +769,7 @@ class RecordingGenerator:
                     templates_pol = templates
             else:
                 if templates.shape[3] != n_resample:
-                    templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+                    templates_pol = np.zeros((templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
                     if self.verbose:
                         print('Resampling spikes')
                     for t, tem in enumerate(templates):
@@ -782,7 +782,6 @@ class RecordingGenerator:
                     templates_pol = templates
 
             templates_pad = []
-
             if self.verbose:
                 print('Padding template edges')
             for t, tem in enumerate(templates_pol):
@@ -808,7 +807,7 @@ class RecordingGenerator:
                     temp_up = ss.resample_poly(temp, upsample, 1, axis=1)
                     nsamples_up = temp_up.shape[1]
                     temp_jitt = []
-                    for n in range(n_jitters):
+                    for n in np.arange(n_jitters):
                         # align waveform
                         shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
                         if shift > 0:
@@ -829,7 +828,7 @@ class RecordingGenerator:
                         temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
                         nsamples_up = temp_up.shape[1]
                         temp_jitt = []
-                        for n in range(n_jitters):
+                        for n in np.arange(n_jitters):
                             # align waveform
                             shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
                             if shift > 0:
@@ -843,7 +842,7 @@ class RecordingGenerator:
 
                         templates_jitter_p.append(temp_jitt)
                     templates_jitter.append(templates_jitter_p)
-            templates = np.array(templates_jitter)
+            templates = np.squeeze(np.array(templates_jitter))
 
             cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
 
@@ -1165,9 +1164,6 @@ class RecordingGenerator:
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
                     recordings += additive_noise
-            elif noise_mode == 'experimental':
-                pass
-                # print( 'experimental noise model'
         else:
             if self.verbose:
                 print('Noise level is set to 0')
