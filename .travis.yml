@@ -16,7 +16,11 @@ install:
 - pip install LFPy
 - pip install .
 - pip install pytest
-script: py.test -s
+- pip install pytest.cov
+- pip install coveralls
+script: py.test -s --cov=MEArec
+after_success:
+  - coveralls
 deploy:
   provider: pypi
   user: alejoe91

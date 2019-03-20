@@ -611,7 +611,7 @@ class RecordingGenerator:
         drifting = params['recordings']['drifting']
 
         if drifting:
-            assert temp_info['params']['drifting'] is True
+            assert temp_info['params']['drifting']
             preferred_dir = np.array(rec_params['preferred_dir'])
             preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
             angle_tol = rec_params['angle_tol']
@@ -619,7 +619,7 @@ class RecordingGenerator:
             t_start_drift = rec_params['t_start_drift'] * pq.s
         else:
             # if drifting templates, but not recordings, consider initial template
-            if temp_info['params']['drifting'] is True:
+            if temp_info['params']['drifting']:
                 eaps = eaps[:, 0]
             preferred_dir = None
             angle_tol = None
@@ -773,11 +773,12 @@ class RecordingGenerator:
                     if self.verbose:
                         print('Resampling spikes')
                     for t, tem in enumerate(templates):
-                        tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
-                        tem_poly = ss.resample_poly(tem_pad, up, down, axis=2)
-                        templates_pol[t, :] = tem_poly[:,
-                                              int(sampling_ratio * pad_samples[0]):int(sampling_ratio * pad_samples[0])
-                                                                                   + n_resample]
+                        for ts, tem_single in enumerate(tem):
+                            tem_pad = np.pad(tem_single, [(0, 0), pad_samples], 'edge')
+                            tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
+                            templates_pol[t, ts, :] = tem_poly[:,int(sampling_ratio *
+                                                                     pad_samples[0]):int(sampling_ratio *
+                                                                                         pad_samples[0]) + n_resample]
                 else:
                     templates_pol = templates
 

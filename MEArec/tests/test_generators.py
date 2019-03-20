@@ -134,7 +134,7 @@ class TestGenerators(unittest.TestCase):
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
     def test_gen_recordings_modulations(self):
-        print('Test recording generation - modulation electrode')
+        print('Test recording generation - modulation')
         info, info_folder = mr.get_default_config()
         ne = 1
         ni = 3
@@ -200,7 +200,7 @@ class TestGenerators(unittest.TestCase):
         assert len(recgen_elec.spike_traces) == n_neurons
 
     def test_gen_recordings_noise(self):
-        print('Test recording generation - noise distance-correlated - color')
+        print('Test recording generation - noise')
         info, info_folder = mr.get_default_config()
         ne = 1
         ni = 1
