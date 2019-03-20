@@ -46,6 +46,7 @@ recordings:
   fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
 
   sync_rate: 0 # added synchrony rate for spatilly overlapping templates
+  sync_jitt: 1 # jitter in ms for added spikes
 
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
@@ -71,7 +72,8 @@ recordings:
   seed: null # random seed for noise generation
 
   filter: True # if True it filters the recordings
-  cutoff: [300, 6000] # filter cutoff frequencies in Hz
+  filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
+  filter_order: 3 # filter order
   chunk_filter_duration: 0 # chunk duration for filtering
 
   overlap: True # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
@@ -80,5 +82,5 @@ recordings:
   drifting: False # if True templates are drifted
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees
-  drift_velocity: 30  # drift velocity in um/min
+  drift_velocity: 5  # drift velocity in um/min
   t_start_drift: 0  # tim in s from which drifting starts

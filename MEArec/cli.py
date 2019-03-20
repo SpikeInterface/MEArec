@@ -229,8 +229,10 @@ def gen_templates(params, **kwargs):
               help='maximum eap amplitude in uV (default=inf)')
 @click.option('--fs', default=None, type=float,
               help='sampling frequency in kHz (default from templates sampling frequency)')
-@click.option('--sync-rate', '-sr', default=0, type=float,
+@click.option('--sync-rate', '-sr', default=None, type=float,
               help='added synchrony rate on spatially overlapping spikes')
+@click.option('--sync-jitt', '-sj', default=None, type=float,
+              help='jitter in ms for added spikes')
 @click.option('--noise-lev', '-nl', default=None, type=int,
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
@@ -257,6 +259,11 @@ def gen_templates(params, **kwargs):
               help='random seed for template selection')
 @click.option('--no-filt', is_flag=True,
               help='if True no filter is applied')
+@click.option('--filt-cutoff', '-fc', default=None, type=float, multiple=True,
+              help='filter cutoff frequencies.'
+                   'High-pass: -fc hp-cutoff. Band-pass: -fc hp-cutoff -fc lp-cutoff')
+@click.option('--filt-order', '-fo', default=None, type=int,
+              help='filter order (default 3)')
 @click.option('--overlap', is_flag=True,
               help='if True it annotates overlapping spikes')
 @click.option('--overlap-thresh', '-ot', type=float,
@@ -363,6 +370,12 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['chunk_filter_duration'] = kwargs['chunk_filt']
     if kwargs['no_filt'] is True:
         params_dict['recordings']['filter'] = False
+    if kwargs['filt_cutoff'] is not None:
+        if isinstance(kwargs['filt_cutoff'], tuple):
+            kwargs['filt_cutoff'] = list(kwargs['filt_cutoff'])
+        params_dict['recordings']['filter_cutoff'] = kwargs['filt_cutoff']
+    if kwargs['filt_order'] is not None:
+        params_dict['recordings']['filt_order'] = kwargs['filt_order']
     if kwargs['fs'] is not None:
         params_dict['recordings']['fs'] = kwargs['fs']
     else:
@@ -371,6 +384,10 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['sync_rate'] = kwargs['sync_rate']
     else:
         params_dict['recordings']['sync_rate'] = 0
+    if kwargs['sync_jitt'] is not None:
+        params_dict['recordings']['sync_jitt'] = kwargs['sync_jitt']
+    else:
+        params_dict['recordings']['sync_jitt'] = 1
     if kwargs['noise_seed'] is not None:
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:

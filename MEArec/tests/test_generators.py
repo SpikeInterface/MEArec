@@ -282,7 +282,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_elec.spike_traces) == n_neurons
 
-    def test_gen_recordings_mod_bursting(self):
+    def test_gen_recordings_mod_bursting_sync(self):
         print('Test recording generation - bursting')
         info, info_folder = mr.get_default_config()
         ne = 3
@@ -302,6 +302,9 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'electrode-isi'
         rec_params['recordings']['bursting'] = True
+        rec_params['recordings']['sync_rate'] = 0.2
+        rec_params['recordings']['overlap'] = True
+        rec_params['recordings']['extract_waveforms'] = True
         rec_params['templates']['min_dist'] = 1
 
         recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
@@ -373,6 +376,37 @@ class TestGenerators(unittest.TestCase):
         assert recgen_elec.channel_positions.shape == (num_chan, 3)
         assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
         assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
+        assert len(recgen_elec.spike_traces) == n_neurons
+
+    def test_gen_recordings_only_noise(self):
+        print('Test recording generation - only noise')
+        info, info_folder = mr.get_default_config()
+        ne = 0
+        ni = 0
+        num_chan = self.num_chan
+        n_neurons = ne + ni
+
+        with open(info['recordings_params']) as f:
+            if use_loader:
+                rec_params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                rec_params = yaml.load(f)
+
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        n_jitter = 3
+        rec_params['templates']['n_jitters'] = n_jitter
+        rec_params['templates']['min_dist'] = 1
+        rec_params['recordings']['modulation'] = 'none'
+        rec_params['recordings']['noise_mode'] = 'distance-correlated'
+        rec_params['recordings']['noise_color'] = True
+        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+
+        assert recgen_elec.recordings.shape[0] == num_chan
+        assert recgen_elec.channel_positions.shape == (num_chan, 3)
+        assert len(recgen_elec.spiketrains) == n_neurons
+        assert len(recgen_elec.spiketrains) == n_neurons
+        assert len(recgen_elec.spiketrains) == n_neurons
         assert len(recgen_elec.spike_traces) == n_neurons
 
     def test_gen_recordings_drift(self):

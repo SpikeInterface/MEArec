@@ -264,10 +264,15 @@ def load_recordings(recordings, verbose=False):
                 unit = str(unit)
                 times = np.array(F.get('spiketrains/' + unit + '/times'))
                 t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
+                if F.get('spiketrains/' + unit + '/waveforms') is not None:
+                    waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
+                else:
+                    waveforms = None
                 annotations = load_dict_from_hdf5(F, 'spiketrains/' + unit + '/annotations/')
                 st = neo.core.SpikeTrain(
                     times,
                     t_stop=t_stop,
+                    waveforms=waveforms,
                     units=pq.s
                 )
                 st.annotations = annotations
@@ -284,7 +289,7 @@ def load_recordings(recordings, verbose=False):
 
 def save_template_generator(tempgen, filename=None):
     '''
-    Saves templates to disk.
+    Save templates to disk.
 
     Parameters
     ----------
@@ -334,7 +339,7 @@ def save_template_generator(tempgen, filename=None):
 
 def save_recording_generator(recgen, filename=None):
     '''
-    Saves recordings to disk.
+    Save recordings to disk.
 
     Parameters
     ----------
@@ -355,6 +360,8 @@ def save_recording_generator(recgen, filename=None):
             st = recgen.spiketrains[ii]
             F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
             F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
+            if st.waveforms is not None:
+                F.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
             save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
         F.create_dataset('templates', data=recgen.templates)
         F.create_dataset('timestamps', data=recgen.timestamps)
@@ -485,7 +492,7 @@ def recursively_load_dict_contents_from_group(h5file, path):
     ans = {}
     for key, item in h5file[path].items():
         if isinstance(item, h5py._hl.dataset.Dataset):
-            ans[key] = item.value
+            ans[key] = item[()]
         elif isinstance(item, h5py._hl.group.Group):
             ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
     return clean_dict(ans)
@@ -989,7 +996,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
-                        print(amp)
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -1030,7 +1036,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
-                        print(amp)
                         if not drifting:
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -1069,7 +1074,6 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                 pass
             else:
                 amp = np.max(np.abs(np.min(templates[id_cell])))
-                print(amp)
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
@@ -1231,13 +1235,13 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
         import multiprocessing
         # t_start = time.time()
         pool = multiprocessing.Pool(nprocesses)
-        results = [pool.apply_async(annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose, ))
-                   for i, st_i in enumerate(spiketrains)]
+        _ = [pool.apply_async(annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose, ))
+             for i, st_i in enumerate(spiketrains)]
     else:
         # find overlapping spikes
         for i, st_i in enumerate(spiketrains):
             if verbose:
-                print('Spike train ', i)
+                print('Annotating overlapping spike train ', i)
             over = np.array(['NO'] * len(st_i))
             for i_sp, t_i in enumerate(st_i):
                 for j, st_j in enumerate(spiketrains):
@@ -1281,7 +1285,7 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
 
     '''
     if verbose:
-        print('Spike train ', i)
+        print('Annotating overlapping spike train ', i)
     over = np.array(['NO'] * len(st_i))
     for i_sp, t_i in enumerate(st_i):
         for j, st_j in enumerate(spiketrains):
@@ -1348,6 +1352,35 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
             spikes = conv.BinnedSpikeTrain(sts, binsize=binsize).to_array()
             resampled_mat.append(np.squeeze(spikes))
     return np.array(resampled_mat)
+
+
+def compute_sync_rate(st1, st2, time_jitt):
+    '''
+    Compute synchrony rate between two wpike trains
+    Parameters
+    ----------
+    st1: neo.SpikeTrain
+        Spike train 1
+    st2: neo.SpikeTrain
+        Spike train 2
+    time_jitt: quantity
+        Maximum time jittering between added spikes
+
+    Returns
+    -------
+    rate: float
+        Synchrony rate (0-1)
+    '''
+    count = 0
+    times1 = st1.times
+    times2 = st2.times
+    for t1 in times1:
+        if len(np.where(np.abs(times2 - t1) <= time_jitt)[0]) >= 1:
+            if len(np.where(np.abs(times2 - t1) <= time_jitt)[0]) > 1:
+                print('Len: ', len(np.where(np.abs(times2 - t1) <= time_jitt)[0]))
+            count += 1
+    rate = count / (len(times1) + len(times2))
+    return rate
 
 
 ### CONVOLUTION OPERATIONS ###
@@ -2330,7 +2363,7 @@ def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
         st.waveforms = np.array(sp_rec_wf)
 
 
-def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3, copy_signal=False):
+def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
     """
     Filter analog signals with zero-phase Butterworth filter.
     The function raises an Exception if the required filter is not stable.
@@ -2410,6 +2443,9 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     if not ax:
         fig = plt.figure()
         ax = fig.add_subplot(111)
+    if overlap:
+        if 'overlap' not in spiketrains[0].annotations.keys():
+            raise Exception()
     for i, spiketrain in enumerate(spiketrains):
         t = spiketrain.rescale(pq.s)
         if bintype:
@@ -2436,22 +2472,10 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
                         ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
                     elif spiketrain.annotations['overlap'][j] == 'NO':
                         ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
-            # elif labels:
-            #     for j, t_sp in enumerate(spiketrain):
-            #         if 'TP' in spiketrain.annotations['labels'][j]:
-            #             ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
-            #         elif 'CL' in spiketrain.annotations['labels'][j]:
-            #             ax.plot(t_sp, i, 'y', marker=marker, mew=mew, markersize=markersize, ls='')
-            #         elif 'FN' in spiketrain.annotations['labels'][j]:
-            #             ax.plot(t_sp, i, 'r', marker=marker, mew=mew, markersize=markersize, ls='')
-            #         elif 'FP' in spiketrain.annotations['labels'][j]:
-            #             ax.plot(t_sp, i, 'm', marker=marker, mew=mew, markersize=markersize, ls='')
-            #         else:
-            #             ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
 
     ax.axis('tight')
     ax.set_xlim([spiketrains[0].t_start.rescale(pq.s), spiketrains[0].t_stop.rescale(pq.s)])
-    ax.set_xlabel('Time (ms)', fontsize=fs)
+    ax.set_xlabel('Time (s)', fontsize=fs)
     ax.set_ylabel('Spike Train Index', fontsize=fs)
     ax.set_yticks(np.arange(len(spiketrains)))
     ax.set_yticklabels(np.arange(len(spiketrains)))

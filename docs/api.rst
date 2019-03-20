@@ -56,6 +56,27 @@ Module :mod:`MEArec.tools`
     ------------------------------------------
     .. autofunction:: save_recording_generator
 
+
     function :class:`get_default_config`
     ------------------------------------
     .. autofunction:: get_default_config
+
+
+    function :class:`plot_rasters`
+    ------------------------------
+    .. autofunction:: plot_rasters
+
+
+    function :class:`plot_templates`
+    --------------------------------
+    .. autofunction:: plot_templates
+
+
+    function :class:`plot_recordings`
+    ---------------------------------
+    .. autofunction:: plot_recordings
+
+
+    function :class:`plot_waveforms`
+    --------------------------------
+    .. autofunction:: plot_waveforms
