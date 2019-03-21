@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/alejoe91/MEArec.svg?branch=master)](https://travis-ci.org/alejoe91/MEArec)
+[![Build Status](https://travis-ci.org/alejoe91/MEArec.svg?branch=master)](https://travis-ci.org/alejoe91/MEArec) [![Coverage Status](https://coveralls.io/repos/github/alejoe91/MEArec/badge.svg?branch=master)](https://coveralls.io/github/alejoe91/MEArec?branch=master) [![PyPI version](https://badge.fury.io/py/MEArec.svg)](https://badge.fury.io/py/MEArec)
 
 # MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays
 
