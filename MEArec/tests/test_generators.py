@@ -371,17 +371,17 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["default-config"])
         assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-v'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-params", default_config['recordings_params']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-params", default_config['templates_params']])
+        assert result.exit_code == 0
         result = runner.invoke(cli, ["set-templates-folder", '.'])
         assert result.exit_code == 0
         result = runner.invoke(cli, ["set-recordings-folder", '.'])
-        assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-v'])
-        assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1']) # self.test_dir + '/templates.h5',
-        assert result.exit_code == 0
-        result = runner.invoke(cli, ["set-templates-folder", default_config['recordings_params']])
-        assert result.exit_code == 0
-        result = runner.invoke(cli, ["set-recordings-folder", default_config['templates_params']])
         assert result.exit_code == 0
 
 
