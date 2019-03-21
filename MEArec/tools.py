@@ -143,7 +143,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
-def load_templates(templates, return_h5file=False, verbose=False):
+def load_templates(templates, return_h5_objects=False, verbose=False):
     '''
     Load generated eap templates.
 
@@ -169,9 +169,18 @@ def load_templates(templates, return_h5file=False, verbose=False):
             info = load_dict_from_hdf5(F, 'info/')
             celltypes = np.array(F.get('celltypes'))
             temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
-            temp_dict['locations'] = np.array(F.get('locations'))
-            temp_dict['rotations'] = np.array(F.get('rotations'))
-            temp_dict['templates'] = np.array(F.get('templates'))
+            if return_h5_objects:
+                temp_dict['locations'] = F.get('locations')
+            else:
+                temp_dict['locations'] = np.array(F.get('locations'))
+            if return_h5_objects:
+                temp_dict['rotations'] = F.get('rotations')
+            else:
+                temp_dict['rotations'] = np.array(F.get('rotations'))
+            if return_h5_objects:
+                temp_dict['templates'] = F.get('templates')
+            else:
+                temp_dict['templates'] = np.array(F.get('templates'))
     else:
         raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
@@ -179,14 +188,10 @@ def load_templates(templates, return_h5file=False, verbose=False):
         print("Done loading templates...")
 
     tempgen = TemplateGenerator(temp_dict=temp_dict, info=info)
-
-    if not return_h5file:
-        return tempgen
-    else:
-        return tempgen, h5py.File(templates, 'r')
+    return tempgen
 
 
-def load_recordings(recordings, return_h5file=False, verbose=False):
+def load_recordings(recordings, return_h5_objects=False, verbose=False):
     '''
     Load generated recordings.
 
@@ -211,17 +216,35 @@ def load_recordings(recordings, return_h5file=False, verbose=False):
         with h5py.File(recordings, 'r') as F:
             info = load_dict_from_hdf5(F, 'info/')
             if F.get('voltage_peaks') is not None:
-                rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
+                if return_h5_objects:
+                    rec_dict['voltage_peaks'] = F.get('voltage_peaks')
+                else:
+                    rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
             if F.get('channel_positions') is not None:
-                rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
+                if return_h5_objects:
+                    rec_dict['channel_positions'] = F.get('channel_positions')
+                else:
+                    rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
             if F.get('recordings') is not None:
-                rec_dict['recordings'] = np.array(F.get('recordings'))
+                if return_h5_objects:
+                    rec_dict['recordings'] = F.get('recordings')
+                else:
+                    rec_dict['recordings'] = np.array(F.get('recordings'))
             if F.get('spike_traces') is not None:
-                rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
+                if return_h5_objects:
+                    rec_dict['spike_traces'] = F.get('spike_traces')
+                else:
+                    rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
             if F.get('templates') is not None:
-                rec_dict['templates'] = np.array(F.get('templates'))
+                if return_h5_objects:
+                    rec_dict['templates'] = F.get('templates')
+                else:
+                    rec_dict['templates'] = np.array(F.get('templates'))
             if F.get('timestamps') is not None:
-                rec_dict['timestamps'] = np.array(F.get('timestamps'))
+                if return_h5_objects:
+                    rec_dict['timestamps'] = F.get('timestamps')
+                else:
+                    rec_dict['timestamps'] = np.array(F.get('timestamps'))
             if F.get('spiketrains') is not None:
                 spiketrains = []
                 sorted_units = sorted([int(u) for u in F.get('spiketrains/')])
@@ -250,11 +273,7 @@ def load_recordings(recordings, return_h5file=False, verbose=False):
         print("Done loading recordings...")
 
     recgen = RecordingGenerator(rec_dict=rec_dict, info=info)
-
-    if not return_h5file:
-        return recgen
-    else:
-        return recgen, h5py.File(recordings, 'r')
+    return recgen
 
 
 def save_template_generator(tempgen, filename=None, verbose=True):

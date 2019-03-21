@@ -330,7 +330,8 @@ class TestGenerators(unittest.TestCase):
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
-        tempgen_drift, f = mr.load_templates(self.test_dir + '/templates_drift.h5', return_h5file=True)
+        tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
+        tempgen_drift_f = mr.load_templates(self.test_dir + '/templates_drift.h5', return_h5_objects=True)
 
         assert np.allclose(tempgen.templates, self.tempgen.templates)
         assert np.allclose(tempgen.locations, self.tempgen.locations)
@@ -341,7 +342,7 @@ class TestGenerators(unittest.TestCase):
 
     def test_save_load_recordings(self):
         recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
-        recgen_loaded_f, f = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5file=True, verbose=True)
+        recgen_loaded_f = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5_objects=True, verbose=True)
 
         assert np.allclose(recgen_loaded.templates, self.recgen.templates)
         assert np.allclose(recgen_loaded.recordings, self.recgen.recordings)
