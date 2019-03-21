@@ -147,6 +147,7 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 3
         n_jitter = [1, 5]
         modulations = ['none', 'electrode', 'template', 'template-isi', 'electrode-isi']
         rec_params['templates']['min_dist'] = 1
@@ -159,17 +160,18 @@ class TestGenerators(unittest.TestCase):
                     rec_params['templates']['n_jitters'] =j
                     rec_params['recordings']['modulation'] = mod
                     rec_params['recordings']['bursting'] = b
-                    recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+                    recgen_mod = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-                    assert recgen_elec.recordings.shape[0] == num_chan
-                    assert len(recgen_elec.spiketrains) == n_neurons
-                    assert recgen_elec.channel_positions.shape == (num_chan, 3)
+                    assert recgen_mod.recordings.shape[0] == num_chan
+                    assert len(recgen_mod.spiketrains) == n_neurons
+                    assert recgen_mod.channel_positions.shape == (num_chan, 3)
                     if j == 1:
-                        assert recgen_elec.templates.shape[:2] == (n_neurons, num_chan)
+                        assert recgen_mod.templates.shape[:2] == (n_neurons, num_chan)
                     else:
-                        assert recgen_elec.templates.shape[:3] == (n_neurons, j, num_chan)
-                    assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-                    assert len(recgen_elec.spike_traces) == n_neurons
+                        assert recgen_mod.templates.shape[:3] == (n_neurons, j, num_chan)
+                    assert recgen_mod.voltage_peaks.shape == (n_neurons, num_chan)
+                    assert len(recgen_mod.spike_traces) == n_neurons
+                    del recgen_mod
 
     def test_gen_recordings_mod_bursting_sync(self):
         print('Test recording generation - bursting')
@@ -187,6 +189,7 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 3
         n_jitter = 4
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'electrode-isi'
@@ -196,14 +199,14 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['extract_waveforms'] = True
         rec_params['templates']['min_dist'] = 1
 
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+        recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-        assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-        assert len(recgen_elec.spike_traces) == n_neurons
+        assert recgen_burst.recordings.shape[0] == num_chan
+        assert len(recgen_burst.spiketrains) == n_neurons
+        assert recgen_burst.channel_positions.shape == (num_chan, 3)
+        assert recgen_burst.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+        assert recgen_burst.voltage_peaks.shape == (n_neurons, num_chan)
+        assert len(recgen_burst.spike_traces) == n_neurons
 
     def test_gen_recordings_noise(self):
         print('Test recording generation - noise')
@@ -221,6 +224,7 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 3
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
@@ -236,14 +240,15 @@ class TestGenerators(unittest.TestCase):
                     rec_params['recordings']['noise_mode'] = mode
                     rec_params['recordings']['chunk_noise_duration'] = ch
                     rec_params['recordings']['noise_color'] = color
-                    recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+                    recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-                    assert recgen_elec.recordings.shape[0] == num_chan
-                    assert len(recgen_elec.spiketrains) == n_neurons
-                    assert recgen_elec.channel_positions.shape == (num_chan, 3)
-                    assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-                    assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-                    assert len(recgen_elec.spike_traces) == n_neurons
+                    assert recgen_noise.recordings.shape[0] == num_chan
+                    assert len(recgen_noise.spiketrains) == n_neurons
+                    assert recgen_noise.channel_positions.shape == (num_chan, 3)
+                    assert recgen_noise.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+                    assert recgen_noise.voltage_peaks.shape == (n_neurons, num_chan)
+                    assert len(recgen_noise.spike_traces) == n_neurons
+                    del recgen_noise
 
     def test_gen_recordings_only_noise(self):
         print('Test recording generation - only noise')
@@ -261,20 +266,21 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 3
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['noise_mode'] = 'distance-correlated'
         rec_params['recordings']['noise_color'] = True
-        recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+        recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-        assert recgen_elec.recordings.shape[0] == num_chan
-        assert recgen_elec.channel_positions.shape == (num_chan, 3)
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert len(recgen_elec.spiketrains) == n_neurons
-        assert len(recgen_elec.spike_traces) == n_neurons
+        assert recgen_noise.recordings.shape[0] == num_chan
+        assert recgen_noise.channel_positions.shape == (num_chan, 3)
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spike_traces) == n_neurons
 
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
@@ -293,6 +299,7 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 3
         n_jitter = [1, 3]
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['drifting'] = True
@@ -319,6 +326,7 @@ class TestGenerators(unittest.TestCase):
                     else:
                         assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, j, num_chan)
                     assert len(recgen_drift.spike_traces) == n_neurons
+                    del recgen_drift
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)

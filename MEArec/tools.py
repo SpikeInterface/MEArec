@@ -210,32 +210,39 @@ def load_recordings(recordings, return_h5file=False, verbose=False):
     if recordings.endswith('h5') or recordings.endswith('hdf5'):
         with h5py.File(recordings, 'r') as F:
             info = load_dict_from_hdf5(F, 'info/')
-            rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
-            rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
-            rec_dict['recordings'] = np.array(F.get('recordings'))
-            rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
-            rec_dict['templates'] = np.array(F.get('templates'))
-            rec_dict['timestamps'] = np.array(F.get('timestamps'))
-            spiketrains = []
-            sorted_units = sorted([int(u) for u in F.get('spiketrains/')])
-            for unit in sorted_units:
-                unit = str(unit)
-                times = np.array(F.get('spiketrains/' + unit + '/times'))
-                t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
-                if F.get('spiketrains/' + unit + '/waveforms') is not None:
-                    waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
-                else:
-                    waveforms = None
-                annotations = load_dict_from_hdf5(F, 'spiketrains/' + unit + '/annotations/')
-                st = neo.core.SpikeTrain(
-                    times,
-                    t_stop=t_stop,
-                    waveforms=waveforms,
-                    units=pq.s
-                )
-                st.annotations = annotations
-                spiketrains.append(st)
-            rec_dict['spiketrains'] = spiketrains
+            if F.get('voltage_peaks') is not None:
+                rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
+            if F.get('channel_positions') is not None:
+                rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
+            if F.get('recordings') is not None:
+                rec_dict['recordings'] = np.array(F.get('recordings'))
+            if F.get('spike_traces') is not None:
+                rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
+            if F.get('templates') is not None:
+                rec_dict['templates'] = np.array(F.get('templates'))
+            if F.get('timestamps') is not None:
+                rec_dict['timestamps'] = np.array(F.get('timestamps'))
+            if F.get('spiketrains') is not None:
+                spiketrains = []
+                sorted_units = sorted([int(u) for u in F.get('spiketrains/')])
+                for unit in sorted_units:
+                    unit = str(unit)
+                    times = np.array(F.get('spiketrains/' + unit + '/times'))
+                    t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
+                    if F.get('spiketrains/' + unit + '/waveforms') is not None:
+                        waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
+                    else:
+                        waveforms = None
+                    annotations = load_dict_from_hdf5(F, 'spiketrains/' + unit + '/annotations/')
+                    st = neo.core.SpikeTrain(
+                        times,
+                        t_stop=t_stop,
+                        waveforms=waveforms,
+                        units=pq.s
+                    )
+                    st.annotations = annotations
+                    spiketrains.append(st)
+                rec_dict['spiketrains'] = spiketrains
     else:
         raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
@@ -250,7 +257,7 @@ def load_recordings(recordings, return_h5file=False, verbose=False):
         return recgen, h5py.File(recordings, 'r')
 
 
-def save_template_generator(tempgen, filename=None):
+def save_template_generator(tempgen, filename=None, verbose=True):
     '''
     Save templates to disk.
 
@@ -260,23 +267,29 @@ def save_template_generator(tempgen, filename=None):
         TemplateGenerator object to be saved
     filename: str
         Path to .h5 file or folder
-
+    verbose: bool
+        If True output is verbose
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(tempgen.info, F, 'info/')
-        celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
-        F.create_dataset('celltypes', data=celltypes)
-        F.create_dataset('locations', data=tempgen.locations)
-        F.create_dataset('rotations', data=tempgen.rotations)
-        F.create_dataset('templates', data=tempgen.templates)
+        if len(tempgen.celltypes) > 0:
+            celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
+            F.create_dataset('celltypes', data=celltypes)
+        if len(tempgen.locations) > 0:
+            F.create_dataset('locations', data=tempgen.locations)
+        if len(tempgen.rotations) > 0:
+            F.create_dataset('rotations', data=tempgen.rotations)
+        if len(tempgen.templates) > 0:
+            F.create_dataset('templates', data=tempgen.templates)
         F.close()
-        print('\nSaved template generator templates in', filename, '\n')
+        if verbose:
+            print('\nSaved template generator templates in', filename, '\n')
     else:
         raise Exception('Provide an .h5 or .hdf5 file name')
 
 
-def save_recording_generator(recgen, filename=None):
+def save_recording_generator(recgen, filename=None, verbose=True):
     '''
     Save recordings to disk.
 
@@ -286,26 +299,35 @@ def save_recording_generator(recgen, filename=None):
         RecordingGenerator object to be saved
     filename: str
         Path to .h5 file or folder
-
+    verbose: bool
+        If True output is verbose
     '''
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(recgen.info, F, 'info/')
-        F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
-        F.create_dataset('channel_positions', data=recgen.channel_positions)
-        F.create_dataset('recordings', data=recgen.recordings)
-        F.create_dataset('spike_traces', data=recgen.spike_traces)
-        for ii in range(len(recgen.spiketrains)):
-            st = recgen.spiketrains[ii]
-            F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
-            F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
-            if st.waveforms is not None:
-                F.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
-            save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
-        F.create_dataset('templates', data=recgen.templates)
-        F.create_dataset('timestamps', data=recgen.timestamps)
+        if len(recgen.voltage_peaks) > 0:
+            F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
+        if len(recgen.channel_positions) > 0:
+            F.create_dataset('channel_positions', data=recgen.channel_positions)
+        if len(recgen.recordings) > 0:
+            F.create_dataset('recordings', data=recgen.recordings)
+        if len(recgen.spike_traces) > 0:
+            F.create_dataset('spike_traces', data=recgen.spike_traces)
+        if len(recgen.spiketrains) > 0:
+            for ii in range(len(recgen.spiketrains)):
+                st = recgen.spiketrains[ii]
+                F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
+                F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
+                if st.waveforms is not None:
+                    F.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
+                save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
+        if len(recgen.templates) > 0:
+            F.create_dataset('templates', data=recgen.templates)
+        if len(recgen.timestamps) > 0:
+            F.create_dataset('timestamps', data=recgen.timestamps)
         F.close()
-        print('\nSaved recordings in', filename, '\n')
+        if verbose:
+            print('\nSaved recordings in', filename, '\n')
     else:
         raise Exception('Provide an .h5 or .hdf5 file name')
 

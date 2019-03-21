@@ -56,10 +56,14 @@ class TemplateGenerator:
                  params=None, intraonly=False, parallel=True, delete_tmp=True, verbose=False):
         self.verbose = verbose
         if temp_dict is not None and info is not None:
-            self.templates = temp_dict['templates']
-            self.locations = temp_dict['locations']
-            self.rotations = temp_dict['rotations']
-            self.celltypes = temp_dict['celltypes']
+            if 'templates' in temp_dict.keys():
+                self.templates = temp_dict['templates']
+            if 'locations' in temp_dict.keys():
+                self.locations = temp_dict['locations']
+            if 'rotations' in temp_dict.keys():
+                self.rotations = temp_dict['rotations']
+            if 'celltypes' in temp_dict.keys():
+                self.celltypes = temp_dict['celltypes']
             self.info = info
         else:
             if cell_models_folder is None:
@@ -430,15 +434,36 @@ class RecordingGenerator:
     The list of parameters is in default_params/recordings_params.yaml.
     '''
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
-        self.verbose=verbose
+        self.verbose = verbose
         if rec_dict is not None and info is not None:
-            self.recordings = rec_dict['recordings']
-            self.spiketrains = rec_dict['spiketrains']
-            self.templates = rec_dict['templates']
-            self.channel_positions = rec_dict['channel_positions']
-            self.timestamps = rec_dict['timestamps']
-            self.voltage_peaks = rec_dict['voltage_peaks']
-            self.spike_traces = rec_dict['spike_traces']
+            if 'recordings' in rec_dict.keys():
+                self.recordings = rec_dict['recordings']
+            else:
+                self.recordings = np.array([])
+            if 'spiketrains' in rec_dict.keys():
+                self.spiketrains = rec_dict['spiketrains']
+            else:
+                self.spiketrains = np.array([])
+            if 'templates' in rec_dict.keys():
+                self.templates = rec_dict['templates']
+            else:
+                self.templates = np.array([])
+            if 'channel_positions' in rec_dict.keys():
+                self.channel_positions = rec_dict['channel_positions']
+            else:
+                self.channel_positions = np.array([])
+            if 'timestamps' in rec_dict.keys():
+                self.timestamps = rec_dict['timestamps']
+            else:
+                self.timestamps = np.array([])
+            if 'voltage_peaks' in rec_dict.keys():
+                self.voltage_peaks = rec_dict['voltage_peaks']
+            else:
+                self.voltage_peaks = np.array([])
+            if 'spike_traces' in rec_dict.keys():
+                self.spike_traces = rec_dict['spike_traces']
+            else:
+                self.spike_traces = np.array([])
             self.info = info
         else:
             if spgen is None or tempgen is None:
