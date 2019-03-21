@@ -15,9 +15,10 @@ install:
 - pip install matplotlib
 - pip install LFPy
 - pip install .
-- pip install pytest pytest-cov
+- pip install pytest
+- pip install pytest-cov
 - pip install coveralls
-script: pytest --cov=MEArec -s
+script: pytest --cov=MEArec/ -s
 after_success:
   - coveralls
 deploy:
