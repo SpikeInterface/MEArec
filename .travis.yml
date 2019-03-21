@@ -15,10 +15,9 @@ install:
 - pip install matplotlib
 - pip install LFPy
 - pip install .
-- pip install pytest
-- pip install pytest.cov
+- pip install nose
 - pip install coveralls
-script: py.test -s --cov=MEArec/
+script: nosetests --with-coverage --cover-package=MEArec
 after_success:
   - coveralls
 deploy:
