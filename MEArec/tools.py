@@ -1375,8 +1375,6 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     if len(template.shape) == 2:
         njitt = template.shape[0]
         len_spike = template.shape[1]
-    else:
-        len_spike = template.shape[0]
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
     spike_pos = np.where(spike_bin == 1)[0]
@@ -1470,9 +1468,6 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         njitt = template.shape[0]
         n_elec = template.shape[1]
         len_spike = template.shape[2]
-    else:
-        n_elec = template.shape[0]
-        len_spike = template.shape[1]
     n_samples = len(spike_bin)
     recordings = np.zeros((n_elec, n_samples))
     if cut_out is None:
@@ -1627,9 +1622,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         njitt = template.shape[1]
         n_elec = template.shape[2]
         len_spike = template.shape[3]
-    elif len(template.shape) == 3:
-        n_elec = template.shape[1]
-        len_spike = template.shape[2]
     n_samples = len(spike_bin)
     dur = (n_samples / fs).rescale('s').magnitude
     t_steps = np.arange(0, dur, n_step_sec)
@@ -1692,9 +1684,9 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                 # Template modulation
                 if bursting:
                     assert len(fc) == 2 and fs is not None
-                    fs = fs.rescale('Hz').magnitude
+                    fs_mag = fs.rescale('Hz').magnitude
                     wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
-                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs_mag / 2.)
                     wc_mod_mean = wc_mod_array
                     for pos, spos in enumerate(spike_pos):
                         sp_time = spos / fs
@@ -1745,9 +1737,9 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                 # Electrode modulation
                 if bursting:
                     assert len(fc) == 2 and fs is not None
-                    fs = fs.rescale('Hz').magnitude
+                    fs_mag = fs.rescale('Hz').magnitude
                     wc_mod_array = ((fc[1] - fc[0]) / (np.max(mod_array) - np.min(mod_array)) *
-                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs / 2.)
+                                    (mod_array - np.min(mod_array)) + fc[0]) / (fs_mag / 2.)
                     wc_mod_mean = np.mean(wc_mod_array, axis=1)
                     for pos, spos in enumerate(spike_pos):
                         sp_time = spos / fs

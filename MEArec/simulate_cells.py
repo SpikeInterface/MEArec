@@ -875,7 +875,6 @@ if __name__ == '__main__':
 
         print('Intracellular simulation: ', cell_model)
         run_cell_model(cell_model, vm_im_sim_folder, verbose=verbose, **params)
-        print(intraonly)
         if not intraonly:
             print('Extracellular simulation: ', cell_model)
             calc_extracellular(cell_model, extra_sim_folder, vm_im_sim_folder, verbose=verbose, **params)

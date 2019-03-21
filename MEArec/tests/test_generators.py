@@ -11,6 +11,10 @@ import elephant.statistics as stat
 import quantities as pq
 from distutils.version import StrictVersion
 import tempfile
+from click.testing import CliRunner
+
+from MEArec.cli import cli, default_config, set_cell_models_folder, set_recordings_folder, set_recordings_params, \
+    set_templates_folder, set_templates_params, gen_templates, gen_recordings
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -156,7 +160,7 @@ class TestGenerators(unittest.TestCase):
         for mod in modulations:
             for b in bursting:
                 for j in n_jitter:
-                    print(mod, b, j)
+                    print('Modulation: modulation', mod, 'bursting', b, 'jitter', j)
                     rec_params['templates']['n_jitters'] =j
                     rec_params['recordings']['modulation'] = mod
                     rec_params['recordings']['bursting'] = b
@@ -236,7 +240,7 @@ class TestGenerators(unittest.TestCase):
         for mode in noise_modes:
             for ch in chunk_noise:
                 for color in noise_color:
-                    print(mode, ch, color)
+                    print('Noise: mode', mode, 'chunks', ch, 'color', color)
                     rec_params['recordings']['noise_mode'] = mode
                     rec_params['recordings']['chunk_noise_duration'] = ch
                     rec_params['recordings']['noise_color'] = color
@@ -311,7 +315,7 @@ class TestGenerators(unittest.TestCase):
         for i, mod in enumerate(modulations):
             for b in bursting:
                 for j in n_jitter:
-                    print(mod, b, j)
+                    print('Drifting: modulation', mod, 'bursting', b, 'jitter', j)
                     rec_params['templates']['n_jitters'] = j
                     rec_params['recordings']['modulation'] = mod
                     rec_params['recordings']['bursting'] = b
@@ -361,15 +365,24 @@ class TestGenerators(unittest.TestCase):
 
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()
-        os.system('mearec --help')
-        os.system('mearec default-config')
-        os.system('mearec gen-templates -n 2 --no-parallel -v')
-        os.system('mearec gen-recordings -t ' + self.test_dir + '/templates.h5 ' + ' -ne 2 -ni 1')
-        os.system('mearec set-cell-models-folder ' + default_config['cell_models_folder'])
-        os.system('mearec set-recordings-folder ' + default_config['recordings_folder'])
-        os.system('mearec set-recordings-params ' + default_config['recordings_params'])
-        os.system('mearec set-templates-folder ' + default_config['templates_folder'])
-        os.system('mearec set-templates-params ' + default_config['templates_params'])
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["default-config"])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-v'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1']) # self.test_dir + '/templates.h5',
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", default_config['recordings_params']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", default_config['templates_params']])
+        assert result.exit_code == 0
 
 
 if __name__ == '__main__':

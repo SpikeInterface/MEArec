@@ -1036,7 +1036,9 @@ class RecordingGenerator:
                                                                                                v_drift=
                                                                                                velocity_vector,
                                                                                                t_start_drift=
-                                                                                               t_start_drift)
+                                                                                               t_start_drift,
+                                                                                               bursting=bursting,
+                                                                                               fc=bursting_fc)
                         recordings += rec
                         final_loc.append(fin_pos)
                         final_idxs.append(final_idx)
@@ -1082,7 +1084,9 @@ class RecordingGenerator:
                                                                                                v_drift=
                                                                                                velocity_vector,
                                                                                                t_start_drift=
-                                                                                               t_start_drift)
+                                                                                               t_start_drift,
+                                                                                               bursting=bursting,
+                                                                                               fc=bursting_fc)
                         recordings += rec
                         final_idxs.append(final_idx)
                         final_loc.append(fin_pos)
