@@ -440,6 +440,9 @@ def gen_recordings(params, **kwargs):
     else:
         fname = kwargs['fname']
 
+    if recordings_folder is not None:
+        if not os.path.isdir(recordings_folder):
+            os.makedirs(recordings_folder)
     rec_path = join(recordings_folder, fname)
     save_recording_generator(recgen, rec_path)
 
