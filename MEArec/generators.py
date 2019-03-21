@@ -94,6 +94,7 @@ class TemplateGenerator:
         this_dir, this_filename = os.path.split(__file__)
         simulate_script = join(this_dir, 'simulate_cells.py')
         self.params['cell_models_folder'] = cell_models_folder
+        self.params['templates_folder'] = templates_folder
 
         # Compile NEURON models (nrnivmodl)
         if not os.path.isdir(join(cell_models_folder, 'mods')):
@@ -179,8 +180,9 @@ class TemplateGenerator:
             for numb, cell_model in enumerate(cell_models):
                 if self.verbose:
                     print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-                os.system('python %s %s %s %s' \
-                          % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path))
+                os.system('python %s %s %s %s %s' \
+                          % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path,
+                             self.verbose))
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
         tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
@@ -843,7 +845,7 @@ class RecordingGenerator:
 
                         templates_jitter_p.append(temp_jitt)
                     templates_jitter.append(templates_jitter_p)
-            templates = np.squeeze(np.array(templates_jitter))
+            templates = np.array(templates_jitter)
 
             cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
 
@@ -1220,17 +1222,17 @@ class RecordingGenerator:
         self.recordings = recordings
         self.timestamps = timestamps
         self.channel_positions = mea_pos
-        self.templates = templates
+        self.templates = np.squeeze(templates)
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
         self.spike_traces = spike_traces
         self.info = params
 
-    def annotate_overlapping_spike(self):
+    def annotate_overlapping_spike(self, parallel=True):
         '''
         Annnotate spike trains with overlapping information.
         '''
-        annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping)
+        annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):

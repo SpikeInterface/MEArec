@@ -72,10 +72,8 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['min_dist'] = 1
 
         self.recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-        print(self.recgen.templates.shape)
+        self.recgen.annotate_overlapping_spike(parallel=False)
         mr.save_recording_generator(self.recgen, self.test_dir + '/recordings.h5')
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5')
-        print(recgen_loaded.templates.shape)
 
     def test_gen_templates(self):
         print('Test templates generation')
@@ -149,21 +147,29 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 15
-        rec_params['templates']['n_jitters'] = n_jitter
+        n_jitter = [1, 5]
         modulations = ['none', 'electrode', 'template', 'template-isi', 'electrode-isi']
         rec_params['templates']['min_dist'] = 1
+        bursting = [False, True]
 
         for mod in modulations:
-            rec_params['recordings']['modulation'] = mod
-            recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+            for b in bursting:
+                for j in n_jitter:
+                    print(mod, b, j)
+                    rec_params['templates']['n_jitters'] =j
+                    rec_params['recordings']['modulation'] = mod
+                    rec_params['recordings']['bursting'] = b
+                    recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
-            assert recgen_elec.recordings.shape[0] == num_chan
-            assert len(recgen_elec.spiketrains) == n_neurons
-            assert recgen_elec.channel_positions.shape == (num_chan, 3)
-            assert recgen_elec.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
-            assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
-            assert len(recgen_elec.spike_traces) == n_neurons
+                    assert recgen_elec.recordings.shape[0] == num_chan
+                    assert len(recgen_elec.spiketrains) == n_neurons
+                    assert recgen_elec.channel_positions.shape == (num_chan, 3)
+                    if j == 1:
+                        assert recgen_elec.templates.shape[:2] == (n_neurons, num_chan)
+                    else:
+                        assert recgen_elec.templates.shape[:3] == (n_neurons, j, num_chan)
+                    assert recgen_elec.voltage_peaks.shape == (n_neurons, num_chan)
+                    assert len(recgen_elec.spike_traces) == n_neurons
 
     def test_gen_recordings_mod_bursting_sync(self):
         print('Test recording generation - bursting')
@@ -226,8 +232,9 @@ class TestGenerators(unittest.TestCase):
         for mode in noise_modes:
             for ch in chunk_noise:
                 for color in noise_color:
+                    print(mode, ch, color)
                     rec_params['recordings']['noise_mode'] = mode
-                    rec_params['recordings']['noise_chunk'] = mode
+                    rec_params['recordings']['chunk_noise_duration'] = ch
                     rec_params['recordings']['noise_color'] = color
                     recgen_elec = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
@@ -286,60 +293,36 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 3
-        rec_params['templates']['n_jitters'] = n_jitter
+        n_jitter = [1, 3]
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['drifting'] = True
         rec_params['templates']['min_dist'] = 1
 
         modulations = ['none', 'template', 'electrode']
+        bursting = [False, True]
 
         for i, mod in enumerate(modulations):
-            rec_params['recordings']['modulation'] = mod
-            if i == len(modulations) - 1:
-                rec_params['recordings']['fs'] = 30
-            recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
-            assert recgen_drift.recordings.shape[0] == num_chan
-            assert len(recgen_drift.spiketrains) == n_neurons
-            assert recgen_drift.channel_positions.shape == (num_chan, 3)
-            assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, n_jitter, num_chan)
-            assert len(recgen_drift.spike_traces) == n_neurons
-
-    def test_gen_recordings_drift_burst(self):
-        print('Test recording generation - drift bursting')
-        info, info_folder = mr.get_default_config()
-        ne = 1
-        ni = 1
-        num_chan = self.num_chan
-        n_steps = self.num_steps_drift
-        n_neurons = ne + ni
-
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
-
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
-        n_jitter = 3
-        rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'none'
-        rec_params['recordings']['drifting'] = True
-        rec_params['recordings']['bursting'] = True
-        rec_params['templates']['min_dist'] = 1
-
-        recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
-
-        assert recgen_drift.recordings.shape[0] == num_chan
-        assert len(recgen_drift.spiketrains) == n_neurons
-        assert recgen_drift.channel_positions.shape == (num_chan, 3)
-        assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, n_jitter, num_chan)
-        assert len(recgen_drift.spike_traces) == n_neurons
+            for b in bursting:
+                for j in n_jitter:
+                    print(mod, b, j)
+                    rec_params['templates']['n_jitters'] = j
+                    rec_params['recordings']['modulation'] = mod
+                    rec_params['recordings']['bursting'] = b
+                    if i == len(modulations) - 1:
+                        rec_params['recordings']['fs'] = 30
+                    recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
+                    assert recgen_drift.recordings.shape[0] == num_chan
+                    assert len(recgen_drift.spiketrains) == n_neurons
+                    assert recgen_drift.channel_positions.shape == (num_chan, 3)
+                    if j == 1:
+                        assert recgen_drift.templates.shape[:3] == (n_neurons, n_steps, num_chan)
+                    else:
+                        assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, j, num_chan)
+                    assert len(recgen_drift.spike_traces) == n_neurons
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
-        tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
+        tempgen_drift, f = mr.load_templates(self.test_dir + '/templates_drift.h5', return_h5file=True)
 
         assert np.allclose(tempgen.templates, self.tempgen.templates)
         assert np.allclose(tempgen.locations, self.tempgen.locations)
@@ -350,6 +333,7 @@ class TestGenerators(unittest.TestCase):
 
     def test_save_load_recordings(self):
         recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
+        recgen_loaded_f, f = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5file=True, verbose=True)
 
         assert np.allclose(recgen_loaded.templates, self.recgen.templates)
         assert np.allclose(recgen_loaded.recordings, self.recgen.recordings)
@@ -370,13 +354,14 @@ class TestGenerators(unittest.TestCase):
         default_config, mearec_home = mr.get_default_config()
         os.system('mearec --help')
         os.system('mearec default-config')
-        os.system('mearec gen-templates -n 2 --no-par')
+        os.system('mearec gen-templates -n 2 --no-parallel -v')
         os.system('mearec gen-recordings -t ' + self.test_dir + '/templates.h5 ' + ' -ne 2 -ni 1')
         os.system('mearec set-cell-models-folder ' + default_config['cell_models_folder'])
         os.system('mearec set-recordings-folder ' + default_config['recordings_folder'])
         os.system('mearec set-recordings-params ' + default_config['recordings_params'])
         os.system('mearec set-templates-folder ' + default_config['templates_folder'])
         os.system('mearec set-templates-params ' + default_config['templates_params'])
+
 
 if __name__ == '__main__':
     unittest.main()
