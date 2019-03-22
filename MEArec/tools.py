@@ -2067,7 +2067,7 @@ def plot_templates(gen, single_axes=False):
     return fig
 
 
-def plot_recordings(recgen, ax=None, **kwargs):
+def plot_recordings(recgen, ax=None, start_frame=None, end_frame=None, **kwargs):
     """
     Plot recordings.
 
@@ -2089,8 +2089,12 @@ def plot_recordings(recgen, ax=None, **kwargs):
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
+    if start_frame is None:
+        start_frame = 0
+    if end_frame is None:
+        end_frame = recordings.shape[1]
 
-    mu.plot_mea_recording(recordings, mea, ax=ax, **kwargs)
+    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
     return ax
 
 

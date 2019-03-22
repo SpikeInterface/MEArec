@@ -391,6 +391,8 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
+    else:
+        params_dict['recordings']['overlap'] = False
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
 

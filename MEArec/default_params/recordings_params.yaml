@@ -76,7 +76,7 @@ recordings:
   filter_order: 3 # filter order
   chunk_filter_duration: 0 # chunk duration for filtering
 
-  overlap: True # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+  overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
   extract_waveforms: False # if True, waveforms are extracted from recordings
 
   drifting: False # if True templates are drifted
