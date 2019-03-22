@@ -1,0 +1,5 @@
+[run]
+omit = MEArec/tests/* MEArec/__init__.py
+
+[report]
+exclude_lines = Exception 

@@ -491,7 +491,7 @@ class RecordingGenerator:
 
         if 'rates' in st_params.keys():
             assert st_params['types'] is not None, "If 'rates' are provided as spiketrains parameters, " \
-                                                   "corresponding 'types' ('e'-'i') must be provided"
+                                                   "corresponding 'types' ('E'-'I') must be provided"
             n_exc = st_params['types'].count('E')
             n_inh = st_params['types'].count('I')
 

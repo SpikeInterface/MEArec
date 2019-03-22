@@ -48,15 +48,16 @@ class TestGenerators(unittest.TestCase):
         templates_folder = info['templates_folder']
         print('Generating non-drifting templates')
         self.tempgen = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
-                                        params=templates_params, parallel=True, delete_tmp=True, verbose=False)
+                                        params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params = templates_params
         self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
         templates_params['drifting'] = True
         templates_params['drift_steps'] = 5
+        templates_params['rot'] = 'norot'
         print('Generating drifting templates')
         self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
-                                              params=templates_params, parallel=True, delete_tmp=True, verbose=False)
+                                              params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params_drift = templates_params
         self.num_steps_drift = self.tempgen_drift.templates.shape[1]
 
@@ -139,7 +140,9 @@ class TestGenerators(unittest.TestCase):
         print('Test recording generation - modulation')
         info, info_folder = mr.get_default_config()
         ne = 1
-        ni = 3
+        ni = 2
+        fe = 30
+        fi = 50
         num_chan = self.num_chan
         n_neurons = ne + ni
 
@@ -151,6 +154,8 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['f_exc'] = fe
+        rec_params['spiketrains']['f_inh'] = fi
         rec_params['spiketrains']['duration'] = 3
         n_jitter = [1, 5]
         modulations = ['none', 'electrode', 'template', 'template-isi', 'electrode-isi']
@@ -164,6 +169,7 @@ class TestGenerators(unittest.TestCase):
                     rec_params['templates']['n_jitters'] =j
                     rec_params['recordings']['modulation'] = mod
                     rec_params['recordings']['bursting'] = b
+
                     recgen_mod = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
                     assert recgen_mod.recordings.shape[0] == num_chan
@@ -180,8 +186,10 @@ class TestGenerators(unittest.TestCase):
     def test_gen_recordings_mod_bursting_sync(self):
         print('Test recording generation - bursting')
         info, info_folder = mr.get_default_config()
-        ne = 3
-        ni = 1
+        ne = 10
+        ni = 5
+        fe = 30
+        fi = 50
         num_chan = self.num_chan
         n_neurons = ne + ni
 
@@ -193,15 +201,18 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['f_exc'] = fe
+        rec_params['spiketrains']['f_inh'] = fi
         rec_params['spiketrains']['duration'] = 3
         n_jitter = 4
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'electrode-isi'
         rec_params['recordings']['bursting'] = True
         rec_params['recordings']['sync_rate'] = 0.2
-        rec_params['recordings']['overlap'] = True
+        rec_params['recordings']['overlap'] = False
         rec_params['recordings']['extract_waveforms'] = True
         rec_params['templates']['min_dist'] = 1
+        rec_params['templates']['min_amp'] = 30
 
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
@@ -215,10 +226,10 @@ class TestGenerators(unittest.TestCase):
     def test_gen_recordings_noise(self):
         print('Test recording generation - noise')
         info, info_folder = mr.get_default_config()
-        ne = 1
-        ni = 1
+        rates = [30, 50]
+        types = ['E', 'I']
         num_chan = self.num_chan
-        n_neurons = ne + ni
+        n_neurons = len(rates)
 
         with open(info['recordings_params']) as f:
             if use_loader:
@@ -226,8 +237,8 @@ class TestGenerators(unittest.TestCase):
             else:
                 rec_params = yaml.load(f)
 
-        rec_params['spiketrains']['n_exc'] = ne
-        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['rates'] = rates
+        rec_params['spiketrains']['types'] = types
         rec_params['spiketrains']['duration'] = 3
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
@@ -343,6 +354,7 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(tempgen_drift.templates, self.tempgen_drift.templates)
         assert np.allclose(tempgen_drift.locations, self.tempgen_drift.locations)
         assert np.allclose(tempgen_drift.rotations, self.tempgen_drift.rotations)
+        assert np.allclose(tempgen_drift.templates, np.array(tempgen_drift_f.templates))
 
     def test_save_load_recordings(self):
         recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
@@ -354,14 +366,22 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(recgen_loaded.voltage_peaks, self.recgen.voltage_peaks)
         assert np.allclose(recgen_loaded.channel_positions, self.recgen.channel_positions)
         assert np.allclose(recgen_loaded.timestamps, self.recgen.timestamps.magnitude)
+        assert np.allclose(recgen_loaded.recordings, np.array(recgen_loaded.recordings))
 
     def test_plots(self):
         _ = mr.plot_rasters(self.recgen.spiketrains)
+        _ = mr.plot_rasters(self.recgen.spiketrains, overlap=True)
+        _ = mr.plot_rasters(self.recgen.spiketrains, bintype=True)
+        _ = mr.plot_rasters(self.recgen.spiketrains, color='g')
+        _ = mr.plot_rasters(self.recgen.spiketrains, color=['g']*len(self.recgen.spiketrains))
         _ = mr.plot_recordings(self.recgen)
         _ = mr.plot_templates(self.recgen)
+        _ = mr.plot_templates(self.recgen, single_axes=True)
         _ = mr.plot_waveforms(self.recgen)
         _ = mr.plot_waveforms(self.recgen, electrode=0)
         _ = mr.plot_waveforms(self.recgen, electrode='max')
+        self.recgen.spiketrains[0].waveforms = None
+        _ = mr.plot_waveforms(self.recgen, electrode='max', color_isi=True)
 
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()
@@ -371,17 +391,40 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["default-config"])
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-v'])
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
+                                     '-ov', '20', '-off', '0', '-dt', '10', '-s', '1', '-mind', '10', '-maxd', '100',
+                                     '-drst', '10', '-v'])
+        print(result.output)
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1'])
+        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
+                                     '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
+                                     '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
+                                     '--fs', '32',  '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
+                                     '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
+                                     '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
+                                     '--no-filt', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
+                                     '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])
+        print(result.output)
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-params", '.'])
         assert result.exit_code == 0
         result = runner.invoke(cli, ["set-templates-params", default_config['templates_params']])
         assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-params", '.'])
+        assert result.exit_code == 0
         result = runner.invoke(cli, ["set-recordings-params", default_config['recordings_params']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-cell-models-folder", './cell_models'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-cell-models-folder", default_config['cell_models_folder']])
         assert result.exit_code == 0
         result = runner.invoke(cli, ["set-templates-folder", '.'])
         assert result.exit_code == 0
         result = runner.invoke(cli, ["set-recordings-folder", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", './templates', '--create'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", './recordings', '--create'])
         assert result.exit_code == 0
 
 

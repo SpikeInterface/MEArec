@@ -6,7 +6,7 @@ spiketrains:
   # spike train generation parameters
 
   # rates: [3,3,5] # individual spike trains rates
-  # types: ['e', 'e', 'i'] # individual spike trains class (exc-inh)
+  # types: ['E', 'E', 'I'] # individual spike trains class (exc-inh)
   # alternative to rates - excitatory and inhibitory settings
   n_exc: 7 # number of excitatory cells
   n_inh: 3 # number of inhibitory cells

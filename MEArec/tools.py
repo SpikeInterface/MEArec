@@ -398,11 +398,14 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
             else:
                 item = '[]'
                 h5file[path + key] = item
+        elif isinstance(item, tuple):
+            h5file[path + key] = np.array(item)
         elif item is None:
             h5file[path + key] = 'null'
         elif isinstance(item, dict):
             recursively_save_dict_contents_to_group(h5file, path + key + '/', item)
         else:
+            print(key, item)
             raise ValueError('Cannot save %s type' % type(item))
 
 

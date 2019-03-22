@@ -36,7 +36,7 @@ def cli():
 @click.option('--cellfolder', '-cf', default=None,
               help='folder containing bbp cell models')
 @click.option('--rot', '-r', default=None,
-              help='possible rotation arguments: Norot-physrot-3drot (default=physrot)')
+              help='possible rotation arguments: norot-xrot-yrot-zrot-physrot-3drot (default=physrot)')
 @click.option('--probe', '-prb', default=None,
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
@@ -185,7 +185,6 @@ def gen_templates(params, **kwargs):
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
         save_template_generator(tempgen, save_fname)
-        print('\nSaved eap templates in', save_fname, '\n')
 
 
 @cli.command()
@@ -272,8 +271,8 @@ def gen_templates(params, **kwargs):
               help='if True it annotates overlapping spikes')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting recordings')
-@click.option('--preferred-dir', '-prd', type=float,
-              help='preferred drifting direction (90 is positive z-direction)')
+@click.option('--preferred-dir', '-prd', default=None, nargs=3, type=float,
+              help='preferred drifting direction (0 0 1 is positive z-direction)')
 @click.option('--angle-tol', '-angt', type=float,
               help='angle tollerance for preferred direction')
 @click.option('--drift-velocity', '-drvel', type=float,
@@ -283,7 +282,7 @@ def gen_templates(params, **kwargs):
 @click.option('--verbose', '-v', is_flag=True,
               help='produce verbose output')
 def gen_recordings(params, **kwargs):
-    """Generates recordings from TEMPLATESS"""
+    """Generates recordings from TEMPLATES"""
     # Retrieve default_params file
     info, config_folder = get_default_config()
 
@@ -412,7 +411,7 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['drifting'] = True
     else:
         params_dict['recordings']['drifting'] = False
-    if kwargs['preferred_dir'] is not None:
+    if kwargs['preferred_dir'] is not None and len(kwargs['preferred_dir']) == 3:
         params_dict['recordings']['preferred_dir'] = kwargs['preferred_dir']
     if kwargs['angle_tol']:
         params_dict['recordings']['angle_tol'] = kwargs['angle_tol']
