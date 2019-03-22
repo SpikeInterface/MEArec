@@ -19,7 +19,7 @@ install:
 - pip install pytest-cov
 - pip install coverage
 - pip install coveralls
-script: pytest --cov=MEArec/ -s
+script: pytest --cov=MEArec/ --cov-config .coveragerc -s
 after_success:
   - coveralls
 deploy:

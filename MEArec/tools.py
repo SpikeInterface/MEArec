@@ -22,16 +22,16 @@ else:
 
 ### GET DEFAULT SETTINGS ###
 def get_default_config():
-    '''
+    """
     Returns default_info and mearec_home path.
 
     Returns
     -------
-    default_info: dict
+    default_info : dict
         Default_info from config file
-    mearec_home: str
+    mearec_home : str
         Mearec home path
-    '''
+    """
     this_dir, this_filename = os.path.split(__file__)
     this_dir = Path(this_dir)
     home = Path(os.path.expanduser("~"))
@@ -58,30 +58,30 @@ def get_default_config():
 
 ### LOAD FUNCTIONS ###
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
-    '''
+    """
     Loads EAP from temporary folder.
 
     Parameters
     ----------
-    templates_folder: str
+    templates_folder : str
         Path to temporary folder
-    celltypes: list (optional)
+    celltypes : list (optional)
         List of celltypes to be loaded
-    samples_per_cat: int (optional)
+    samples_per_cat : int (optional)
         The number of eap to load per category
 
     Returns
     -------
-    templates: np.array
+    templates : np.array
         Templates (n_eap, n_elec, n_sample)
-    locations: np.array
+    locations : np.array
         Locations (n_eap, 3)
-    rotations: np.array
+    rotations : np.array
         Rotations (n_eap, 3)
-    celltypes: np.array
+    celltypes : np.array
         Cell types (n_eap)
 
-    '''
+    """
     if verbose:
         print("Loading spike data ...")
     spikelist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
@@ -144,20 +144,20 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
 
 def load_templates(templates, return_h5_objects=False, verbose=False):
-    '''
+    """
     Load generated eap templates.
 
     Parameters
     ----------
-    templates: str
+    templates : str
         templates file or folder
 
     Returns
     -------
-    tempgen: TemplateGenerator
+    tempgen : TemplateGenerator
         TemplateGenerator object
 
-    '''
+    """
     from MEArec import TemplateGenerator
     if verbose:
         print("Loading templates...")
@@ -193,20 +193,20 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
 
 
 def load_recordings(recordings, return_h5_objects=False, verbose=False):
-    '''
+    """
     Load generated recordings.
 
     Parameters
     ----------
-    recordings: str
+    recordings : str
         recordings file or folder
 
     Returns
     -------
-    recgen: RecordingGenerator
+    recgen : RecordingGenerator
         RecordingGenerator object
 
-    '''
+    """
     from MEArec import RecordingGenerator
     if verbose:
         print("Loading recordings...")
@@ -280,18 +280,18 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
 
 
 def save_template_generator(tempgen, filename=None, verbose=True):
-    '''
+    """
     Save templates to disk.
 
     Parameters
     ----------
-    tempgen: TemplateGenerator
+    tempgen : TemplateGenerator
         TemplateGenerator object to be saved
-    filename: str
+    filename : str
         Path to .h5 file or folder
-    verbose: bool
+    verbose : bool
         If True output is verbose
-    '''
+    """
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(tempgen.info, F, 'info/')
@@ -312,18 +312,18 @@ def save_template_generator(tempgen, filename=None, verbose=True):
 
 
 def save_recording_generator(recgen, filename=None, verbose=True):
-    '''
+    """
     Save recordings to disk.
 
     Parameters
     ----------
-    recgen: RecordingGenerator
+    recgen : RecordingGenerator
         RecordingGenerator object to be saved
-    filename: str
+    filename : str
         Path to .h5 file or folder
-    verbose: bool
+    verbose : bool
         If True output is verbose
-    '''
+    """
     if filename.endswith('h5') or filename.endswith('hdf5'):
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(recgen.info, F, 'info/')
@@ -355,32 +355,34 @@ def save_recording_generator(recgen, filename=None, verbose=True):
 
 
 def save_dict_to_hdf5(dic, h5file, path):
-    '''
+    """
     Save dictionary to h5 file.
+
     Parameters
     ----------
-    dic: dict
+    dic : dict
         Dictionary to be saved
-    h5file: file
+    h5file : file
         Hdf5 file object
-    path: str
+    path : str
         Path to the h5 field
-    '''
+    """
     recursively_save_dict_contents_to_group(h5file, path, dic)
 
 
 def recursively_save_dict_contents_to_group(h5file, path, dic):
-    '''
+    """
     Save dictionary recursively  to h5 file (helper function).
+
     Parameters
     ----------
-    dic: dict
+    dic : dict
         Dictionary to be saved
-    h5file: file
+    h5file : file
         Hdf5 file object
-    path: str
+    path : str
         Path to the h5 field
-    '''
+    """
     for key, item in dic.items():
         if isinstance(item, (int, float, np.int64, np.float64, str, bytes)):
             if isinstance(item, np.str_):
@@ -410,38 +412,38 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
 
 
 def load_dict_from_hdf5(h5file, path):
-    '''
+    """
     Load h5 object as dict.
 
     Parameters
     ----------
-    h5file:file
+    h5file :file
         Hdf5 file object
-    path: str
+    path : str
         Path to the h5 field
     Returns
     -------
-    dictionary: dict
+    dictionary : dict
         Loaded dictionary
-    '''
+    """
     return recursively_load_dict_contents_from_group(h5file, path)
 
 
 def recursively_load_dict_contents_from_group(h5file, path):
-    '''
+    """
     Load h5 object as dict recursively (helper function).
 
     Parameters
     ----------
-    h5file:file
+    h5file :file
         Hdf5 file object
-    path: str
+    path : str
         Path to the h5 field
     Returns
     -------
-    dictionary: dict
+    dictionary : dict
         Loaded dictionary
-    '''
+    """
     ans = {}
     for key, item in h5file[path].items():
         if isinstance(item, h5py._hl.dataset.Dataset):
@@ -452,19 +454,19 @@ def recursively_load_dict_contents_from_group(h5file, path):
 
 
 def clean_dict(d):
-    '''
+    """
     Clean dictionary loaded from h5 file.
 
     Parameters
     ----------
-    d: dict
+    d : dict
         Dictionary to be cleaned.
 
     Returns
     -------
-    d: dict
+    d : dict
         Cleaned dictionary
-    '''
+    """
     for key, item in d.items():
         if isinstance(item, dict):
             clean_dict(item)
@@ -484,24 +486,24 @@ def clean_dict(d):
 
 ### TEMPLATES INFO ###
 def get_binary_cat(celltypes, excit, inhib):
-    '''
+    """
     Returns binary category depending on cell type.
 
     Parameters
     ----------
-    celltypes: np.array
+    celltypes : np.array
         String array with cell types
-    excit: list
+    excit : list
         List of substrings for excitatory cell types (e.g. ['PC', 'UTPC'])
-    inhib: list
+    inhib : list
         List of substrings for inhibitory celltypes (e.g. ['BP', 'MC'])
 
     Returns
     -------
-    binary_cat: np.array
+    binary_cat : np.array
         Array with binary cell type (E-I)
 
-    '''
+    """
     binary_cat = []
     for i, cat in enumerate(celltypes):
         if np.any([ex in str(cat) for ex in excit]):
@@ -512,26 +514,30 @@ def get_binary_cat(celltypes, excit, inhib):
 
 
 def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False):
-    '''
+    """
     Computes several templates features.
 
     Parameters
     ----------
-    templates: np.array
+    templates : np.array
         EAP templates
-    feat_list: list
+    feat_list : list
         List of features to be computed (amp, width, fwhm, ratio, speed, na, rep)
-    dt:
-    templates_times:
-    threshold_detect:
-    normalize:
+    dt : float
+        Sampling period
+    templates_times : np.array
+        Timestamps
+    threshold_detect : float
+        Threshold to zero out features
+    normalize : bool
+        If True features are normalized
 
     Returns
     -------
-    feature_dict: dict
+    feature_dict : dict
         Dictionary with features (keys: amp, width, fwhm, ratio, speed, na, rep)
 
-    '''
+    """
     reference_mode = 't0'
     if templates_times is not None and dt is not None:
         test_dt = (templates_times[-1] - templates_times[0]) / (len(templates_times) - 1)
@@ -650,26 +656,26 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
 
 ### TEMPLATES OPERATIONS ###
 def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
-    '''
+    """
     Check if position is within given boundaries.
 
     Parameters
     ----------
-    position: np.array
+    position : np.array
         3D position
-    x_lim: list
+    x_lim : list
         Boundaries in x dimension (low, high)
-    y_lim: list
+    y_lim : list
         Boundaries in y dimension (low, high)
-    z_lim: list
+    z_lim : list
         Boundaries in z dimension (low, high)
 
     Returns
     -------
-    valid_position: bool
+    valid_position : bool
         If True the position is within boundaries
 
-    '''
+    """
     valid_position = True
     if x_lim is not None:
         if position[0] < x_lim[0] or position[0] > x_lim[1]:
@@ -686,53 +692,53 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
                      min_amp=None, max_amp=None, drifting=False, drift_dir=None, preferred_dir=None, angle_tol=15,
                      verbose=False):
-    '''
+    """
     Select templates given specified rules.
 
     Parameters
     ----------
-    loc: np.array
+    loc : np.array
         Array with 3D soma locations
-    templates: np.array
+    templates : np.array
         Array with eap templates (n_eap, n_channels, n_samples)
-    bin_cat: np.array
+    bin_cat : np.array
         Array with binary category (E-I)
-    n_exc: int
+    n_exc : int
         Number of excitatory cells to be selected
-    n_inh: int
+    n_inh : int
         Number of inhibitory cells to be selected
-    min_dist: float
+    min_dist : float
         Minimum allowed distance between somata (in um)
-    x_lim: list
+    x_lim : list
         Boundaries in x dimension (low, high)
-    y_lim: list
+    y_lim : list
         Boundaries in y dimension (low, high)
-    z_lim: list
+    z_lim : list
         Boundaries in z dimension (low, high)
-    min_amp: float
+    min_amp : float
         Minimum amplitude in uV
-    max_amp: float
+    max_amp : float
         Maximum amplitude in uV
-    drifting: bool
+    drifting : bool
         If True drifting templates are selected
-    drift_dir: np.array
+    drift_dir : np.array
         3D array with drift direction for each template
-    preferred_dir: np.array
+    preferred_dir : np.array
         3D array with preferred
-    angle_tol: float
+    angle_tol : float
         Tollerance in degrees for selecting final drift position
-    verbose: bool
+    verbose : bool
         If True the output is verbose
 
     Returns
     -------
-    selected_idxs: np.array
+    selected_idxs : np.array
         Selected template indexes
-    selected_cat: list
+    selected_cat : list
         Selected templates binary type
 
 
-    '''
+    """
     pos_sel = []
     selected_idxs = []
     categories = np.unique(bin_cat)
@@ -895,24 +901,24 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
 
 
 def cubic_padding(template, pad_len, fs):
-    '''
+    """
     Cubic spline padding on left and right side to 0. The initial offset of the templates is also removed.
 
     Parameters
     ----------
-    template: np.array
+    template : np.array
         Templates to be padded (n_elec, n_samples)
-    pad_len: list
+    pad_len : list
         Padding in ms before and after the template
-    fs: quantity
+    fs : quantity
         Sampling frequency
 
     Returns
     -------
-    padded_template: np.array
+    padded_template : np.array
         Padded template
 
-    '''
+    """
     import scipy.interpolate as interp
     n_pre = int(pad_len[0] * fs.rescale('kHz'))
     n_post = int(pad_len[1] * fs.rescale('kHz'))
@@ -951,22 +957,22 @@ def cubic_padding(template, pad_len, fs):
 
 
 def find_overlapping_templates(templates, thresh=0.7):
-    '''
+    """
     Find spatially overlapping templates.
 
     Parameters
     ----------
-    templates: np.array
+    templates : np.array
         Array with templates (n_templates, n_elec, n_samples)
-    thresh: float
+    thresh : float
         Percent threshold to consider two templates to be overlapping.
 
     Returns
     -------
-    overlapping_pairs: np.array
+    overlapping_pairs : np.array
         Array with overlapping pairs (n_overlapping, 2)
 
-    '''
+    """
     overlapping_pairs = []
 
     for i, temp_1 in enumerate(templates):
@@ -992,7 +998,7 @@ def find_overlapping_templates(templates, thresh=0.7):
 
 ### SPIKETRAIN OPERATIONS ###
 def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs=None, parallel=True, verbose=True):
-    '''
+    """
     Annotate spike trains with temporal and spatio-temporal overlapping labels.
     NO - Non overlap
     O - Temporal overlap
@@ -1000,18 +1006,18 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
 
     Parameters
     ----------
-    spiketrains: list
+    spiketrains : list
         List of neo spike trains to be annotated
-    t_jitt: Quantity
+    t_jitt : Quantity
         Time jitter to consider overlapping spikes in time (default 1 ms)
-    overlapping_pairs: np.array
+    overlapping_pairs : np.array
         Array with overlapping information between spike trains (n_spiketrains, 2)
-    parallel: bool
+    parallel : bool
         If True spike trains are processed in parallel with multiprocessing
-    verbose: bool
+    verbose : bool
         If True output is verbose
 
-    '''
+    """
     nprocesses = len(spiketrains)
     if parallel:
         import multiprocessing
@@ -1047,25 +1053,25 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
 
 
 def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
-    '''
+    """
     Helper function to annotate spike trains in parallel.
 
     Parameters
     ----------
-    i: int
+    i : int
         Index of spike train
-    st_i: neo.SpikeTrain
+    st_i : neo.SpikeTrain
         Spike train to be processed
-    spiketrains: list
+    spiketrains : list
         List of neo spiketrains
-    t_jitt: Quantity
+    t_jitt : Quantity
         Time jitter to consider overlapping spikes in time (default 1 ms)
-    overlapping_pairs: np.array
+    overlapping_pairs : np.array
         Array with overlapping information between spike trains (n_spiketrains, 2)
-    verbose: bool
+    verbose : bool
         If True output is verbose
 
-    '''
+    """
     if verbose:
         print('Annotating overlapping spike train ', i)
     over = np.array(['NO'] * len(st_i))
@@ -1091,24 +1097,24 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
 
 
 def resample_spiketrains(spiketrains, fs=None, T=None):
-    '''
+    """
     Resamples spike trains. Provide either fs or T parameters
 
     Parameters
     ----------
-    spiketrains: list
+    spiketrains : list
         List of neo spiketrains to be resampled
-    fs: Quantity
+    fs : Quantity
         New sampling frequency
-    T: Quantity
+    T : Quantity
         New sampling period
 
     Returns
     -------
-    resampled_mat: np.array
+    resampled_mat : np.array
         Matrix with resampled binned spike trains
 
-    '''
+    """
     import elephant.conversion as conv
 
     resampled_mat = []
@@ -1137,22 +1143,23 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
 
 
 def compute_sync_rate(st1, st2, time_jitt):
-    '''
-    Compute synchrony rate between two wpike trains
+    """
+    Compute synchrony rate between two wpike trains.
+
     Parameters
     ----------
-    st1: neo.SpikeTrain
+    st1 : neo.SpikeTrain
         Spike train 1
-    st2: neo.SpikeTrain
+    st2 : neo.SpikeTrain
         Spike train 2
-    time_jitt: quantity
+    time_jitt : quantity
         Maximum time jittering between added spikes
 
     Returns
     -------
-    rate: float
+    rate : float
         Synchrony rate (0-1)
-    '''
+    """
     count = 0
     times1 = st1.times
     times2 = st2.times
@@ -1167,39 +1174,39 @@ def compute_sync_rate(st1, st2, time_jitt):
 
 ### CONVOLUTION OPERATIONS ###
 def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, max_burst_duration=100 * pq.ms):
-    '''
+    """
     Computes modulation value for an input spike train.
 
     Parameters
     ----------
-    st: neo.SpikeTrain
+    st : neo.SpikeTrain
         Input spike train
-    n_el: int
+    n_el : int
         Number of electrodes to compute modulation.
         If 1, modulation is computed at the template level.
         If n_elec, modulation is computed at the electrode level.
-    mrand: float
+    mrand : float
         Mean for Gaussian modulation (should be 1)
-    sdrand: float
+    sdrand : float
         Standard deviation for Gaussian modulation
-    n_spikes: int
+    n_spikes : int
         Number of spikes for bursting behavior.
         If 1, no bursting behavior.
         If > 1, up to n_spikes consecutive spike are modulated with an exponentially decaying function.
-    exp: float
+    exp : float
         Exponent for exponential modulation (default 0.2)
-    max_burst_duration: Quantity
+    max_burst_duration : Quantity
         Maximum duration of a bursting event. After this duration, bursting modulation is reset.
 
 
     Returns
     -------
-    mod: np.array
+    mod : np.array
         Modulation value for each spike in the spike train
-    cons: np.array
+    cons : np.array
         Number of consecutive spikes computed for each spike
 
-    '''
+    """
 
     import elephant.statistics as stat
 
@@ -1314,24 +1321,24 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
 
 
 def compute_bursting_template(template, mod, wc_mod):
-    '''
+    """
     Compute modulation in shape for a template with low-pass filter.
 
     Parameters
     ----------
-    template: np.array
+    template : np.array
         Template to be modulated (num_chan, n_samples) or (n_samples)
-    mod: int or np.array
+    mod : int or np.array
         Amplitude modulation for template or single electrodes
-    wc_mod: float
+    wc_mod : float
         Normalized frequency of low-pass filter
 
     Returns
     -------
-    temp_filt: np.array
+    temp_filt : np.array
         Modulated template
 
-    '''
+    """
     import scipy.signal as ss
     b, a = ss.butter(3, wc_mod)
     if len(template.shape) == 2:
@@ -1349,35 +1356,35 @@ def compute_bursting_template(template, mod, wc_mod):
 
 def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
                              bursting=False, fc=None, fs=None):
-    '''Convolve single template with spike train. Used to compute 'spike_traces'.
+    """Convolve single template with spike train. Used to compute 'spike_traces'.
 
     Parameters
     ----------
-    spike_id: int
+    spike_id : int
         Index of spike trains - template.
-    spike_bin: np.array
+    spike_bin : np.array
         Binary array with spike times
-    template: np.array
+    template : np.array
         Array with template on single electrode (n_samples)
-    cut_out: list
+    cut_out : list
         Number of samples before and after the peak
-    modulation: bool
+    modulation : bool
         If True modulation is applied
-    mod_array: np.array
+    mod_array : np.array
         Array with modulation value for each spike
-    bursting: bool
+    bursting : bool
         If True templates are modulated in shape
-    fc: list
+    fc : list
         Min and max frequency for low-pass filter for bursting modulation
-    fs: quantity
+    fs : quantity
         Sampling frequency
 
     Returns
     -------
-    spike_trace: np.array
+    spike_trace : np.array
         Trace with convolved signal (n_samples)
 
-    '''
+    """
     if len(template.shape) == 2:
         njitt = template.shape[0]
         len_spike = template.shape[1]
@@ -1436,30 +1443,30 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
 
 def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
                                    verbose=False, bursting=False, fc=None, fs=None):
-    '''
+    """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
     Parameters
     ----------
-    spike_id: int
+    spike_id : int
         Index of spike trains - template.
-    spike_bin: np.array
+    spike_bin : np.array
         Binary array with spike times
-    template: np.array
+    template : np.array
         Array with template on single electrode (n_samples)
-    cut_out: list
+    cut_out : list
         Number of samples before and after the peak
-    modulation: bool
+    modulation : bool
         If True modulation is applied
-    mod_array: np.array
+    mod_array : np.array
         Array with modulation value for each spike
-    verbose: bool
+    verbose : bool
         If True output is verbose
-    bursting: bool
+    bursting : bool
         If True templates are modulated in shape
-    fc: list
+    fc : list
         Min and max frequency for low-pass filter for bursting modulation
-    fs: quantity
+    fs : quantity
         Sampling frequency
 
     Returns
@@ -1467,7 +1474,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
 
-    '''
+    """
     if verbose:
         print('Starting convolution with spike ', spike_id)
     if len(template.shape) == 3:
@@ -1575,38 +1582,38 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
                                             cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
                                             verbose=False, bursting=False, fc=None):
-    '''
+    """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
     Parameters
     ----------
-    spike_id: int
+    spike_id : int
         Index of spike trains - template
-    spike_bin: np.array
+    spike_bin : np.array
         Binary array with spike times
-    template: np.array
+    template : np.array
         Array with template on single electrode (n_samples)
-    fs: Quantity
+    fs : Quantity
         Sampling frequency
-    loc: np.array
+    loc : np.array
         Locations of drifting templates
-    v_drift: float
+    v_drift : float
         Drifting speed in um/s
-    t_start_drift: Quantity
+    t_start_drift : Quantity
         Drifting start time
-    cut_out: list
+    cut_out : list
         Number of samples before and after the peak
-    modulation: bool
+    modulation : bool
         If True modulation is applied
-    mod_array: np.array
+    mod_array : np.array
         Array with modulation value for each spike
-    n_step_sec: int
+    n_step_sec : int
         Number of drifting steps in a second
-    verbose: bool
+    verbose : bool
         If True output is verbose
-    bursting: bool
+    bursting : bool
         If True templates are modulated in shape
-    fc: list
+    fc : list
         Min and max frequency for low-pass filter for bursting modulation
 
 
@@ -1614,14 +1621,14 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     -------
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
-    final_loc: np.array
+    final_loc : np.array
         Final 3D location of neuron
-    final_idx: int
+    final_idx : int
         Final index among n drift steps
-    peaks: np.array
+    peaks : np.array
         Drifting peak images (n_steps, n_elec)
 
-    '''
+    """
     if verbose:
         print('Starting drifting convolution with spike ', spike_id)
     if len(template.shape) == 4:
@@ -1842,22 +1849,22 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
 ### RECORDING OPERATION ###
 def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
-    '''
+    """
     Extract waveforms from recordings and load it in waveform field of neo spike trains.
 
     Parameters
     ----------
-    spiketrains: list
+    spiketrains : list
         List of neo spike trains
-    recordings: np.array
+    recordings : np.array
         Array with recordings (n_elec, n_samples)
-    fs: Quantity
+    fs : Quantity
         Sampling frequency
-    pad_len: Quantity (single or list)
+    pad_len : Quantity (single or list)
          Length in ms to cut before and after spike peak. If a single value the cut is symmetrical
-    timestamps: Quantity array (optional)
+    timestamps : Quantity array (optional)
         Array with recordings timestamps
-    '''
+    """
     if not isinstance(pad_len, list):
         n_pad = int(pad_len * fs.rescale('kHz'))
         n_pad = [n_pad, n_pad]
@@ -1912,7 +1919,7 @@ def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
 
     Returns
     -------
-    signals_filt: np.array
+    signals_filt : np.array
         Filtered signals
     """
     from scipy.signal import butter, filtfilt
@@ -1937,36 +1944,37 @@ def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
 ### PLOTTING ###
 def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None, fs=10,
                  marker='|', mew=2, markersize=5):
-    '''
+    """
+    Plot raster for spike trains.
 
     Parameters
     ----------
-    spiketrains: list
+    spiketrains : list
         List of neo spike trains
-    bintype: bool
+    bintype : bool
         If True and 'bintype' in spike train annotation spike trains are plotted based on their type
-    ax: axes
+    ax : axes
         Plot on the given axes
-    overlap: bool
+    overlap : bool
         Plot spike colors based on overlap
-    labels: bool
+    labels : bool
         Plot spike colors based on labels
-    color: matplotlib color (single or list)
+    color : matplotlib color (single or list)
         Color or color list
-    fs: int
+    fs : int
         Font size
-    marker: matplotlib arg
+    marker : matplotlib arg
         Marker type
-    mew: matplotlib arg
+    mew : matplotlib arg
         Width of marker
-    markersize: int
+    markersize : int
         Marker size
 
     Returns
     -------
-    ax: axis
+    ax : axis
         Matplotlib axis
-    '''
+    """
 
     import matplotlib.pylab as plt
     if not ax:
@@ -2013,21 +2021,22 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
 
 
 def plot_templates(gen, single_axes=False):
-    '''
+    """
+    Plot templates.
 
     Parameters
     ----------
-    gen: TemplateGenerator or RecordingGenerator
+    gen : TemplateGenerator or RecordingGenerator
         Generator object containing templates
-    single_axes: bool
+    single_axes : bool
         If True all templates are plotted on the same axis.
 
     Returns
     -------
-    fig: figure
+    fig : figure
         Matplotlib figure
 
-    '''
+    """
     import matplotlib.pylab as plt
 
     templates = gen.templates
@@ -2059,19 +2068,20 @@ def plot_templates(gen, single_axes=False):
 
 
 def plot_recordings(recgen, ax=None, **kwargs):
-    '''
+    """
+    Plot recordings.
 
     Parameters
     ----------
-    recgen: RecordingGenerator
+    recgen : RecordingGenerator
         Recording generator object to plot
 
     Returns
     -------
-    ax: axis
+    ax : axis
         Matplotlib axis
 
-    '''
+    """
     import matplotlib.pylab as plt
 
     recordings = recgen.recordings
@@ -2085,32 +2095,32 @@ def plot_recordings(recgen, ax=None, **kwargs):
 
 
 def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None):
-    '''
+    """
     Plot waveforms of a spike train.
 
     Parameters
     ----------
-    recgen: RecordingGenerator
+    recgen : RecordingGenerator
         Recording generator object to plot spike train waveform from
-    spiketrain_id: int
+    spiketrain_id : int
         Indes of spike train
-    ax: axis
+    ax : axis
         Matplotlib  axis
-    color_isi: bool
+    color_isi : bool
         If True the color is mapped to the isi
-    color: matplotlib color
+    color : matplotlib color
         Color of the waveforms
-    cmap: matplotlib colormap
+    cmap : matplotlib colormap
         Colormap if color_isi is True
-    electrode: int or 'max'
+    electrode : int or 'max'
         Electrode id or 'max'
 
     Returns
     -------
-    ax: axis
+    ax : axis
         Matplotlib axis
 
-    '''
+    """
     import matplotlib.pylab as plt
     import matplotlib as mpl
 
@@ -2154,55 +2164,3 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
 
 
 # if __name__ == '__main__':
-#     import MEArec as mr
-#     import elephant.statistics as stat
-#     import scipy.signal as ss
-#     import matplotlib.pylab as plt
-#     plt.ion()
-#     plt.show()
-#
-#     recgen = mr.load_recordings('/home/alessiob/Documents/Codes/MEArec/data/recordings/recordings_30cells_SqMEA-10-15um_30.0_10.0uV_06-03-2019:18:23.h5')
-#
-#     n_elec, n_samples = recgen.recordings.shape
-#     spiketrain = recgen.spiketrains[0]
-#     fs = recgen.info['recordings']['fs'] * pq.Hz
-#     isi = stat.isi(spiketrain).rescale('ms')
-#     mod, cons = compute_modulation(spiketrain, n_el=n_elec, mrand=1, sdrand=0.02,
-#                                    n_spikes=100, exp=0.2, max_burst_duration=100 * pq.ms)
-#
-#     fc = [500., 12000.]
-#     fn = fs / 2.
-#
-#     temp = recgen.templates[0]
-#     temp_mod = np.zeros((mod.shape[0], n_elec, temp.shape[-1]))
-#
-#     mea = mu.return_mea(info=recgen.info['electrodes'])
-#
-#     map_mod = ((fc[1] - fc[0]) / (np.max(mod) - np.min(mod)) * (mod - np.min(mod)) + fc[0]) / fn
-#     map_mod_mean = np.mean(map_mod, axis=1)
-#     # print(map_mod_mean.shape)
-#     #
-#     # for i, (m, a) in enumerate(zip(map_mod_mean, mod)):
-#     #     rand_idx = np.random.permutation(temp.shape[0])[0]
-#     #     t = temp[rand_idx]
-#     #     temp_mod[i] = compute_bursting_template(t, a, m)
-#     #     # temp_mod[i] = [aa * tt for (aa, tt) in zip(a, t)]
-#     #     # print(np.min(temp_mod[i]))
-#     #     # for e, (mm, aa, tt) in enumerate(zip(m, a, t)):
-#     #     #     b, a  = ss.butter(3, mm / fn)
-#     #     #     ttt = ss.lfilter(b, a, tt)
-#     #     #     # temp_mod[i, e] = ttt
-#     #     #     temp_mod[i, e] = aa * np.min(tt) / np.min(ttt) * ttt
-#     #     print(np.min(temp_mod[i]))
-#
-#     spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
-#
-#     max_idx, _ = np.unravel_index(temp[0].argmin(), temp[0].shape)
-#     st = convolve_single_template(0, spike_matrix[0], temp[0, max_idx],
-#                                   modulation=True, mod_array=mod[:, max_idx],
-#                                   bursting=True, fc=fc, fs=fs)
-#
-#     rec_mod = convolve_templates_spiketrains(0, spike_matrix[0], temp, modulation=True, mod_array=mod,
-#                                              verbose=True, bursting=True, fc=fc, fs=fs)
-
-

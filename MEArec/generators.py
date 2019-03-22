@@ -293,13 +293,15 @@ class SpikeTrainGenerator:
 
     def set_spiketrain(self, idx, spiketrain):
         '''
-        Sets spike train idx to new spiketrain
+        Sets spike train idx to new spiketrain.
+
         Parameters
         ----------
-        idx: int
+        idx : int
             Index of spike train to set
-        spiketrain: neo.SpikeTrain
+        spiketrain : neo.SpikeTrain
             New spike train
+
         '''
         self.all_spiketrains[idx] = spiketrain
 
@@ -353,26 +355,28 @@ class SpikeTrainGenerator:
 
     def add_synchrony(self, idxs, rate=0.05, time_jitt=1*pq.ms, verbose=False):
         '''
-        Adds synchronous spikes between pairs of spike trains at a certain rate
+        Adds synchronous spikes between pairs of spike trains at a certain rate.
+
         Parameters
         ----------
-        idxs: list or array
+        idxs : list or array
             Spike train indexes to add synchrony to
-        rate: float
+        rate : float
             Rate of added synchrony spike to spike train idxs[1] for each spike of idxs[0]
-        time_jitt: quantity
+        time_jitt : quantity
             Maximum time jittering between added spikes
-        verbose: bool
+        verbose : bool
             If True output is verbose
 
         Returns
         -------
-        sync_rate: float
+        sync_rate : float
             New synchrony rate
-        fr1: quantity
+        fr1 : quantity
             Firing rate spike train 1
-        fr2: quantity
-            Firing rate spike train 12
+        fr2 : quantity
+            Firing rate spike train 2
+
         '''
         idx1 = idxs[0]
         idx2 = idxs[1]
@@ -481,7 +485,7 @@ class RecordingGenerator:
 
     def generate_recordings(self):
         '''
-        Generate recordings-
+        Generate recordings.
         '''
         params = deepcopy(self.params)
         temp_params = self.params['templates']
@@ -1266,15 +1270,18 @@ class RecordingGenerator:
 
 def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
     '''
+    Generates recordings.
 
     Parameters
     ----------
-    templates: str
+    templates : str
         Path to generated templates
-    params: dict OR str
+    params : dict OR str
         Dictionary containing recording parameters OR path to yaml file containing parameters
-    tempgen: TemplateGenerator
+    tempgen : TemplateGenerator
         Template generator object
+    verbose : bool
+        If True output is verbose
 
     Returns
     -------
@@ -1354,14 +1361,16 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
 
     Parameters
     ----------
-    tmp_params_path: str
+    tmp_params_path : str
         path to tmp params.yaml (same as templates_params with extra 'simulate_script', 'templates_folder' fields)
-    intraonly: bool
+    intraonly : bool
         if True only intracellular simulation is run
-    parallel:
+    parallel : bool
         if True multi-threading is used
-    delete_tmp:
+    delete_tmp :
         if True the temporary files are deleted
+    verbose : bool
+        If True output is verbose
 
     Returns
     -------
