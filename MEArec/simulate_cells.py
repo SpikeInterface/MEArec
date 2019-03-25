@@ -477,7 +477,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
 
-            if np.max(np.abs(np.min(espikes))) >= min_amp:
+            if check_espike(espikes, min_amp):
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -498,7 +498,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
             if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
                     pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
                     pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
-                if np.max(np.abs(np.min(espikes))) >= min_amp:
+                if check_espike(espikes, min_amp):
                     drift_ok = False
                     # fix rotation while drifting
                     cell.set_rotation(rot[0], rot[1], rot[2])
@@ -524,7 +524,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
                                                                                   rotation=None,
                                                                                   pos=final_pos)
                             # check final position spike amplitude
-                            if np.max(np.abs(np.min(espikes))) >= min_amp:
+                            if check_espike(espikes, min_amp):
                                 if verbose:
                                     print('Found final drifting position')
                                 drift_ok = True
@@ -587,6 +587,31 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
     np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
     np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
     np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
+
+
+def check_espike(espikes, min_amp):
+    '''
+    Check extracellular spike amplitude and shape (neg peak > pos peak)
+
+    Parameters
+    ----------
+    espike: np.array
+        EAP (n_elec, n_samples)
+    min_amp: float
+        Minimum amplitude
+
+    Returns
+    -------
+    valid: bool
+        If True EAP is valid
+
+    '''
+    valid = True
+    if np.max(np.abs(np.min(espikes))) < min_amp:
+        valid = False
+    if np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
+        valid = False
+    return valid
 
 
 def get_physrot_specs(cell_name, model):

@@ -444,7 +444,11 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["set-recordings-folder", './recordings', '--create'])
         assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", default_config['templates_folder']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", default_config['recordings_folder']])
+        assert result.exit_code == 0
 
 
-if __name__ == '__main__':
-    unittest.main()
+# if __name__ == '__main__':
+#     unittest.main()

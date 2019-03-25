@@ -150,7 +150,7 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
     Parameters
     ----------
     templates : str
-        templates file or folder
+        templates file
 
     Returns
     -------
@@ -199,7 +199,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
     Parameters
     ----------
     recordings : str
-        recordings file or folder
+        recordings file
 
     Returns
     -------
@@ -1990,7 +1990,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     return ax
 
 
-def plot_templates(gen, single_axes=False):
+def plot_templates(gen, single_axes=False, max_templates=None):
     """
     Plot templates.
 
@@ -2000,6 +2000,8 @@ def plot_templates(gen, single_axes=False):
         Generator object containing templates
     single_axes : bool
         If True all templates are plotted on the same axis.
+    max_templates: int
+        Maximum number of templates to be plotted.
 
     Returns
     -------
@@ -2011,6 +2013,10 @@ def plot_templates(gen, single_axes=False):
 
     templates = gen.templates
     mea = mu.return_mea(info=gen.info['electrodes'])
+
+    if max_templates is not None:
+        if max_templates < len(templates):
+            templates = templates[np.random.permutation(len(templates))][:max_templates]
 
     n_sources = len(templates)
     fig = plt.figure()

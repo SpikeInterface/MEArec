@@ -150,20 +150,20 @@ The :code:`modulation` parameter is extremely important, as it controls the vari
 * if :code:`modulation` id :code:`template-isi`, each spike event is modulated based on the inter-spike-interval, with the same amplitude for all electrodes
 * if :code:`modulation` id :code:`electrode-isi`, each spike event is modulated based on the inter-spike-interval, with different amplitude for each electrode
 For the :code:`template` and :code:`electrode` modulations, the amplitude is modulated as a Normal distribution with
-amplitude :code:`mrand` (should be set to 1) and standard deviation of :code:`sdrand` (default is 0.05).
+amplitude 1 and standard deviation of :code:`sdrand` (default is 0.05).
 For the :code:`template-isi` and :code:`electrode-isi` modulations, on top of the gaussian modulation the amplitude is
 modulated by the previous inter-spike-intervals, to simulate the amplitude decay due to bursting. In this case, the
-:code:`mem_isi` and :code:`n_isi` parameters control the maximum length and maximum number of spikes of a bursting event.
+:code:`max_burst_duration` and :code:`n_burst_spikes` parameters control the maximum length and maximum number of spikes of a bursting event.
 During a bursting event, the amplitude modulation, previous to the gaussian one, is computed as:
 
 .. math:: mod = (\frac{avg_{ISI} / n_{consecutive}}{mem_{ISI}})^{exp}
 
 where :math:`mod` is the resulting amplitude modulation, :math:`avg_{ISI}` is the average ISI so far during the
 bursting event, :math:`n_{consecutive}` is the number of spikes occurred in the bursting period (maximum is
-:code:`n_isi`) and :code:`exp` is the exponent of the decay (0.2 by default).
+:code:`n_burst_spikes`) and :code:`exp` is the exponent of the decay (0.2 by default).
 
 While isi modulation only modulates in amplitude, bursting can also modulate the spike shape. In order to model this, if
-:code:`bursting` is True, then the templates are low-pass filtered depending on the :math:`mod` value. The :code:`bursting_fc`
+:code:`shape_mod` is True, then the templates are low-pass filtered depending on the :math:`mod` value. The :code:`bursting_fc`
 parameter ([500, 12000] Hz by default) indicates how the :math:`mod` values will be mapped to the filter: For the minimum
 :math:`mod` value the low pass filter will have a cutoff frequency of 500 Hz, and for the highest :math:`mod` of 12000 Hz.
 The templates are filtered with the same value on all electrodes, and then, in case of an :code:`electrode`-type modulation,
@@ -211,9 +211,9 @@ Recordings parameters section summary
         mrand: 1 # mean of gaussian modulation (should be 1)
         sdrand:  0.05 # standard deviation of gaussian modulation
         exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
-        n_isi: 10 # max number of 'bursting' consecutive spikes
-        mem_isi: 100 # duration in ms of maximum burst modulation
-        bursting: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
+        n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
+        max_burst_duration: 100 # duration in ms of maximum burst modulation
+        shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
         bursting_fc: [1000., 12000.]  # min and max frequencies to be mapped to modulation value
 
         noise_level: 20 # noise standard deviation in uV

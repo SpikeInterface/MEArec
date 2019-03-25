@@ -583,11 +583,11 @@ class RecordingGenerator:
             params['recordings']['modulation'] = 'electrode'
         modulation = params['recordings']['modulation']
 
-        if 'bursting' not in rec_params.keys():
-            params['recordings']['bursting'] = False
-        bursting = params['recordings']['bursting']
+        if 'shape_mod' not in rec_params.keys():
+            params['recordings']['shape_mod'] = False
+        shape_mod = params['recordings']['shape_mod']
 
-        if bursting:
+        if shape_mod:
             if 'bursting_fc' not in rec_params.keys():
                 params['recordings']['bursting_fc'] = [500., 12000.]
             bursting_fc = params['recordings']['bursting_fc']
@@ -600,12 +600,12 @@ class RecordingGenerator:
             if 'exp_decay' not in rec_params.keys():
                 params['recordings']['exp_decay'] = 0.2
             exp_decay = params['recordings']['exp_decay']
-            if 'n_isi' not in rec_params.keys():
-                params['recordings']['n_isi'] = 10
-            n_isi = params['recordings']['n_isi']
-            if 'mem_isi' not in rec_params.keys():
-                params['recordings']['mem_isi'] = 100
-            mem_isi = 100 * pq.ms
+            if 'n_burst_spikes' not in rec_params.keys():
+                params['recordings']['n_burst_spikes'] = 10
+            n_burst_spikes = params['recordings']['n_burst_spikes']
+            if 'max_burst_duration' not in rec_params.keys():
+                params['recordings']['max_burst_duration'] = 100
+            max_burst_duration = 100 * pq.ms
 
         if 'chunk_noise_duration' not in rec_params.keys():
             params['recordings']['chunk_noise_duration'] = 0
@@ -953,8 +953,9 @@ class RecordingGenerator:
                 if self.verbose:
                     print('Template-ISI modulation')
                 for st in spiketrains:
-                    amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                   n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
+                    amp, cons = compute_modulation(st, sdrand=sdrand,
+                                                   n_spikes=n_burst_spikes, exp=exp_decay,
+                                                   max_burst_duration=max_burst_duration)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
             elif modulation == 'electrode-isi':
@@ -962,7 +963,8 @@ class RecordingGenerator:
                     print('Electrode-ISI modulation')
                 for st in spiketrains:
                     amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                   n_spikes=n_isi, exp=exp_decay, max_burst_duration=mem_isi)
+                                                   n_spikes=n_burst_spikes, exp=exp_decay,
+                                                   max_burst_duration=max_burst_duration)
                     amp_mod.append(amp)
                     cons_spikes.append(cons)
 
@@ -1043,7 +1045,7 @@ class RecordingGenerator:
                                                                                                velocity_vector,
                                                                                                t_start_drift=
                                                                                                t_start_drift,
-                                                                                               bursting=bursting,
+                                                                                               bursting=shape_mod,
                                                                                                fc=bursting_fc,
                                                                                                verbose=self.verbose)
                         recordings += rec
@@ -1070,7 +1072,7 @@ class RecordingGenerator:
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
                                                                      mod_array=amp_mod[st],
-                                                                     bursting=bursting,
+                                                                     bursting=shape_mod,
                                                                      fc=bursting_fc,
                                                                      fs=fs, verbose=self.verbose)
                         np.random.seed(seed)
@@ -1080,7 +1082,7 @@ class RecordingGenerator:
                                                                      modulation=True,
                                                                      mod_array=amp_mod[st][:,
                                                                                np.argmax(voltage_peaks[st])],
-                                                                     bursting=bursting,
+                                                                     bursting=shape_mod,
                                                                      fc=bursting_fc,
                                                                      fs=fs))
                         if drifting:
@@ -1104,7 +1106,7 @@ class RecordingGenerator:
                                                                                                velocity_vector,
                                                                                                t_start_drift=
                                                                                                t_start_drift,
-                                                                                               bursting=bursting,
+                                                                                               bursting=shape_mod,
                                                                                                fc=bursting_fc,
                                                                                                verbose=self.verbose)
                         recordings += rec
@@ -1130,7 +1132,7 @@ class RecordingGenerator:
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
                                                                      mod_array=amp_mod[st],
-                                                                     bursting=bursting,
+                                                                     bursting=shape_mod,
                                                                      fc=bursting_fc,
                                                                      fs=fs, verbose=self.verbose)
                         np.random.seed(seed)
@@ -1139,7 +1141,7 @@ class RecordingGenerator:
                                                                      cut_out=cut_outs_samples,
                                                                      modulation=True,
                                                                      mod_array=amp_mod[st],
-                                                                     bursting=bursting,
+                                                                     bursting=shape_mod,
                                                                      fc=bursting_fc,
                                                                      fs=fs))
                         if drifting:
