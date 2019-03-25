@@ -27,9 +27,9 @@ def get_default_config():
 
     Returns
     -------
-    default_info : dict
+    dict
         Default_info from config file
-    mearec_home : str
+    str
         Mearec home path
     """
     this_dir, this_filename = os.path.split(__file__)

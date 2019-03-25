@@ -80,6 +80,7 @@ recordings:
   extract_waveforms: False # if True, waveforms are extracted from recordings
 
   drifting: False # if True templates are drifted
+  n_drifting: null # number of drifting units
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees
   drift_velocity: 5  # drift velocity in um/min
