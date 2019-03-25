@@ -8,13 +8,11 @@ import shutil
 import yaml
 import os
 import elephant.statistics as stat
-import quantities as pq
 from distutils.version import StrictVersion
 import tempfile
 from click.testing import CliRunner
 
-from MEArec.cli import cli, default_config, set_cell_models_folder, set_recordings_folder, set_recordings_params, \
-    set_templates_folder, set_templates_params, gen_templates, gen_recordings
+from MEArec.cli import cli
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -79,6 +77,13 @@ class TestGenerators(unittest.TestCase):
         self.recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
         self.recgen.annotate_overlapping_spike(parallel=False)
         mr.save_recording_generator(self.recgen, self.test_dir + '/recordings.h5')
+
+    @classmethod
+    def tearDownClass(self):
+        # Remove the directory after the test
+        shutil.rmtree(self.test_dir)
+        shutil.rmtree('./templates')
+        shutil.rmtree('./recordings')
 
     def test_gen_templates(self):
         print('Test templates generation')
@@ -160,15 +165,18 @@ class TestGenerators(unittest.TestCase):
         n_jitter = [1, 5]
         modulations = ['none', 'electrode', 'template', 'template-isi', 'electrode-isi']
         rec_params['templates']['min_dist'] = 1
-        bursting = [False, True]
+        shape_mod = [False, True]
 
         for mod in modulations:
-            for b in bursting:
+            for b in shape_mod:
                 for j in n_jitter:
-                    print('Modulation: modulation', mod, 'bursting', b, 'jitter', j)
+                    print('Modulation: modulation', mod, 'shape_mod', b, 'jitter', j)
                     rec_params['templates']['n_jitters'] =j
                     rec_params['recordings']['modulation'] = mod
-                    rec_params['recordings']['bursting'] = b
+                    rec_params['recordings']['shape_mod'] = b
+
+                    if mod == 'electrode-isi' and b is True and j == 5:
+                        rec_params['cell_types'] = None
 
                     recgen_mod = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
@@ -183,8 +191,8 @@ class TestGenerators(unittest.TestCase):
                     assert len(recgen_mod.spike_traces) == n_neurons
                     del recgen_mod
 
-    def test_gen_recordings_mod_bursting_sync(self):
-        print('Test recording generation - bursting')
+    def test_gen_recordings_mod_shape_mod_sync(self):
+        print('Test recording generation - shape_mod')
         info, info_folder = mr.get_default_config()
         ne = 10
         ni = 5
@@ -207,9 +215,9 @@ class TestGenerators(unittest.TestCase):
         n_jitter = 4
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'electrode-isi'
-        rec_params['recordings']['bursting'] = True
+        rec_params['recordings']['shape_mod'] = True
         rec_params['recordings']['sync_rate'] = 0.2
-        rec_params['recordings']['overlap'] = False
+        rec_params['recordings']['overlap'] = True
         rec_params['recordings']['extract_waveforms'] = True
         rec_params['templates']['min_dist'] = 1
         rec_params['templates']['min_amp'] = 30
@@ -282,7 +290,6 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
         rec_params['spiketrains']['duration'] = 3
-        rec_params['cell_types'] = None
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
@@ -323,18 +330,20 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['min_dist'] = 1
 
         modulations = ['none', 'template', 'electrode']
-        bursting = [False, True]
+        shape_mod = [False, True]
 
         for i, mod in enumerate(modulations):
-            for b in bursting:
+            for b in shape_mod:
                 for j in n_jitter:
-                    print('Drifting: modulation', mod, 'bursting', b, 'jitter', j)
+                    print('Drifting: modulation', mod, 'shape_mod', b, 'jitter', j)
                     rec_params['templates']['n_jitters'] = j
                     rec_params['recordings']['modulation'] = mod
-                    rec_params['recordings']['bursting'] = b
+                    rec_params['recordings']['shape_mod'] = b
                     if i == len(modulations) - 1:
                         rec_params['recordings']['fs'] = 30
                         rec_params['recordings']['n_drifting'] = 1
+                    if mod == 'electrode' and b is True and j == 5:
+                        rec_params['cell_types'] = None
                     recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
                     assert recgen_drift.recordings.shape[0] == num_chan
                     assert len(recgen_drift.spiketrains) == n_neurons

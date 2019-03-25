@@ -2,4 +2,6 @@
 omit = MEArec/tests/* MEArec/__init__.py
 
 [report]
-exclude_lines = Exception 
+exclude_lines = 
+	Exception
+	Error

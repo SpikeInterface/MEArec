@@ -548,11 +548,6 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
     if len(templates.shape) != 3:
         raise ValueError('Cannot handle templatess with shape', templates.shape)
 
-    if normalize:
-        signs = np.sign(np.min(templates.reshape([templates.shape[0], -1]), axis=1))
-        norm = np.abs(np.min(templates.reshape([templates.shape[0], -1]), axis=1))
-        templates = np.array([templates[i] / n if signs[i] > 0 else templates[i] / n - 2. for i, n in enumerate(norm)])
-
     features = {}
 
     amps = np.zeros((templates.shape[0], templates.shape[1]))
@@ -1075,7 +1070,7 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
     st_i.annotate(overlap=over)
 
 
-def resample_spiketrains(spiketrains, fs=None, T=None):
+def resample_spiketrains(spiketrains, fs=None):
     """
     Resamples spike trains. Provide either fs or T parameters
 
@@ -1085,8 +1080,6 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
         List of neo spiketrains to be resampled
     fs : Quantity
         New sampling frequency
-    T : Quantity
-        New sampling period
 
     Returns
     -------
@@ -1097,22 +1090,12 @@ def resample_spiketrains(spiketrains, fs=None, T=None):
     import elephant.conversion as conv
 
     resampled_mat = []
-    if not fs and not T:
-        print('Provide either sampling frequency fs or time period T')
-        return
+    if not fs:
+        raise Exception('Provide either sampling frequency fs or time period T')
     elif fs:
         if not isinstance(fs, Quantity):
             raise ValueError("fs must be of type pq.Quantity")
         binsize = 1. / fs
-        binsize.rescale('ms')
-        resampled_mat = []
-        for sts in spiketrains:
-            spikes = conv.BinnedSpikeTrain(sts, binsize=binsize).to_array()
-            resampled_mat.append(np.squeeze(spikes))
-    elif T:
-        binsize = T
-        if not isinstance(T, Quantity):
-            raise ValueError("T must be of type pq.Quantity")
         binsize.rescale('ms')
         resampled_mat = []
         for sts in spiketrains:
