@@ -67,6 +67,7 @@ Spike trains parameters section summary
 Recordings Generation
 ---------------------
 
+
 Specyfying excitatory and inhibitory cell-types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -278,6 +279,7 @@ former pointing to a generated templates file, the latter instead is a :code:`Te
 
 The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGenerator` object (:code:`recgen`).
 
+
 The RecordingGenerator object
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -291,6 +293,7 @@ The :code:`RecordingGenerator` class contains several fields:
 * voltage_peaks: (n_spiketrains, n_electrodes) average voltage peaks on the electrodes
 * spike_traces: (n_spiketrains, n_samples) clean spike trace for each spike train
 * info: dictionary with parameters used
+
 
 :code:`RecordingGenerator` can be saved to .h5 files as follows:
 

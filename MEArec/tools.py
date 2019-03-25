@@ -27,9 +27,9 @@ def get_default_config():
 
     Returns
     -------
-    dict
+    default_info : dict
         Default_info from config file
-    str
+    mearec_path : str
         Mearec home path
     """
     this_dir, this_filename = os.path.split(__file__)
@@ -513,7 +513,8 @@ def get_binary_cat(celltypes, excit, inhib):
     return np.array(binary_cat, dtype=str)
 
 
-def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False):
+def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False,
+                           reference_mode='t0'):
     """
     Computes several templates features.
 
@@ -525,12 +526,8 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
         List of features to be computed (amp, width, fwhm, ratio, speed, na, rep)
     dt : float
         Sampling period
-    templates_times : np.array
-        Timestamps
     threshold_detect : float
         Threshold to zero out features
-    normalize : bool
-        If True features are normalized
 
     Returns
     -------
@@ -538,17 +535,11 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
         Dictionary with features (keys: amp, width, fwhm, ratio, speed, na, rep)
 
     """
-    reference_mode = 't0'
-    if templates_times is not None and dt is not None:
-        test_dt = (templates_times[-1] - templates_times[0]) / (len(templates_times) - 1)
-        if dt != test_dt:
-            raise ValueError('templates_times and dt do not match.')
-    elif templates_times is not None:
-        dt = (templates_times[-1] - templates_times[0]) / (len(templates_times) - 1)
-    elif dt is not None:
+    if dt is not None:
         templates_times = np.arange(templates.shape[-1]) * dt
     else:
-        raise NotImplementedError('Please, specify either dt or templates_times.')
+        if 'width' in feat_list or 'fwhm' in feat_list or 'speed' in feat_list:
+            raise NotImplementedError('Please, specify either dt or templates_times.')
 
     if len(templates.shape) == 1:
         templates = np.reshape(templates, [1, 1, -1])
@@ -593,12 +584,10 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
         na_peak[i, :] = templates[i, :, min_idx_na]
         rep_peak[i, :] = templates[i, :, max_idx_rep]
 
-        amps[i, :] = np.array([templates[i, e, max_idx[e]] - templates[i, e, min_idx[e]] for e in range(templates.shape[1])])
-        # If below 'detectable threshold, set amp and width to 0
-        if normalize:
-            too_low = np.where(amps[i, :] < threshold_detect / norm[i])
-        else:
-            too_low = np.where(amps[i, :] < threshold_detect)
+        amps[i, :] = np.array([templates[i, e, max_idx[e]] - templates[i, e, min_idx[e]]
+                               for e in range(templates.shape[1])])
+
+        too_low = np.where(amps[i, :] < threshold_detect)
         amps[i, too_low] = 0
 
         if 'ratio' in feat_list:
@@ -625,17 +614,7 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
         if 'fwhm' in feat_list:
             import scipy.signal as ss
             min_peak = np.min(templates[i], axis=1)
-            if reference_mode == 't0':
-                # reference voltage is zeroth voltage entry
-                fwhm_ref = np.array([templates[i, e, 0] for e in range(templates.shape[1])])
-            elif reference_mode == 'maxd2templates':
-                # reference voltage is taken at peak onset
-                # peak onset is defined as id of maximum 2nd derivative of templates
-                peak_onset = np.array([np.argmax(ss.savgol_filter(templates[i, e], 5, 2, deriv=2)[:min_idx[e]])
-                                       for e in range(templates.shape[1])])
-                fwhm_ref = np.array([templates[i, e, peak_onset[e]] for e in range(templates.shape[1])])
-            else:
-                raise NotImplementedError('Reference mode ' + reference_mode + ' for FWHM calculation not implemented.')
+            fwhm_ref = np.array([templates[i, e, 0] for e in range(templates.shape[1])])
             fwhm_V = (fwhm_ref + min_peak) / 2.
             id_trough = [np.where(templates[i, e] < fwhm_V[e])[0] for e in range(templates.shape[1])]
 
@@ -798,7 +777,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
@@ -809,10 +788,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     placed = True
                                 else:
                                     if verbose:
-                                        print('Drift violation', loc[id_cell], iter)
+                                        print('Drift violation', loc[id_cell, 0], iter)
                             else:
                                 if verbose:
-                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                                    print('Amplitude or boundary violation', amp, loc[id_cell, 0], iter)
                     if placed:
                         n_sel_exc += 1
                         selected_cat.append('E')
@@ -838,7 +817,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
@@ -851,7 +830,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                         print('Drift violation', loc[id_cell], iter)
                             else:
                                 if verbose:
-                                    print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                                    print('Amplitude or boundary violation', amp, loc[id_cell, 0], iter)
                     if placed:
                         n_sel_inh += 1
                         selected_cat.append('I')
@@ -875,7 +854,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
                     # drifting
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
+                    if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                         # save cell
                         drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
@@ -885,10 +864,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             placed = True
                         else:
                             if verbose:
-                                print('Drift violation', loc[id_cell], iter)
+                                print('Drift violation', loc[id_cell, 0], iter)
                     else:
                         if verbose:
-                            print('Amplitude or boundary violation', amp, loc[id_cell], iter)
+                            print('Amplitude or boundary violation', amp, loc[id_cell, 0], iter)
             if placed:
                 n_sel += 1
                 selected_cat.append('U')
@@ -1579,6 +1558,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
     return recordings
 
+
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
                                             cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
                                             verbose=False, bursting=False, fc=None):
@@ -1661,8 +1641,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     # compute current position
                     new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                     temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                    if verbose:
-                        print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                     temp_jitt = template[temp_idx, rand_idx]
 
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
@@ -1711,8 +1689,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                             temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp_jitt = template[temp_idx, rand_idx]
-                            if verbose:
-                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                         if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
                                 compute_bursting_template(temp_jitt, mod_array[pos], wc_mod_mean[pos])
@@ -1735,8 +1711,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                             temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             temp_jitt = template[temp_idx, rand_idx]
-                            if verbose:
-                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                         if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                             recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] \
                                                                                   * temp_jitt
@@ -1775,8 +1749,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                             temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             new_temp_jitt = template[temp_idx, rand_idx]
-                            if verbose:
-                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                             if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                                 recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
                                     compute_bursting_template(new_temp_jitt, mod_array[pos], wc_mod_mean[pos])
@@ -1811,8 +1783,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
                             temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
                             new_temp_jitt = template[temp_idx, rand_idx]
-                            if verbose:
-                                print(sp_time, temp_idx, 'Drifting', new_pos, loc[temp_idx, 1:])
                             if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                                 recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
                                     [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt)]

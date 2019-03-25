@@ -282,6 +282,7 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
         rec_params['spiketrains']['duration'] = 3
+        rec_params['cell_types'] = None
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
@@ -318,6 +319,7 @@ class TestGenerators(unittest.TestCase):
         n_jitter = [1, 3]
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['drifting'] = True
+        rec_params['recordings']['drift_velocity'] = 300
         rec_params['templates']['min_dist'] = 1
 
         modulations = ['none', 'template', 'electrode']
@@ -332,14 +334,18 @@ class TestGenerators(unittest.TestCase):
                     rec_params['recordings']['bursting'] = b
                     if i == len(modulations) - 1:
                         rec_params['recordings']['fs'] = 30
+                        rec_params['recordings']['n_drifting'] = 1
                     recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift)
                     assert recgen_drift.recordings.shape[0] == num_chan
                     assert len(recgen_drift.spiketrains) == n_neurons
                     assert recgen_drift.channel_positions.shape == (num_chan, 3)
                     if j == 1:
-                        assert recgen_drift.templates.shape[:3] == (n_neurons, n_steps, num_chan)
+                        assert recgen_drift.templates.shape[0] == n_neurons
+                        assert recgen_drift.templates.shape[2] == num_chan
                     else:
-                        assert recgen_drift.templates.shape[:4] == (n_neurons, n_steps, j, num_chan)
+                        assert recgen_drift.templates.shape[0] == n_neurons
+                        assert recgen_drift.templates.shape[2] == j
+                        assert recgen_drift.templates.shape[3] == num_chan
                     assert len(recgen_drift.spike_traces) == n_neurons
                     del recgen_drift
 
@@ -366,7 +372,7 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(recgen_loaded.voltage_peaks, self.recgen.voltage_peaks)
         assert np.allclose(recgen_loaded.channel_positions, self.recgen.channel_positions)
         assert np.allclose(recgen_loaded.timestamps, self.recgen.timestamps.magnitude)
-        assert np.allclose(recgen_loaded.recordings, np.array(recgen_loaded.recordings))
+        assert np.allclose(recgen_loaded.recordings, np.array(recgen_loaded_f.recordings))
 
     def test_plots(self):
         _ = mr.plot_rasters(self.recgen.spiketrains)
@@ -382,6 +388,18 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_waveforms(self.recgen, electrode='max')
         self.recgen.spiketrains[0].waveforms = None
         _ = mr.plot_waveforms(self.recgen, electrode='max', color_isi=True)
+
+    def test_extract_features(self):
+        feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['na', 'rep', 'amp', 'width', 'fwhm',
+                                                                               'ratio', 'speed'],
+                                            dt=self.tempgen.info['params']['dt'])
+        assert feat_t0['na'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['rep'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['amp'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['width'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['fwhm'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['ratio'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['speed'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
 
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()
