@@ -1316,7 +1316,7 @@ class RecordingGenerator:
         '''
         Annnotate spike trains with overlapping information.
         '''
-        if self.params['templates']['overlapping'] is None or len(self.params['templates']['overlapping']) == 0:
+        if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
             if self.verbose:
                 print('Finding overlapping spikes')
             if len(self.templates) == 3:
@@ -1328,7 +1328,7 @@ class RecordingGenerator:
                 # drifting + jitt
                 templates = self.templates[:, 0, 0]
             self.overlapping = find_overlapping_templates(templates,
-                                                          thresh=self.params['templates']['overlap_threshold'])
+                                                          thresh=self.info['templates']['overlap_threshold'])
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
     def extract_waveforms(self):
