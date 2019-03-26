@@ -1319,12 +1319,12 @@ class RecordingGenerator:
         if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
             if self.verbose:
                 print('Finding overlapping spikes')
-            if len(self.templates) == 3:
+            if len(self.templates.shape) == 3:
                 templates = self.templates
-            elif len(self.templates) == 4:
+            elif len(self.templates.shape) == 4:
                 # drifting + no jitt or no drifting + jitt
                 templates = self.templates[:, 0]
-            elif len(self.templates) == 5:
+            elif len(self.templates.shape) == 5:
                 # drifting + jitt
                 templates = self.templates[:, 0, 0]
             self.overlapping = find_overlapping_templates(templates,
