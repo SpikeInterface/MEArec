@@ -1329,6 +1329,7 @@ class RecordingGenerator:
                 templates = self.templates[:, 0, 0]
             self.overlapping = find_overlapping_templates(templates,
                                                           thresh=self.info['templates']['overlap_threshold'])
+            self.info['templates']['overlapping'] = self.overlapping
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
     def extract_waveforms(self):

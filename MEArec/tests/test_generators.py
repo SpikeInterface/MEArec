@@ -75,7 +75,7 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['min_dist'] = 1
 
         self.recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
-        self.recgen.annotate_overlapping_spike(parallel=False)
+        self.recgen.annotate_overlapping_spikes(parallel=False)
         mr.save_recording_generator(self.recgen, self.test_dir + '/recordings.h5')
 
     @classmethod
