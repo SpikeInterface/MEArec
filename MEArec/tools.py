@@ -306,7 +306,7 @@ def save_template_generator(tempgen, filename=None, verbose=True):
             F.create_dataset('templates', data=tempgen.templates)
         F.close()
         if verbose:
-            print('\nSaved template generator templates in', filename, '\n')
+            print('\nSaved  templates in', filename, '\n')
     else:
         raise Exception('Provide an .h5 or .hdf5 file name')
 
@@ -384,7 +384,7 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
         Path to the h5 field
     """
     for key, item in dic.items():
-        if isinstance(item, (int, float, np.int64, np.float64, str, bytes)):
+        if isinstance(item, (int, float, np.int64, np.float64, str, bytes, np.bool_)):
             if isinstance(item, np.str_):
                 item = str(item)
             h5file[path + key] = item
@@ -1826,7 +1826,7 @@ def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
 
     n_elec, n_samples = recordings.shape
     if timestamps is None:
-        timestamps = np.arange(n_samples) / fs
+        timestamps = np.arange(n_samples) / fs.rescale('Hz')
     unit = timestamps[0].rescale('ms').units
 
     for st in spiketrains:
@@ -2057,7 +2057,8 @@ def plot_recordings(recgen, ax=None, start_frame=None, end_frame=None, **kwargs)
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None):
+def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None,
+                   max_waveforms=None):
     """
     Plot waveforms of a spike train.
 
@@ -2095,6 +2096,10 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
         wf = recgen.spiketrains[spiketrain_id].waveforms
     mea = mu.return_mea(info=recgen.info['electrodes'])
 
+    if max_waveforms is not None:
+        if len(wf) > max_waveforms:
+            wf = wf[np.random.permutation(len(wf))][:max_waveforms]
+
     if color_isi:
         import elephant.statistics as stat
         isi = stat.isi(recgen.spiketrains[spiketrain_id]).rescale('ms')
@@ -2117,7 +2122,7 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
             electrode = np.unravel_index(np.argmin(wf.mean(axis=0)), wf.mean(axis=0).shape)[0]
             print('max electrode: ', electrode)
         if not color_isi:
-            ax.plot(wf[:, electrode], color=color, lw=0.1)
+            ax.plot(wf[:, electrode].T, color=color, lw=0.1)
             ax.plot(wf[:, electrode].mean(axis=0), color=color, lw=2)
         else:
             for i in range(wf.shape[0]):

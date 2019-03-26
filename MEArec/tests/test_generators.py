@@ -395,6 +395,7 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_waveforms(self.recgen)
         _ = mr.plot_waveforms(self.recgen, electrode=0)
         _ = mr.plot_waveforms(self.recgen, electrode='max')
+        _ = mr.plot_waveforms(self.recgen, electrode='max', max_waveforms=2)
         self.recgen.spiketrains[0].waveforms = None
         _ = mr.plot_waveforms(self.recgen, electrode='max', color_isi=True)
 
@@ -458,6 +459,26 @@ class TestGenerators(unittest.TestCase):
         result = runner.invoke(cli, ["set-recordings-folder", default_config['recordings_folder']])
         assert result.exit_code == 0
 
+    def test_simulate_cell(self):
+        default_config, mearec_home = mr.get_default_config()
+        cell_folder = default_config['cell_models_folder']
+        params_yaml = default_config['templates_params']
+
+        with open(params_yaml, 'r') as f:
+            if use_loader:
+                params = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                params = yaml.load(f)
+        target_spikes = [3, 50]
+        params['target_spikes'] = target_spikes
+        cells = os.listdir(cell_folder)
+        cell_name = [c for c in cells if 'TTPC1' in c][0]
+        cell_path = os.path.join(cell_folder, cell_name)
+
+        cell, v, i = mr.run_cell_model(cell_model=cell_path, sim_folder=None, verbose=True, save=False, return_vi=True,
+                                       **params)
+        assert len(v) > target_spikes[0] and len(v) < target_spikes[1]
+        assert len(i) > target_spikes[0] and len(i) < target_spikes[1]
 
 # if __name__ == '__main__':
 #     unittest.main()

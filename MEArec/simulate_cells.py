@@ -221,7 +221,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     synapse : NEURON synapse
         NEURON synapse object
     """
-
+    import neuron
     tot_ntsteps = int(round(T / dt + 1))
 
     I = np.ones(tot_ntsteps) * weight
@@ -239,7 +239,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model, sim_folder, seed, verbose, **kwargs):
+def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=False, **kwargs):
     """ Run simulation and adjust input strength to have a certain number of 
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
         where target_spikes=[10,30] by default)
@@ -261,18 +261,79 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, **kwargs):
     cell : object
         LFPy cell object
     """
-
     cell_name = os.path.split(cell_model)[-1]
 
-    if not os.path.isdir(sim_folder):
-        os.makedirs(sim_folder)
+    if save:
+        if not os.path.isdir(sim_folder):
+            os.makedirs(sim_folder)
 
-    imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
-    vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
+        imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
+        vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
 
-    if not (np.any([cell_name in ifile for ifile in imem_files]) and
-            np.any([cell_name in vfile for vfile in vmem_files])):
+        if not (np.any([cell_name in ifile for ifile in imem_files]) and
+                np.any([cell_name in vfile for vfile in vmem_files])):
 
+            np.random.seed(seed)
+            T = kwargs['sim_time'] * 1000
+            dt = kwargs['dt']
+            cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
+
+            delay = kwargs['delay']
+            stim_length = T - delay
+            weights = kwargs['weights']
+            weight = weights[0]
+            target_spikes = kwargs['target_spikes']
+            cuts = kwargs['cut_out']
+            cut_out = [cuts[0] / dt, cuts[1] / dt]
+
+            num_spikes = 0
+
+            i = 0
+            while not target_spikes[0] < num_spikes <= target_spikes[1]:
+                noiseVec, cell, syn = set_input(weight, dt, T, cell, delay, stim_length)
+                cell.simulate(rec_imem=True)
+
+                t = cell.tvec
+                v = cell.somav
+                t = t
+                v = v
+
+                spikes = find_spike_idxs(v[int(cut_out[0]):-int(cut_out[1])])
+                spikes = list(np.array(spikes) + cut_out[0])
+                num_spikes = len(spikes)
+
+                if verbose:
+                    print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
+                if num_spikes >= target_spikes[1]:
+                    weight *= weights[0]
+                elif num_spikes <= target_spikes[0]:
+                    weight *= weights[1]
+
+                i += 1
+                if i >= 10:
+                    sys.exit()
+
+            t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
+            # discard first spike
+            i_spikes = np.zeros((num_spikes - 1, cell.totnsegs, len(t)))
+            v_spikes = np.zeros((num_spikes - 1, len(t)))
+
+            for idx, spike_idx in enumerate(spikes[1:]):
+                spike_idx = int(spike_idx)
+                v_spike = v[spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
+                i_spike = cell.imem[:, spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
+                i_spikes[idx, :, :] = i_spike
+                v_spikes[idx, :] = v_spike
+
+            if not os.path.isdir(sim_folder):
+                os.makedirs(sim_folder)
+            np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes - 1, cell_name)), i_spikes)
+            np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes - 1, cell_name)), v_spikes)
+
+        else:
+            if verbose:
+                print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
+    else:
         np.random.seed(seed)
         T = kwargs['sim_time'] * 1000
         dt = kwargs['dt']
@@ -325,14 +386,8 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, **kwargs):
             i_spikes[idx, :, :] = i_spike
             v_spikes[idx, :] = v_spike
 
-        if not os.path.isdir(sim_folder):
-            os.makedirs(sim_folder)
-        np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes - 1, cell_name)), i_spikes)
-        np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes - 1, cell_name)), v_spikes)
-
-    else:
-        if verbose:
-            print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
+        if return_vi:
+            return cell, v_spikes, i_spikes
 
 
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):

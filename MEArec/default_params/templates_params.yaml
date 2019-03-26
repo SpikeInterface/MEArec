@@ -14,7 +14,7 @@ weights: [0.25, 1.75]  # weights to multiply stimulus amplitude if number of spi
 rot: physrot # random rotation to apply to cell models (norot, physrot, 3drot)
 probe: Neuronexus-32 # extracellular probe (if None probes are listed)
 ncontacts: 1 # number of contacts per recording site
-overhang: 30 # extension in un beyond MEA boundaries for neuron locations (if lim is null)
+overhang: 30 # extension in um beyond MEA boundaries for neuron locations (if lim is null)
 offset: 0 # plane offset (um) for MEA
 xlim: [10,80] # limits ( low high ) for neuron locations in the x-axis (depth)
 ylim: null # limits ( low high ) for neuron locations in the y-axis

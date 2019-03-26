@@ -1318,6 +1318,12 @@ class RecordingGenerator:
         '''
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
+    def extract_waveforms(self):
+        '''
+        Extract waveforms from spike trains.
+        '''
+        fs = self.info['recordings']['fs'] * pq.Hz
+        extract_wf(self.spiketrains, self.recordings, fs=fs)
 
 def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
     '''

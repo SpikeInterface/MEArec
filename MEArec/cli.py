@@ -78,7 +78,7 @@ def cli():
 @click.option('--verbose', '-v', is_flag=True,
               help='produce verbose output')
 def gen_templates(params, **kwargs):
-    """Generates EAP templates on multi-electrode arrays using biophyical NEURON simulations and LFPy"""
+    """Generates TEMPLATES with biophysical simulation."""
     info, config_folder = get_default_config()
 
     if params is None:
@@ -282,7 +282,7 @@ def gen_templates(params, **kwargs):
 @click.option('--verbose', '-v', is_flag=True,
               help='produce verbose output')
 def gen_recordings(params, **kwargs):
-    """Generates recordings from TEMPLATES"""
+    """Generates RECORDINGS from TEMPLATES."""
     # Retrieve default_params file
     info, config_folder = get_default_config()
 
@@ -450,7 +450,7 @@ def gen_recordings(params, **kwargs):
 
 @cli.command()
 def default_config():
-    """Print default configurations"""
+    """Print default configurations."""
     info, config = get_default_config()
     pprint.pprint(info)
 
@@ -458,7 +458,7 @@ def default_config():
 @cli.command()
 @click.argument('cell-models-folder')
 def set_cell_models_folder(cell_models_folder):
-    """Set default cell_models folder"""
+    """Set default cell_models folder."""
     info, config = get_default_config()
     if os.path.isdir(cell_models_folder):
         info['cell_models_folder'] = os.path.abspath(cell_models_folder)
@@ -473,7 +473,7 @@ def set_cell_models_folder(cell_models_folder):
 @click.argument('templates-folder')
 @click.option('--create', is_flag=True, help='if True it creates the directory')
 def set_templates_folder(templates_folder, create):
-    """Set default templates output folder"""
+    """Set default templates output folder."""
     info, config = get_default_config()
     templates_folder = os.path.abspath(templates_folder)
     if os.path.isdir(templates_folder):
@@ -495,7 +495,7 @@ def set_templates_folder(templates_folder, create):
 @click.argument('recordings-folder')
 @click.option('--create', is_flag=True, help='if True it creates the directory')
 def set_recordings_folder(recordings_folder, create):
-    """Set default recordings output folder"""
+    """Set default recordings output folder."""
     info, config = get_default_config()
     recordings_folder = os.path.abspath(recordings_folder)
     if os.path.isdir(recordings_folder):
@@ -516,7 +516,7 @@ def set_recordings_folder(recordings_folder, create):
 @cli.command()
 @click.argument('templates-params')
 def set_templates_params(templates_params):
-    """Set default templates output folder"""
+    """Set default templates output folder."""
     info, config = get_default_config()
     templates_params = os.path.abspath(templates_params)
     if os.path.isfile(templates_params) and (templates_params.endswith('yaml') or templates_params.endswith('yml')):
@@ -531,7 +531,7 @@ def set_templates_params(templates_params):
 @cli.command()
 @click.argument('recordings-params')
 def set_recordings_params(recordings_params):
-    """Set default templates output folder"""
+    """Set default templates output folder."""
     info, config = get_default_config()
     recordings_params = os.path.abspath(recordings_params)
     if os.path.isfile(recordings_params) and (recordings_params.endswith('yaml') or recordings_params.endswith('yml')):
