@@ -477,8 +477,8 @@ class TestGenerators(unittest.TestCase):
 
         cell, v, i = mr.run_cell_model(cell_model=cell_path, sim_folder=None, verbose=True, save=False, return_vi=True,
                                        **params)
-        assert len(v) > target_spikes[0] and len(v) < target_spikes[1]
-        assert len(i) > target_spikes[0] and len(i) < target_spikes[1]
+        assert len(v) >= target_spikes[0] and len(v) <= target_spikes[1]
+        assert len(i) >= target_spikes[0] and len(i) <= target_spikes[1]
 
 # if __name__ == '__main__':
 #     unittest.main()
