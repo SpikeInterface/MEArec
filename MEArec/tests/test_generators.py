@@ -223,6 +223,7 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['min_amp'] = 30
 
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+        recgen_burst.extract_waveforms()
 
         assert recgen_burst.recordings.shape[0] == num_chan
         assert len(recgen_burst.spiketrains) == n_neurons
@@ -322,11 +323,11 @@ class TestGenerators(unittest.TestCase):
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
-        rec_params['spiketrains']['duration'] = 3
+        rec_params['spiketrains']['duration'] = 5
         n_jitter = [1, 3]
         rec_params['recordings']['modulation'] = 'none'
         rec_params['recordings']['drifting'] = True
-        rec_params['recordings']['drift_velocity'] = 300
+        rec_params['recordings']['drift_velocity'] = 500
         rec_params['templates']['min_dist'] = 1
 
         modulations = ['none', 'template', 'electrode']
