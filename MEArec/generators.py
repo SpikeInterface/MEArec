@@ -1316,7 +1316,7 @@ class RecordingGenerator:
         '''
         Annnotate spike trains with overlapping information.
         '''
-        if self.overlapping is None or len(self.overlapping) == 0:
+        if self.params['templates']['overlapping'] is None or len(self.params['templates']['overlapping']) == 0:
             if self.verbose:
                 print('Finding overlapping spikes')
             if len(self.templates) == 3:
