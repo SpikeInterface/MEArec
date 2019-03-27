@@ -143,6 +143,8 @@ class TemplateGenerator:
             self.params['det_thresh'] = 30
         if 'n' not in self.params.keys():
             self.params['n'] = 50
+        if 'min_amp' not in self.params.keys():
+            self.params['min_amp'] = 30
         if 'seed' not in self.params.keys():
             self.params['seed'] = np.random.randint(1, 10000)
         elif self.params['seed'] is None:
@@ -154,6 +156,18 @@ class TemplateGenerator:
             self.params['templates_folder'] = templates_folder
         if 'drifting' not in self.params.keys():
             self.params['drifting'] = False
+        if 'max_drift' not in self.params.keys():
+            self.params['max_drift'] = 100
+        if 'min_drift' not in self.params.keys():
+            self.params['min_drift'] = 30
+        if 'drift_steps' not in self.params.keys():
+            self.params['drift_steps'] = 10
+        if 'drift_xlim' not in self.params.keys():
+            self.params['drift_xlim'] = [-10, 10]
+        if 'drift_ylim' not in self.params.keys():
+            self.params['drift_ylim'] = [-10, 10]
+        if 'drift_zlim' not in self.params.keys():
+            self.params['drift_zlim'] = [20, 80]
 
         rot = self.params['rot']
         n = self.params['n']
@@ -260,10 +274,10 @@ class SpikeTrainGenerator:
                     params['st_inh'] = 3
                 self.params['st_inh'] = params['st_inh'] * pq.Hz
                 if 'n_exc' not in self.params.keys():
-                    params['n_exc'] = 15
+                    params['n_exc'] = 2
                 self.params['n_exc'] = params['n_exc']
                 if 'n_inh' not in self.params.keys():
-                    params['n_inh'] = 5
+                    params['n_inh'] = 1
                 self.params['n_inh'] = params['n_inh']
 
                 for exc in np.arange(self.params['n_exc']):
@@ -469,6 +483,9 @@ class RecordingGenerator:
             else:
                 self.spike_traces = np.array([])
             self.info = info
+            self.params = deepcopy(info)
+            self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains)
+            self.tempgen = None
         else:
             if spgen is None or tempgen is None:
                 raise AttributeError("Specify SpikeGenerator and TemplateGenerator objects!")
@@ -501,16 +518,20 @@ class RecordingGenerator:
 
         tempgen = self.tempgen
         spgen = self.spgen
-        eaps = tempgen.templates
-        locs = tempgen.locations
-        rots = tempgen.rotations
-        celltypes = tempgen.celltypes
-        temp_info = tempgen.info
+        if tempgen is not None:
+            eaps = tempgen.templates
+            locs = tempgen.locations
+            rots = tempgen.rotations
+            celltypes = tempgen.celltypes
+            temp_info = tempgen.info
+            cut_outs = temp_info['params']['cut_out']
+        else:
+            temp_info = None
+            cut_outs = self.params['templates']['cut_out']
 
         spiketrains = spgen.all_spiketrains
 
         n_neurons = len(spiketrains)
-        cut_outs = temp_info['params']['cut_out']
         if len(spiketrains) > 0:
             duration = spiketrains[0].t_stop - spiketrains[0].t_start
             only_noise = False
@@ -520,10 +541,10 @@ class RecordingGenerator:
             only_noise = True
             duration = st_params['duration'] * pq.s
 
-        if 'fs' not in rec_params.keys():
+        if 'fs' not in rec_params.keys() and temp_info is not None:
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
             fs = params['recordings']['fs'] * pq.kHz
-        elif params['recordings']['fs'] is None:
+        elif params['recordings']['fs'] is None and temp_info is not None:
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
             fs = params['recordings']['fs'] * pq.kHz
         else:
@@ -637,31 +658,6 @@ class RecordingGenerator:
             params['recordings']['seed'] = np.random.randint(1, 1000)
         noise_seed = params['recordings']['seed']
 
-        if 'drifting' not in rec_params.keys():
-            params['recordings']['drifting'] = False
-        drifting = params['recordings']['drifting']
-
-        if drifting:
-            assert temp_info['params']['drifting']
-            preferred_dir = np.array(rec_params['preferred_dir'])
-            preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
-            angle_tol = rec_params['angle_tol']
-            drift_velocity = rec_params['drift_velocity']
-            t_start_drift = rec_params['t_start_drift'] * pq.s
-            if rec_params['n_drifting'] is None:
-                n_drifting = n_neurons
-            else:
-                n_drifting = rec_params['n_drifting']
-        else:
-            # if drifting templates, but not recordings, consider initial template
-            if temp_info['params']['drifting']:
-                eaps = eaps[:, 0]
-            preferred_dir = None
-            angle_tol = None
-            drift_velocity = None
-            t_start_drift = None
-            n_drifting = None
-
         if 'xlim' not in temp_params.keys():
             params['templates']['xlim'] = None
         x_lim = params['templates']['xlim']
@@ -718,12 +714,47 @@ class RecordingGenerator:
         else:
             bin_cat = np.array(['U'] * len(celltypes))
 
+        if 'drifting' not in rec_params.keys():
+            params['recordings']['drifting'] = False
+        drifting = params['recordings']['drifting']
+
+        if drifting:
+            if temp_info is not None:
+                assert temp_info['params']['drifting']
+            else:
+                if params['n_jitters'] == 1:
+                    assert len(self.templates.shape) == 4
+                else:
+                    assert len(self.templates.shape) == 5
+            preferred_dir = np.array(rec_params['preferred_dir'])
+            preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
+            angle_tol = rec_params['angle_tol']
+            drift_velocity = rec_params['drift_velocity']
+            t_start_drift = rec_params['t_start_drift'] * pq.s
+            if rec_params['n_drifting'] is None:
+                n_drifting = n_neurons
+            else:
+                n_drifting = rec_params['n_drifting']
+        else:
+            # if drifting templates, but not recordings, consider initial template
+            if temp_info is not None:
+                if temp_info['params']['drifting']:
+                    eaps = eaps[:, 0]
+            else:
+                self.templates = self.templates[:, 0]
+            preferred_dir = None
+            angle_tol = None
+            drift_velocity = None
+            t_start_drift = None
+            n_drifting = None
+
         # load MEA info
-        electrode_name = temp_info['electrodes']['electrode_name']
-        elinfo = mu.return_mea_info(electrode_name)
-        offset = temp_info['params']['offset']
-        elinfo['offset'] = offset
-        mea = mu.return_mea(info=elinfo)
+        if temp_info is not None:
+            mea = mu.return_mea(info=temp_info['electrodes'])
+            params['electrodes'] = temp_info['electrodes']
+        else:
+            mea = mu.return_mea(info=self.params['electrodes'])
+            params['electrodes'] = self.params['electrodes']
         mea_pos = mea.positions
         n_elec = mea_pos.shape[0]
         n_samples = int(duration.rescale('s').magnitude * fs.rescale('Hz').magnitude)
@@ -731,10 +762,10 @@ class RecordingGenerator:
         params['recordings'].update({'duration': float(duration.magnitude),
                                      'fs': float(fs.rescale('Hz').magnitude),
                                      'n_neurons': n_neurons})
-        params['electrodes'] = temp_info['electrodes']
+        params['templates'].update({'cut_out': cut_outs})
 
-        spike_duration = np.sum(temp_info['params']['cut_out']) * pq.ms
-        spike_fs = 1. / temp_info['params']['dt'] * pq.kHz
+        spike_duration = np.sum(cut_outs) * pq.ms
+        spike_fs = fs
 
         if self.verbose:
             print('Selecting cells')
@@ -743,134 +774,114 @@ class RecordingGenerator:
         timestamps = np.arange(recordings.shape[1]) / fs
 
         if not only_noise:
-            if 'type' in spiketrains[0].annotations.keys():
-                n_exc = [st.annotations['type'] for st in spiketrains].count('E')
-                n_inh = n_neurons - n_exc
-            if self.verbose:
-                print('Templates selection seed: ', temp_seed)
-            np.random.seed(temp_seed)
-
-            if drifting:
-                drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
-                drift_velocity_ums = drift_velocity / 60.
-                velocity_vector = drift_velocity_ums * preferred_dir
+            if tempgen is not None:
+                if 'type' in spiketrains[0].annotations.keys():
+                    n_exc = [st.annotations['type'] for st in spiketrains].count('E')
+                    n_inh = n_neurons - n_exc
                 if self.verbose:
-                    print('Drift velocity vector: ', velocity_vector)
-                n_elec = eaps.shape[2]
-            else:
-                drift_directions = None
-                preferred_dir = None
-                velocity_vector = None
-                n_elec = eaps.shape[1]
+                    print('Templates selection seed: ', temp_seed)
+                np.random.seed(temp_seed)
 
-            idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
-                                                        z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
-                                                        min_dist=min_dist, drifting=drifting,
-                                                        drift_dir=drift_directions,
-                                                        preferred_dir=preferred_dir, angle_tol=angle_tol,
-                                                        verbose=self.verbose)
+                if drifting:
+                    drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
+                    drift_velocity_ums = drift_velocity / 60.
+                    velocity_vector = drift_velocity_ums * preferred_dir
+                    if self.verbose:
+                        print('Drift velocity vector: ', velocity_vector)
+                    n_elec = eaps.shape[2]
+                else:
+                    drift_directions = None
+                    preferred_dir = None
+                    velocity_vector = None
+                    n_elec = eaps.shape[1]
 
-            idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
-            template_celltypes = celltypes[idxs_cells]
-            template_locs = locs[idxs_cells]
-            templates_bin = bin_cat[idxs_cells]
-            templates = eaps[idxs_cells]
+                idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
+                                                            z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
+                                                            min_dist=min_dist, drifting=drifting,
+                                                            drift_dir=drift_directions,
+                                                            preferred_dir=preferred_dir, angle_tol=angle_tol,
+                                                            verbose=self.verbose)
 
-            # peak images
-            voltage_peaks = []
-            for tem in templates:
-                dt = 1. / fs.magnitude
+                idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                template_celltypes = celltypes[idxs_cells]
+                template_locs = locs[idxs_cells]
+                templates_bin = bin_cat[idxs_cells]
+                templates = eaps[idxs_cells]
+
+                # peak images
+                voltage_peaks = []
+                for tem in templates:
+                    dt = 1. / fs.magnitude
+                    if not drifting:
+                        feat = get_templates_features(tem, ['na'], dt=dt)
+                    else:
+                        feat = get_templates_features(tem[0], ['na'], dt=dt)
+                    voltage_peaks.append(-np.squeeze(feat['na']))
+                voltage_peaks = np.array(voltage_peaks)
+
+                # resample spikes
+                up = fs
+                down = spike_fs
+                sampling_ratio = float(up / down)
+                pad_samples = [int((pp * fs).magnitude) for pp in pad_len]
+                n_resample = int((fs * spike_duration).magnitude)
                 if not drifting:
-                    feat = get_templates_features(tem, ['na'], dt=dt)
-                else:
-                    feat = get_templates_features(tem[0], ['na'], dt=dt)
-                voltage_peaks.append(-np.squeeze(feat['na']))
-            voltage_peaks = np.array(voltage_peaks)
-
-            # resample spikes
-            up = fs
-            down = spike_fs
-            sampling_ratio = float(up / down)
-            pad_samples = [int((pp * fs).magnitude) for pp in pad_len]
-            n_resample = int((fs * spike_duration).magnitude)
-            if not drifting:
-                if templates.shape[2] != n_resample:
-                    templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-                    if self.verbose:
-                        print('Resampling spikes')
-                    for t, tem in enumerate(templates):
-                        tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
-                        tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
-                        templates_pol[t, :] = tem_poly[:,
-                                              int(sampling_ratio * pad_samples[0]):int(sampling_ratio * pad_samples[0])
-                                                                                   + n_resample]
-                else:
-                    templates_pol = templates
-            else:
-                if templates.shape[3] != n_resample:
-                    templates_pol = np.zeros((templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
-                    if self.verbose:
-                        print('Resampling spikes')
-                    for t, tem in enumerate(templates):
-                        for ts, tem_single in enumerate(tem):
-                            tem_pad = np.pad(tem_single, [(0, 0), pad_samples], 'edge')
+                    if templates.shape[2] != n_resample:
+                        templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+                        if self.verbose:
+                            print('Resampling spikes')
+                        for t, tem in enumerate(templates):
+                            tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
                             tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
-                            templates_pol[t, ts, :] = tem_poly[:,int(sampling_ratio *
-                                                                     pad_samples[0]):int(sampling_ratio *
-                                                                                         pad_samples[0]) + n_resample]
+                            templates_pol[t, :] = tem_poly[:,
+                                                  int(sampling_ratio * pad_samples[0]):int(sampling_ratio * pad_samples[0])
+                                                                                       + n_resample]
+                    else:
+                        templates_pol = templates
                 else:
-                    templates_pol = templates
+                    if templates.shape[3] != n_resample:
+                        templates_pol = np.zeros((templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
+                        if self.verbose:
+                            print('Resampling spikes')
+                        for t, tem in enumerate(templates):
+                            for ts, tem_single in enumerate(tem):
+                                tem_pad = np.pad(tem_single, [(0, 0), pad_samples], 'edge')
+                                tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
+                                templates_pol[t, ts, :] = tem_poly[:,int(sampling_ratio *
+                                                                         pad_samples[0]):int(sampling_ratio *
+                                                                                             pad_samples[0]) + n_resample]
+                    else:
+                        templates_pol = templates
 
-            templates_pad = []
-            if self.verbose:
-                print('Padding template edges')
-            for t, tem in enumerate(templates_pol):
+                templates_pad = []
+                if self.verbose:
+                    print('Padding template edges')
+                for t, tem in enumerate(templates_pol):
+                    if not drifting:
+                        tem = cubic_padding(tem, pad_len, fs)
+                        templates_pad.append(tem)
+                    else:
+                        if self.verbose:
+                            print('Padding edges: neuron ', t + 1, ' of ', len(templates_pol))
+                        templates_pad_p = []
+                        for tem_p in tem:
+                            tem_p = cubic_padding(tem_p, pad_len, fs)
+                            templates_pad_p.append(tem_p)
+                        templates_pad.append(templates_pad_p)
+                templates_pad = np.array(templates_pad)
+
+                if self.verbose:
+                    print('Creating time jittering')
+                jitter = 1. / fs
+                templates_jitter = []
                 if not drifting:
-                    tem = cubic_padding(tem, pad_len, fs)
-                    templates_pad.append(tem)
-                else:
-                    if self.verbose:
-                        print('Padding edges: neuron ', t + 1, ' of ', len(templates_pol))
-                    templates_pad_p = []
-                    for tem_p in tem:
-                        tem_p = cubic_padding(tem_p, pad_len, fs)
-                        templates_pad_p.append(tem_p)
-                    templates_pad.append(templates_pad_p)
-            templates_pad = np.array(templates_pad)
-
-            if self.verbose:
-                print('Creating time jittering')
-            jitter = 1. / fs
-            templates_jitter = []
-            if not drifting:
-                for temp in templates_pad:
-                    temp_up = ss.resample_poly(temp, upsample, 1, axis=1)
-                    nsamples_up = temp_up.shape[1]
-                    temp_jitt = []
-                    for n in np.arange(n_jitters):
-                        # align waveform
-                        shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
-                        if shift > 0:
-                            t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-                        elif shift < 0:
-                            t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-                        else:
-                            t_jitt = temp_up
-                        temp_down = ss.decimate(t_jitt, upsample, axis=1)
-                        temp_jitt.append(temp_down)
-                    templates_jitter.append(temp_jitt)
-            else:
-                for t, temp in enumerate(templates_pad):
-                    if self.verbose:
-                        print('Jittering: neuron ', t + 1, ' of ', len(templates_pol))
-                    templates_jitter_p = []
-                    for tem_p in temp:
-                        temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
+                    for temp in templates_pad:
+                        temp_up = ss.resample_poly(temp, upsample, 1, axis=1)
                         nsamples_up = temp_up.shape[1]
                         temp_jitt = []
                         for n in np.arange(n_jitters):
                             # align waveform
-                            shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                            shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
                             if shift > 0:
                                 t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
                             elif shift < 0:
@@ -879,16 +890,39 @@ class RecordingGenerator:
                                 t_jitt = temp_up
                             temp_down = ss.decimate(t_jitt, upsample, axis=1)
                             temp_jitt.append(temp_down)
+                        templates_jitter.append(temp_jitt)
+                else:
+                    for t, temp in enumerate(templates_pad):
+                        if self.verbose:
+                            print('Jittering: neuron ', t + 1, ' of ', len(templates_pol))
+                        templates_jitter_p = []
+                        for tem_p in temp:
+                            temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
+                            nsamples_up = temp_up.shape[1]
+                            temp_jitt = []
+                            for n in np.arange(n_jitters):
+                                # align waveform
+                                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                                if shift > 0:
+                                    t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                                elif shift < 0:
+                                    t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                                else:
+                                    t_jitt = temp_up
+                                temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                                temp_jitt.append(temp_down)
 
-                        templates_jitter_p.append(temp_jitt)
-                    templates_jitter.append(templates_jitter_p)
-            templates = np.array(templates_jitter)
+                            templates_jitter_p.append(temp_jitt)
+                        templates_jitter.append(templates_jitter_p)
+                templates = np.array(templates_jitter)
 
-            cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
+                cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
 
-            del templates_pol, templates_pad, templates_jitter
-            if drifting:
-                del templates_jitter_p, templates_pad_p
+                del templates_pol, templates_pad, templates_jitter
+                if drifting:
+                    del templates_jitter_p, templates_pad_p
+            else:
+                templates = self.templates
 
             overlapping_computed = False
             if sync_rate != 0:

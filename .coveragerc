@@ -5,3 +5,5 @@ omit = MEArec/tests/* MEArec/__init__.py
 exclude_lines = 
 	Exception
 	Error
+	use_loader = False
+        

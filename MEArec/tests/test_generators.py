@@ -266,6 +266,12 @@ class TestGenerators(unittest.TestCase):
                     rec_params['recordings']['noise_color'] = color
                     recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
+                    if mode == 'uncorrelated' and ch == 0 and not noise_color:
+                        rec_params['recordings']['fs'] = 30
+                        rec_params['recordings']['chunk_filter_duration'] = 1
+                    if noise_color:
+                        rec_params['recordings']['filter_cutoff'] = 500
+
                     assert recgen_noise.recordings.shape[0] == num_chan
                     assert len(recgen_noise.spiketrains) == n_neurons
                     assert recgen_noise.channel_positions.shape == (num_chan, 3)
@@ -358,6 +364,30 @@ class TestGenerators(unittest.TestCase):
                         assert recgen_drift.templates.shape[3] == num_chan
                     assert len(recgen_drift.spike_traces) == n_neurons
                     del recgen_drift
+
+    def test_default_params(self):
+        info, info_folder = mr.get_default_config()
+        cell_models_folder = info['cell_models_folder']
+        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_folder=info['templates_folder'])
+        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5')
+        recgen.params['recordings']['noise_level'] = 0
+        recgen.generate_recordings()
+        recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
+
+        n = 2
+        num_cells = self.num_cells
+        templates_params = self.templates_params
+
+        assert tempgen.templates.shape[0] == (n * num_cells)
+        assert len(tempgen.locations) == (n * num_cells)
+        assert len(tempgen.rotations) == (n * num_cells)
+        assert len(tempgen.celltypes) == (n * num_cells)
+        assert len(np.unique(tempgen.celltypes)) == num_cells
+        assert np.max(tempgen.locations[:, 0]) > templates_params['xlim'][0] \
+               and np.max(tempgen.locations[:, 0]) < templates_params['xlim'][1]
+
+        assert recgen.recordings.shape[0] == self.num_chan
+        assert recgen.channel_positions.shape == (self.num_chan, 3)
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
