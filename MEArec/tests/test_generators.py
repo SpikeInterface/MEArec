@@ -220,8 +220,9 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['overlap'] = True
         rec_params['recordings']['extract_waveforms'] = True
         rec_params['templates']['min_dist'] = 1
-        rec_params['templates']['min_amp'] = 30
+        rec_params['templates']['min_amp'] = 0
 
+        print(self.tempgen.templates.shape)
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
         recgen_burst.extract_waveforms()
 
@@ -267,7 +268,7 @@ class TestGenerators(unittest.TestCase):
                     recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
                     if mode == 'uncorrelated' and ch == 0 and not noise_color:
-                        rec_params['recordings']['fs'] = 30
+                        rec_params['recordings']['fs'] = 30000
                         rec_params['recordings']['chunk_filter_duration'] = 1
                     if noise_color:
                         rec_params['recordings']['filter_cutoff'] = 500
@@ -347,7 +348,7 @@ class TestGenerators(unittest.TestCase):
                     rec_params['recordings']['modulation'] = mod
                     rec_params['recordings']['shape_mod'] = b
                     if i == len(modulations) - 1:
-                        rec_params['recordings']['fs'] = 30
+                        rec_params['recordings']['fs'] = 30000
                         rec_params['recordings']['n_drifting'] = 1
                     if mod == 'electrode' and b is True and j == 5:
                         rec_params['cell_types'] = None
@@ -372,6 +373,9 @@ class TestGenerators(unittest.TestCase):
         recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5')
         recgen.params['recordings']['noise_level'] = 0
         recgen.generate_recordings()
+        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
+        recgen_loaded.params['recordings']['noise_level'] = 0
+        recgen_loaded.generate_recordings()
         recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
 
         n = 2
@@ -388,6 +392,9 @@ class TestGenerators(unittest.TestCase):
 
         assert recgen.recordings.shape[0] == self.num_chan
         assert recgen.channel_positions.shape == (self.num_chan, 3)
+        assert recgen_loaded.recordings.shape[0] == self.num_chan
+        assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
+        assert len(recgen_empty.recordings) == 0
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
@@ -458,7 +465,7 @@ class TestGenerators(unittest.TestCase):
         result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
-                                     '--fs', '32',  '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
+                                     '--fs', '32000',  '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
                                      '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
                                      '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
                                      '--no-filt', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',

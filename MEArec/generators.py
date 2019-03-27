@@ -542,13 +542,15 @@ class RecordingGenerator:
             duration = st_params['duration'] * pq.s
 
         if 'fs' not in rec_params.keys() and temp_info is not None:
+            # when computed from templates fs is in kHz
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
             fs = params['recordings']['fs'] * pq.kHz
         elif params['recordings']['fs'] is None and temp_info is not None:
             params['recordings']['fs'] = 1. / temp_info['params']['dt']
             fs = params['recordings']['fs'] * pq.kHz
         else:
-            fs = params['recordings']['fs'] * pq.kHz
+            # In the rec_params fs is in Hz
+            fs = params['recordings']['fs'] * pq.Hz
 
         if 'noise_mode' not in rec_params.keys():
             params['recordings']['noise_mode'] = 'uncorrelated'
@@ -704,16 +706,6 @@ class RecordingGenerator:
             params['templates']['seed'] = np.random.randint(1, 1000)
         temp_seed = params['templates']['seed']
 
-        if celltype_params is not None:
-            if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
-                exc_categories = celltype_params['excitatory']
-                inh_categories = celltype_params['inhibitory']
-                bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
-            else:
-                bin_cat = np.array(['U'] * len(celltypes))
-        else:
-            bin_cat = np.array(['U'] * len(celltypes))
-
         if 'drifting' not in rec_params.keys():
             params['recordings']['drifting'] = False
         drifting = params['recordings']['drifting']
@@ -740,7 +732,7 @@ class RecordingGenerator:
             if temp_info is not None:
                 if temp_info['params']['drifting']:
                     eaps = eaps[:, 0]
-            else:
+            elif len(self.templates.shape) == 5:
                 self.templates = self.templates[:, 0]
             preferred_dir = None
             angle_tol = None
@@ -775,6 +767,16 @@ class RecordingGenerator:
 
         if not only_noise:
             if tempgen is not None:
+                if celltype_params is not None:
+                    if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
+                        exc_categories = celltype_params['excitatory']
+                        inh_categories = celltype_params['inhibitory']
+                        bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
+                    else:
+                        bin_cat = np.array(['U'] * len(celltypes))
+                else:
+                    bin_cat = np.array(['U'] * len(celltypes))
+
                 if 'type' in spiketrains[0].annotations.keys():
                     n_exc = [st.annotations['type'] for st in spiketrains].count('E')
                     n_inh = n_neurons - n_exc
@@ -823,8 +825,8 @@ class RecordingGenerator:
                 up = fs
                 down = spike_fs
                 sampling_ratio = float(up / down)
-                pad_samples = [int((pp * fs).magnitude) for pp in pad_len]
-                n_resample = int((fs * spike_duration).magnitude)
+                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                n_resample = int((fs.rescale('kHz') * spike_duration).magnitude)
                 if not drifting:
                     if templates.shape[2] != n_resample:
                         templates_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
@@ -922,7 +924,10 @@ class RecordingGenerator:
                 if drifting:
                     del templates_jitter_p, templates_pad_p
             else:
+                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
                 templates = self.templates
+                voltage_peaks = self.voltage_peaks
 
             overlapping_computed = False
             if sync_rate != 0:
@@ -955,8 +960,9 @@ class RecordingGenerator:
 
             if self.verbose:
                 print('Adding spiketrain annotations')
-            for i, st in enumerate(spiketrains):
-                st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
+            if tempgen is not None:
+                for i, st in enumerate(spiketrains):
+                    st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
             if overlap:
                 if not overlapping_computed:
                     if self.verbose:

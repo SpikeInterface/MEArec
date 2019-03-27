@@ -755,7 +755,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
                     if np.any(dist < min_dist):
                         if verbose:
-                            print('Distance violation', dist, iter)
+                            print('Distance violation', np.min(dist), iter)
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
@@ -795,7 +795,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
                     if np.any(dist < min_dist):
                         if verbose:
-                            print('Distance violation', dist, iter)
+                            print('Distance violation', np.min(dist), iter)
                         pass
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
@@ -833,7 +833,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
             dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
             if np.any(dist < min_dist):
                 if verbose:
-                    print('Distance violation', dist, iter)
+                    print('Distance violation', np.min(dist), iter)
                 pass
             else:
                 amp = np.max(np.abs(np.min(templates[id_cell])))
@@ -869,7 +869,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
 
     if i == len(permuted_idxs) - 1 and n_sel < n_exc + n_inh:
         raise RuntimeError("Templates could not be selected. \n"
-                           "Decrease number of spiketrains, decrease 'min-dist', or use more templates.")
+                           "Decrease number of spiketrains, decrease 'min_dist', or use more templates.")
 
     return selected_idxs, selected_cat
 
