@@ -139,7 +139,7 @@ def gen_templates(params, **kwargs):
 
     if kwargs['drifting']:
         params_dict['drifting'] = True
-    else:
+    elif 'drifting' not in params_dict.keys():
         params_dict['drifting'] = False
     if kwargs['min_drift'] is not None:
         params_dict['min_drift'] = kwargs['min_drift']
@@ -178,9 +178,9 @@ def gen_templates(params, **kwargs):
         probe = params_dict['probe']
         if kwargs['fname'] is None:
             if params_dict['drifting']:
-                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
+                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
             else:
-                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y"))
+                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
@@ -391,10 +391,12 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
-    else:
+    elif 'overlap' not in params_dict.keys():
         params_dict['recordings']['overlap'] = False
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
+    elif 'extract_wf' not in params_dict.keys():
+        params_dict['recordings']['extract_wf'] = False
 
     if kwargs['half_dist'] is not None:
         params_dict['recordings']['half_dist'] = kwargs['half_dist']
@@ -411,7 +413,7 @@ def gen_recordings(params, **kwargs):
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
-    else:
+    elif 'drifting' not in params_dict.keys():
         params_dict['recordings']['drifting'] = False
     if kwargs['preferred_dir'] is not None and len(kwargs['preferred_dir']) == 3:
         params_dict['recordings']['preferred_dir'] = kwargs['preferred_dir']

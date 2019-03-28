@@ -10,7 +10,6 @@ import time
 from copy import copy, deepcopy
 from MEArec.tools import *
 import MEAutility as mu
-import threading
 import shutil
 import yaml
 from pprint import pprint
@@ -24,27 +23,13 @@ else:
     use_loader = False
 
 
-class simulationThread(threading.Thread):
-    def __init__(self, threadID, name, simulate_script, numb, tot, cell_model,
-                 model_folder, intraonly, params, verbose):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = name
-        self.sim_script = simulate_script
-        self.numb = numb
-        self.tot = tot
-        self.cell_model = cell_model
-        self.model_folder = model_folder
-        self.intra = intraonly
-        self.params = params
-        self.verbose = verbose
-
-    def run(self):
-        print("Starting " + self.name)
-        print('\n\n', self.cell_model, self.numb + 1, '/', self.tot, '\n\n')
-        os.system('python %s %s %s %s %s' \
-                  % (self.sim_script, join(self.model_folder, self.cell_model), self.intra, self.params, self.verbose))
-        print("Exiting " + self.name)
+def simulate_cell_templates(i, simulate_script, tot, cell_model,
+                            model_folder, intraonly, params, verbose):
+    print("Starting ", i+1)
+    print('\n\n', cell_model, i + 1, '/', tot, '\n\n')
+    os.system('python %s %s %s %s %s' \
+              % (simulate_script, join(model_folder, cell_model), intraonly, params, verbose))
+    print("Exiting ", i+1)
 
 
 class TemplateGenerator:
@@ -180,18 +165,18 @@ class TemplateGenerator:
         # Simulate neurons and EAP for different cell models sparately
         if parallel:
             start_time = time.time()
-            if self.verbose:
-                print('Parallel')
-            tot = len(cell_models)
+            import multiprocessing
             threads = []
-            for numb, cell_model in enumerate(cell_models):
-                threads.append(simulationThread(numb, "Thread-" + str(numb), simulate_script,
-                                                numb, tot, cell_model, cell_models_folder, intraonly,
-                                                tmp_params_path, self.verbose))
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
+            tot = len(cell_models)
+            for i, cell_model in enumerate(cell_models):
+                p = multiprocessing.Process(target=simulate_cell_templates, args=(i, simulate_script, tot,
+                                                                                  cell_model, cell_models_folder,
+                                                                                  intraonly,
+                                                                                  tmp_params_path, self.verbose,))
+                p.start()
+                threads.append(p)
+            for p in threads:
+                p.join()
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
         else:
             start_time = time.time()
@@ -304,6 +289,8 @@ class SpikeTrainGenerator:
         else:
             self.all_spiketrains = spiketrains
             self.spiketrains = True
+            if params is not None:
+                self.params = deepcopy(params)
 
     def set_spiketrain(self, idx, spiketrain):
         '''
@@ -484,7 +471,8 @@ class RecordingGenerator:
                 self.spike_traces = np.array([])
             self.info = info
             self.params = deepcopy(info)
-            self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains)
+            if len(self.spiketrains) > 0:
+                self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
             self.tempgen = None
         else:
             if spgen is None or tempgen is None:
@@ -1369,6 +1357,7 @@ class RecordingGenerator:
                 templates = self.templates[:, 0, 0]
             self.overlapping = find_overlapping_templates(templates,
                                                           thresh=self.info['templates']['overlap_threshold'])
+            print('Overlapping templates: ', self.overlapping)
             self.info['templates']['overlapping'] = self.overlapping
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 

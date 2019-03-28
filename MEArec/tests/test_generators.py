@@ -26,7 +26,8 @@ class TestGenerators(unittest.TestCase):
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])
-        self.n = 5
+        self.n = 10
+        self.n_drift = 5
         with open(info['templates_params']) as f:
             if use_loader:
                 templates_params = yaml.load(f, Loader=yaml.FullLoader)
@@ -51,7 +52,8 @@ class TestGenerators(unittest.TestCase):
         self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
         templates_params['drifting'] = True
-        templates_params['drift_steps'] = 5
+        templates_params['n'] = self.n_drift
+        templates_params['drift_steps'] = 10
         templates_params['rot'] = 'norot'
         print('Generating drifting templates')
         self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
@@ -101,7 +103,7 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_templates_drift(self):
         print('Test drifting templates generation')
-        n = self.n
+        n = self.n_drift
         num_cells = self.num_cells
         n_steps = self.num_steps_drift
         templates_params = self.templates_params_drift
@@ -222,7 +224,6 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['min_dist'] = 1
         rec_params['templates']['min_amp'] = 0
 
-        print(self.tempgen.templates.shape)
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
         recgen_burst.extract_waveforms()
 

@@ -716,6 +716,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     pos_sel = []
     selected_idxs = []
     categories = np.unique(bin_cat)
+
     if 'E' in categories and 'I' in categories:
         if verbose:
             print('Selecting Excitatory and Inhibitory cells')
@@ -728,6 +729,9 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
         selected_cat = []
     permuted_idxs = np.random.permutation(len(bin_cat))
     permuted_bin_cats = bin_cat[permuted_idxs]
+
+    if verbose:
+        print('Min dist: ', min_dist, 'Min amp: ', min_amp)
 
     if min_amp is None:
         min_amp = 0
@@ -992,13 +996,16 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
         If True output is verbose
 
     """
-    nprocesses = len(spiketrains)
     if parallel:
         import multiprocessing
-        # t_start = time.time()
-        pool = multiprocessing.Pool(nprocesses)
-        _ = [pool.apply_async(annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose, ))
-             for i, st_i in enumerate(spiketrains)]
+        threads = []
+        for i, st_i in enumerate(spiketrains):
+            p = multiprocessing.Process(target=annotate_parallel, args=(i, st_i, spiketrains, t_jitt,
+                                                                        overlapping_pairs, verbose, ))
+            p.start()
+            threads.append(p)
+        for p in threads:
+            p.join()
     else:
         # find overlapping spikes
         for i, st_i in enumerate(spiketrains):
