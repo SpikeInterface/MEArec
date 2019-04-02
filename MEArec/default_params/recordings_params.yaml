@@ -65,7 +65,8 @@ recordings:
   noise_color: False # if True noise is colored resembling experimental noise
   noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
   far_neurons_n: 300 # number of far noisy neurons to be simulated
-  far_neuronsmax_amp: 20 # maximum amplitude of far neurons
+  far_neurons_max_amp: 10 # maximum amplitude of far neurons
+  far_neurons_noise_floor: 0.5 # percent of random noise
   far_neurons_exc_inh_ratio: 0.8 # excitatory / inhibitory noisy neurons ratio
   color_peak: 500 # (color) peak / curoff frequency of resonating filter
   color_q: 1 # (color) quality factor of resonating filter
