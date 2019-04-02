@@ -283,7 +283,7 @@ class TestGenerators(unittest.TestCase):
                     del recgen_noise
 
     def test_gen_recordings_only_noise(self):
-        print('Test recording generation - only noise')
+        print('Test recording generation - far neurons')
         info, info_folder = mr.get_default_config()
         ne = 0
         ni = 0
@@ -303,8 +303,10 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['templates']['min_dist'] = 1
         rec_params['recordings']['modulation'] = 'none'
-        rec_params['recordings']['noise_mode'] = 'distance-correlated'
-        rec_params['recordings']['noise_color'] = True
+        rec_params['recordings']['noise_mode'] = 'far-neurons'
+        rec_params['recordings']['far_neurons_n'] = 10
+        rec_params['recordings']['far_neurons_max_amp'] = 100
+        rec_params['recordings']['far_neurons_exc_inh_ratio'] = 0.8
         recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
         assert recgen_noise.recordings.shape[0] == num_chan

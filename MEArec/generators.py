@@ -557,9 +557,23 @@ class RecordingGenerator:
         sync_jitt = params['recordings']['sync_jitt'] * pq.ms
 
         if noise_mode == 'distance-correlated':
-            if 'half_distance' not in rec_params.keys():
-                params['recordings']['half_dist'] = 30
-                half_dist = 30
+            if 'noise_half_distance' not in rec_params.keys():
+                params['recordings']['noise_half_distance'] = 30
+            half_dist = params['recordings']['noise_half_distance']
+
+        if noise_mode == 'far-neurons':
+            if 'far_neurons_n' not in rec_params.keys():
+                params['recordings']['far_neurons_n'] = 300
+            far_neurons_n = params['recordings']['far_neurons_n']
+            if 'far_neurons_max_amp' not in rec_params.keys():
+                params['recordings']['far_neurons_max_amp'] = 20
+            far_neurons_max_amp = params['recordings']['far_neurons_max_amp']
+            if 'far_neurons_noise_floor' not in rec_params.keys():
+                params['recordings']['far_neurons_noise_floor'] = 0.5
+            far_neurons_noise_floor = params['recordings']['far_neurons_noise_floor']
+            if 'far_neurons_exc_inh_ratio' not in rec_params.keys():
+                params['recordings']['far_neurons_exc_inh_ratio'] = 0.8
+            far_neurons_exc_inh_ratio = params['recordings']['far_neurons_exc_inh_ratio']
 
         if noise_color is True:
             if 'color_peak' not in rec_params.keys():
@@ -568,9 +582,9 @@ class RecordingGenerator:
             if 'color_q' not in rec_params.keys():
                 params['recordings']['color_q'] = 1
             color_q = params['recordings']['color_q']
-            if 'random_noise_floor' not in rec_params.keys():
-                params['recordings']['random_noise_floor'] = 0.5
-            random_noise_floor = params['recordings']['random_noise_floor']
+            if 'color_random_noise_floor' not in rec_params.keys():
+                params['recordings']['color_random_noise_floor'] = 0.3
+            random_noise_floor = params['recordings']['color_random_noise_floor']
 
         if 'noise_level' not in rec_params.keys():
             params['recordings']['noise_level'] = 10
@@ -997,7 +1011,6 @@ class RecordingGenerator:
                     cons_spikes.append(cons)
 
             spike_matrix = resample_spiketrains(spiketrains, fs=fs)
-            n_samples = spike_matrix.shape[1]
 
             final_loc = []
             final_idxs = []
@@ -1209,10 +1222,6 @@ class RecordingGenerator:
 
         if self.verbose:
             print('Noise seed: ', noise_seed)
-        if noise_color:
-            if self.verbose:
-                print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                      ' and random noise level: ', random_noise_floor)
         np.random.seed(noise_seed)
         if noise_level > 0:
             if noise_mode == 'uncorrelated':
@@ -1224,6 +1233,9 @@ class RecordingGenerator:
                         additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                        len(idxs))
                         if noise_color:
+                            if self.verbose:
+                                print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                                      ' and random noise level: ', random_noise_floor)
                             # iir peak filter
                             b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                             additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
@@ -1235,6 +1247,9 @@ class RecordingGenerator:
                     additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                    recordings.shape[1])
                     if noise_color:
+                        if self.verbose:
+                            print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                                  ' and random noise level: ', random_noise_floor)
                         # iir peak filter
                         b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
@@ -1260,25 +1275,109 @@ class RecordingGenerator:
                         additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                                      size=(len(idxs))).T
                         if noise_color:
+                            if self.verbose:
+                                print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                                      ' and random noise level: ', random_noise_floor)
                             # iir peak filter
                             b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                             additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
-                                             * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
-                            additive_noise = additive_noise * (noise_level / np.std(additive_noise))
+                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                                             np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
+                                                                           size=(len(idxs))).T
+                        additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                         recordings[:, idxs] += additive_noise
                 else:
                     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                                  size=recordings.shape[1]).T
                     if noise_color:
+                        if self.verbose:
+                            print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
+                                  ' and random noise level: ', random_noise_floor)
                         # iir peak filter
                         b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-                        additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
-                                         * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
-                        additive_noise = additive_noise * (noise_level / np.std(additive_noise))
+                        additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                                         np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
+                                                                       size=recordings.shape[1]).T
+                    additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
                     recordings += additive_noise
+            elif noise_mode == 'far-neurons':
+                idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
+                                                            x_lim=x_lim, y_lim=y_lim, z_lim=z_lim, min_amp=0,
+                                                            max_amp=far_neurons_max_amp, min_dist=1,
+                                                            verbose=False)
+                templates_noise = eaps[np.array(idxs_cells)]
+                if drifting:
+                    templates_noise = templates_noise[:, 0]
+
+                # resample spikes
+                up = fs
+                down = spike_fs
+                sampling_ratio = float(up / down)
+                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                n_resample = int((fs.rescale('kHz') * spike_duration).magnitude)
+                if templates_noise.shape[2] != n_resample:
+                    templates_noise_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+                    if self.verbose:
+                        print('Resampling noisy spikes')
+                    for t, tem in enumerate(templates_noise):
+                        tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
+                        tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
+                        templates_noise_pol[t, :] = tem_poly[:,
+                                                    int(sampling_ratio * pad_samples[0]):int(
+                                                        sampling_ratio * pad_samples[0])
+                                                                                   + n_resample]
+                else:
+                    templates_noise_pol = templates_noise
+
+                templates_noise_pad = []
+                if self.verbose:
+                    print('Padding noisy templates edges')
+                for t, tem in enumerate(templates_noise_pol):
+                    tem = cubic_padding(tem, pad_len, fs)
+                    templates_noise_pad.append(tem)
+                templates_noise = np.array(templates_noise_pad)
+
+                cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
+                del templates_noise_pol, templates_noise_pad
+
+                # create noisy spiketrains
+                if self.verbose:
+                    print('Generating noisy spike trains')
+                noisy_spiketrains_params = params['spiketrains']
+                noisy_spiketrains_params['n_exc'] = int(far_neurons_n * far_neurons_exc_inh_ratio)
+                noisy_spiketrains_params['n_inh'] = far_neurons_n - noisy_spiketrains_params['n_exc']
+                noisy_spiketrains_params['seed'] = noise_seed
+                spgen_noise = SpikeTrainGenerator(params=noisy_spiketrains_params)
+                spgen_noise.generate_spikes()
+                spiketrains_noise = spgen_noise.all_spiketrains
+
+                spike_matrix_noise = resample_spiketrains(spiketrains_noise, fs=fs)
+                additive_noise = np.zeros(recordings.shape)
+                if self.verbose:
+                    print('Convolving noisy spike trains')
+                templates_noise = templates_noise.reshape((templates_noise.shape[0], 1, templates_noise.shape[1],
+                                                           templates_noise.shape[2]))
+                for st, spike_bin in enumerate(spike_matrix_noise):
+                    additive_noise += convolve_templates_spiketrains(st, spike_bin, templates_noise[st],
+                                                                     cut_out=cut_outs_samples, verbose=self.verbose)
+
+                # remove mean
+                for i, m in enumerate(np.mean(additive_noise, axis=1)):
+                    additive_noise[i] -= m
+
+                # adding noise floor
+                additive_noise += far_neurons_noise_floor * np.std(additive_noise) * \
+                                  np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
+
+                noise_scale = noise_level / np.std(additive_noise)
+                if self.verbose:
+                    print('Scaling to reach desired level by: ', noise_scale)
+                additive_noise *= noise_scale
+                print(np.std(additive_noise))
+                # additive_noise = additive_noise * (noise_level / np.std(additive_noise))
+                recordings += additive_noise
         else:
             if self.verbose:
                 print('Noise level is set to 0')

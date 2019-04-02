@@ -391,18 +391,18 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['seed'] = kwargs['noise_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
-    elif 'overlap' not in params_dict.keys():
+    elif 'overlap' not in params_dict['recordings'].keys():
         params_dict['recordings']['overlap'] = False
     if kwargs['extract_wf']:
         params_dict['recordings']['extract_wf'] = True
-    elif 'extract_wf' not in params_dict.keys():
+    elif 'extract_wf' not in params_dict['recordings'].keys():
         params_dict['recordings']['extract_wf'] = False
 
     if kwargs['half_dist'] is not None:
         params_dict['recordings']['half_dist'] = kwargs['half_dist']
     if kwargs['color_noise']:
         params_dict['recordings']['noise_color'] = True
-    else:
+    elif 'noise_color' not in params_dict['recordings'].keys():
         params_dict['recordings']['noise_color'] = False
     if kwargs['color_peak'] is not None:
         params_dict['recordings']['color_peak'] = kwargs['color_peak']
@@ -413,7 +413,7 @@ def gen_recordings(params, **kwargs):
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
-    elif 'drifting' not in params_dict.keys():
+    elif 'drifting' not in params_dict['recordings'].keys():
         params_dict['recordings']['drifting'] = False
     if kwargs['preferred_dir'] is not None and len(kwargs['preferred_dir']) == 3:
         params_dict['recordings']['preferred_dir'] = kwargs['preferred_dir']

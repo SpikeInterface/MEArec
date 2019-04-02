@@ -717,7 +717,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     selected_idxs = []
     categories = np.unique(bin_cat)
 
-    if 'E' in categories and 'I' in categories:
+    if bin_cat is not None and 'E' in categories and 'I' in categories:
         if verbose:
             print('Selecting Excitatory and Inhibitory cells')
         excinh = True
@@ -727,8 +727,11 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
             print('Selecting random templates (cell types not specified)')
         excinh = False
         selected_cat = []
-    permuted_idxs = np.random.permutation(len(bin_cat))
-    permuted_bin_cats = bin_cat[permuted_idxs]
+    permuted_idxs = np.random.permutation(len(loc))
+    if bin_cat is not None:
+        permuted_bin_cats = bin_cat[permuted_idxs]
+    else:
+        permuted_bin_cats = ['U'] * len(loc)
 
     if verbose:
         print('Min dist: ', min_dist, 'Min amp: ', min_amp)
