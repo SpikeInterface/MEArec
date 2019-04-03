@@ -1002,13 +1002,19 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
     if parallel:
         import multiprocessing
         threads = []
+        manager = multiprocessing.Manager()
+        return_spiketrains = manager.dict()
         for i, st_i in enumerate(spiketrains):
             p = multiprocessing.Process(target=annotate_parallel, args=(i, st_i, spiketrains, t_jitt,
-                                                                        overlapping_pairs, verbose, ))
+                                                                        overlapping_pairs, return_spiketrains,
+                                                                        verbose, ))
             p.start()
             threads.append(p)
         for p in threads:
             p.join()
+        # retrieve annotated spiketrains
+        for i, st in enumerate(spiketrains):
+            spiketrains[i] = return_spiketrains[i]
     else:
         # find overlapping spikes
         for i, st_i in enumerate(spiketrains):
@@ -1036,7 +1042,7 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
             st_i.annotate(overlap=over)
 
 
-def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
+def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, return_spiketrains, verbose):
     """
     Helper function to annotate spike trains in parallel.
 
@@ -1078,7 +1084,7 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
                         if len(id_over) != 0:
                             over[i_sp] = 'O'
     st_i.annotate(overlap=over)
-
+    return_spiketrains[i] = st_i
 
 def resample_spiketrains(spiketrains, fs=None):
     """
