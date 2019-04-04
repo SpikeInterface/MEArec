@@ -44,7 +44,7 @@ def get_default_config():
                         'recordings_params': str(mearec_home / 'default_params' / 'recordings_params.yaml'),
                         'templates_folder': str(mearec_home / 'templates'),
                         'recordings_folder': str(mearec_home / 'recordings'),
-                        'cell_models_folder': str(mearec_home /'cell_models' / 'bbp')}
+                        'cell_models_folder': str(mearec_home / 'cell_models' / 'bbp')}
         with (mearec_home / 'mearec.conf').open('w') as f:
             yaml.dump(default_info, f)
     else:
@@ -846,7 +846,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                 amp = np.max(np.abs(np.min(templates[id_cell])))
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            amp < max_amp:
                         # save cell
                         pos_sel.append(loc[id_cell])
                         selected_idxs.append(id_cell)
@@ -857,7 +857,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                 else:
                     # drifting
                     if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            amp < max_amp:
                         # save cell
                         drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                         if drift_angle - angle_tol <= 0:
@@ -957,7 +957,7 @@ def find_overlapping_templates(templates, thresh=0.7):
     overlapping_pairs = []
 
     for i, temp_1 in enumerate(templates):
-        if len(templates.shape) == 4: # jitter
+        if len(templates.shape) == 4:  # jitter
             temp_1 = temp_1[0]
 
         peak_electrode_idx = np.unravel_index(temp_1.argmin(), temp_1.shape)
@@ -1007,7 +1007,7 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
         for i, st_i in enumerate(spiketrains):
             p = multiprocessing.Process(target=annotate_parallel, args=(i, st_i, spiketrains, t_jitt,
                                                                         overlapping_pairs, return_spiketrains,
-                                                                        verbose, ))
+                                                                        verbose,))
             p.start()
             threads.append(p)
         for p in threads:
@@ -1085,6 +1085,7 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, return_sp
                             over[i_sp] = 'O'
     st_i.annotate(overlap=over)
     return_spiketrains[i] = st_i
+
 
 def resample_spiketrains(spiketrains, fs=None):
     """
@@ -1205,7 +1206,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     mod[i + 1] = sdrand * np.random.randn() + mrand
                 else:
                     mod[i + 1] = isi.magnitude ** exp * (1. / max_burst_duration.magnitude ** exp) \
-                                     + sdrand * np.random.randn()
+                                 + sdrand * np.random.randn()
             else:
                 if last_burst_event.magnitude == 0:
                     consecutive_idx = np.where((st > st[i] - max_burst_duration) & (st <= st[i]))[0]
@@ -1256,7 +1257,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                         mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
                     else:
                         mod[i + 1] = isi.magnitude ** exp * (
-                                    1. / max_burst_duration.magnitude ** exp) + sdrand * np.random.randn(n_el)
+                                1. / max_burst_duration.magnitude ** exp) + sdrand * np.random.randn(n_el)
                 else:
                     if isi > max_burst_duration:
                         mod[i + 1] = sdrand * np.random.randn(n_el) + mrand
@@ -1269,7 +1270,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                         consecutive = len(consecutive_idx)
 
                     # if consecutive >= 1:
-                        # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
+                    # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
 
                     if consecutive == n_spikes:
                         last_burst_event = st[i + 1]
@@ -1298,7 +1299,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
     return np.array(mod), cons
 
 
-def compute_bursting_template(template, mod, wc_mod):
+def compute_bursting_template(template, mod, wc_mod, filtfilt=False):
     """
     Compute modulation in shape for a template with low-pass filter.
 
@@ -1310,6 +1311,8 @@ def compute_bursting_template(template, mod, wc_mod):
         Amplitude modulation for template or single electrodes
     wc_mod : float
         Normalized frequency of low-pass filter
+    filtfilt: bool
+        If True forward-backward filter is used
 
     Returns
     -------
@@ -1320,14 +1323,98 @@ def compute_bursting_template(template, mod, wc_mod):
     import scipy.signal as ss
     b, a = ss.butter(3, wc_mod)
     if len(template.shape) == 2:
-        temp_filt = ss.filtfilt(b, a, template, axis=1)
+        if filtfilt:
+            temp_filt = ss.filtfilt(b, a, template, axis=1)
+        else:
+            temp_filt = ss.lfilter(b, a, template, axis=1)
         if mod.size > 1:
             temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
                                   temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
         else:
             temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
     else:
-        temp_filt = ss.filtfilt(b, a, template)
+        if filtfilt:
+            temp_filt = ss.filtfilt(b, a, template)
+        else:
+            temp_filt = ss.lfilter(b, a, template)
+        temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
+    return temp_filt
+
+
+def sigmoid(x, b=1):
+    return 1 / (1 + np.exp(-b * x)) - 0.5
+
+
+def compute_stretched_template(template, mod, sigmoid_range=30):
+    """
+    Compute modulation in shape for a template with low-pass filter.
+
+    Parameters
+    ----------
+    template : np.array
+        Template to be modulated (num_chan, n_samples) or (n_samples)
+    mod : int or np.array
+        Amplitude modulation for template or single electrodes
+    stretche : float
+        Normalized stretch factor (1 - no stretch, 0, full stretch)
+
+    Returns
+    -------
+    temp_filt : np.array
+        Modulated template
+
+    """
+    import scipy.interpolate as interp
+    if len(template.shape) == 2:
+        min_idx = np.unravel_index(np.argmin(template), template.shape)[1]
+        x_centered = np.arange(-min_idx, template.shape[1] - min_idx)
+        x_centered = x_centered / float(np.ptp(x_centered))
+        x_centered *= sigmoid_range
+
+        if mod.size > 1:
+            stretch_factor = np.mean(mod)
+        else:
+            stretch_factor = mod
+        if mod >= 1:
+            x_stretch = x_centered
+        else:
+            x_stretch = sigmoid(x_centered, 1 - stretch_factor)
+        x_stretch = x_stretch / float(np.ptp(x_stretch))
+        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
+        x_stretch = np.round(x_stretch, 6)
+        x_recovered = np.round(x_recovered, 6)
+        temp_filt = np.zeros(template.shape)
+        for i, t in enumerate(template):
+            f = interp.interp1d(x_stretch, t, kind='cubic')
+            temp_filt[i] = f(x_recovered)
+        if mod.size > 1:
+            temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
+                                  temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
+        else:
+            temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
+    else:
+        min_idx = np.argmin(template)
+        x_centered = np.arange(-min_idx, len(template) - min_idx)
+        x_centered = x_centered / float(np.ptp(x_centered))
+        x_centered *= sigmoid_range
+
+        if mod.size > 1:
+            stretch_factor = np.mean(mod)
+        else:
+            stretch_factor = mod
+        if mod >= 1:
+            x_stretch = x_centered
+        else:
+            x_stretch = sigmoid(x_centered, 1 - stretch_factor)
+        x_stretch = x_stretch / float(np.ptp(x_stretch))
+        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        # x_recovered = (np.ptp(x_stretch) / np.ptp(x_centered)) * (x_centered - x_centered[0]) + x_stretch[0]
+        x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
+        x_stretch = np.round(x_stretch, 6)
+        x_recovered = np.round(x_recovered, 6)
+        f = interp.interp1d(x_stretch, template, kind='cubic')
+        temp_filt = f(x_recovered)
         temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
     return temp_filt
 
@@ -1816,6 +1903,173 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     return recordings, final_loc, final_idx, peaks
 
 
+def chunk_convolution(ch, idxs, output_dict, st, modulation, drifting, drifting_units, templates, spike_bin,
+                      cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, max_electrode, verbose,
+                      amp_mod, shape_mod, bursting_fc):
+    if modulation == 'none':
+        # reset random seed to keep sampling of jitter spike same
+        seed = np.random.randint(10000)
+        np.random.seed(seed)
+
+        if drifting and st in drifting_units:
+            rec, final_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
+                                                                                     spike_bin[idxs],
+                                                                                     templates[st],
+                                                                                     cut_out=
+                                                                                     cut_outs_samples,
+                                                                                     fs=fs,
+                                                                                     loc=
+                                                                                     template_locs[
+                                                                                         st],
+                                                                                     v_drift=
+                                                                                     velocity_vector,
+                                                                                     t_start_drift=
+                                                                                     t_start_drift,
+                                                                                     verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   templates[st, 0, :, max_electrode],
+                                                   cut_out=cut_outs_samples)
+        else:
+            if drifting:
+                template = templates[st, 0]
+            else:
+                template = templates[st]
+            rec = convolve_templates_spiketrains(st, spike_bin[idxs],
+                                                 template,
+                                                 cut_out=cut_outs_samples,
+                                                 verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   template[:,
+                                                   max_electrode],
+                                                   cut_out=cut_outs_samples)
+            final_pos = None
+            final_idx = None
+            mix = None
+    elif 'electrode' in modulation:
+        seed = np.random.randint(10000)
+        np.random.seed(seed)
+
+        if drifting and st in drifting_units:
+            rec, final_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
+                                                                                     spike_bin[idxs],
+                                                                                     templates[st],
+                                                                                     cut_out=
+                                                                                     cut_outs_samples,
+                                                                                     modulation=True,
+                                                                                     mod_array=
+                                                                                     amp_mod[st],
+                                                                                     fs=fs,
+                                                                                     loc=
+                                                                                     template_locs[
+                                                                                         st],
+                                                                                     v_drift=
+                                                                                     velocity_vector,
+                                                                                     t_start_drift=
+                                                                                     t_start_drift,
+                                                                                     bursting=shape_mod,
+                                                                                     fc=bursting_fc,
+                                                                                     verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   templates[st, 0, :,
+                                                   max_electrode],
+                                                   cut_out=cut_outs_samples,
+                                                   modulation=True,
+                                                   mod_array=amp_mod[st][:, max_electrode])
+        else:
+            if drifting:
+                template = templates[st, 0]
+            else:
+                template = templates[st]
+            rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+                                                 cut_out=cut_outs_samples,
+                                                 modulation=True,
+                                                 mod_array=amp_mod[st],
+                                                 bursting=shape_mod,
+                                                 fc=bursting_fc,
+                                                 fs=fs, verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   template[:,
+                                                   max_electrode],
+                                                   cut_out=cut_outs_samples,
+                                                   modulation=True,
+                                                   mod_array=amp_mod[st][:, max_electrode],
+                                                   bursting=shape_mod,
+                                                   fc=bursting_fc,
+                                                   fs=fs)
+            final_pos = None
+            final_idx = None
+            mix = None
+    elif 'template' in modulation:
+        seed = np.random.randint(10000)
+        np.random.seed(seed)
+        if drifting and st in drifting_units:
+            rec, final_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
+                                                                                     spike_bin[idxs],
+                                                                                     templates[st],
+                                                                                     cut_out=
+                                                                                     cut_outs_samples,
+                                                                                     modulation=True,
+                                                                                     mod_array=
+                                                                                     amp_mod[st],
+                                                                                     fs=fs,
+                                                                                     loc=
+                                                                                     template_locs[
+                                                                                         st],
+                                                                                     v_drift=
+                                                                                     velocity_vector,
+                                                                                     t_start_drift=
+                                                                                     t_start_drift,
+                                                                                     bursting=shape_mod,
+                                                                                     fc=bursting_fc,
+                                                                                     verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   templates[st, 0, :,
+                                                   max_electrode],
+                                                   cut_out=cut_outs_samples,
+                                                   modulation=True,
+                                                   mod_array=amp_mod[st])
+        else:
+            if drifting:
+                template = templates[st, 0]
+            else:
+                template = templates[st]
+            rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+                                                 cut_out=cut_outs_samples,
+                                                 modulation=True,
+                                                 mod_array=amp_mod[st],
+                                                 bursting=shape_mod,
+                                                 fc=bursting_fc,
+                                                 fs=fs, verbose=verbose)
+            np.random.seed(seed)
+            spike_trace = convolve_single_template(st, spike_bin[idxs],
+                                                   template[:,
+                                                   max_electrode],
+                                                   cut_out=cut_outs_samples,
+                                                   modulation=True,
+                                                   mod_array=amp_mod[st],
+                                                   bursting=shape_mod,
+                                                   fc=bursting_fc,
+                                                   fs=fs)
+            final_pos = None
+            final_idx = None
+            mix = None
+    else:
+        raise Exception('Modulation is unknown!')
+
+    return_dict = dict()
+    return_dict['rec'] = rec
+    return_dict['spike_trace'] = spike_trace
+    return_dict['final_pos'] = final_pos
+    return_dict['final_idx'] = final_idx
+    return_dict['mix'] = mix
+    output_dict[ch] = return_dict
+
+
 ### RECORDING OPERATION ###
 def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
     """
@@ -2122,7 +2376,7 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
         cm = mpl.cm.get_cmap(cmap)
         color = [cm(1)]
         for i in isi:
-            color.append(cm(i/np.max(isi)))
+            color.append(cm(i / np.max(isi)))
 
     if ax is None:
         fig = plt.figure()
@@ -2145,6 +2399,5 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
                 ax.plot(wf[i, electrode], color=color[i], lw=0.5)
 
     return ax
-
 
 # if __name__ == '__main__':
