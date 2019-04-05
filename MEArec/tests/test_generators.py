@@ -377,6 +377,7 @@ class TestGenerators(unittest.TestCase):
                         del recgen_drift
 
     def test_default_params(self):
+        print('Test default params')
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_folder=info['templates_folder'])

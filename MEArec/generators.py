@@ -456,6 +456,10 @@ class RecordingGenerator:
                 self.templates = rec_dict['templates']
             else:
                 self.templates = np.array([])
+            if 'template_locations' in rec_dict.keys():
+                self.template_locations = rec_dict['template_locations']
+            else:
+                self.template_locations = np.array([])
             if 'channel_positions' in rec_dict.keys():
                 self.channel_positions = rec_dict['channel_positions']
             else:
@@ -578,7 +582,7 @@ class RecordingGenerator:
                 params['recordings']['far_neurons_exc_inh_ratio'] = 0.8
             far_neurons_exc_inh_ratio = params['recordings']['far_neurons_exc_inh_ratio']
 
-        if noise_color is True:
+        if noise_color:
             if 'color_peak' not in rec_params.keys():
                 params['recordings']['color_peak'] = 500
             color_peak = params['recordings']['color_peak']
@@ -741,8 +745,10 @@ class RecordingGenerator:
             if temp_info is not None:
                 if temp_info['params']['drifting']:
                     eaps = eaps[:, 0]
+                    locs = locs[:, 0]
             elif len(self.templates.shape) == 5:
                 self.templates = self.templates[:, 0]
+                self.template_locs = self.template_locs[:, 0]
             preferred_dir = None
             angle_tol = None
             drift_velocity = None
@@ -770,9 +776,6 @@ class RecordingGenerator:
 
         if self.verbose:
             print('Selecting cells')
-
-        recordings = np.zeros((n_elec, n_samples))
-        timestamps = np.arange(recordings.shape[1]) / fs
 
         if not only_noise:
             spike_traces = np.zeros((n_neurons, n_samples))
@@ -940,7 +943,16 @@ class RecordingGenerator:
                 pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
                 cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
                 templates = self.templates
+                template_locs = self.template_locations
                 voltage_peaks = self.voltage_peaks
+                if not drifting:
+                    velocity_vector = None
+                else:
+                    drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in template_locs])
+                    drift_velocity_ums = drift_velocity / 60.
+                    velocity_vector = drift_velocity_ums * preferred_dir
+                    if self.verbose:
+                        print('Drift velocity vector: ', velocity_vector)
 
             overlapping_computed = False
             if sync_rate != 0:
@@ -1022,10 +1034,6 @@ class RecordingGenerator:
                     cons_spikes.append(cons)
 
             spike_matrix = resample_spiketrains(spiketrains, fs=fs)
-
-            final_loc = []
-            final_idxs = []
-
             # # modulated convolution
             if drifting:
                 drifting_units = np.random.permutation(n_neurons)[:n_drifting]
@@ -1045,363 +1053,70 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
-            for st, spike_bin in enumerate(spike_matrix):
-                if len(chunks_rec) > 0:
-                    for ch, chunk in enumerate(chunks_rec):
-                        if self.verbose:
-                            print('Convolving in: ', chunk[0], chunk[1], ' chunk')
-                        idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                        max_electrode = np.argmax(voltage_peaks[st])
-                        if modulation == 'none':
-                            # reset random seed to keep sampling of jitter spike same
-                            seed = np.random.randint(10000)
-                            np.random.seed(seed)
+            recordings = np.zeros((n_elec, n_samples))
+            timestamps = np.arange(recordings.shape[1]) / fs
 
+            # for st, spike_bin in enumerate(spike_matrix):
+            if len(chunks_rec) > 0:
+                import multiprocessing
+                threads = []
+                manager = multiprocessing.Manager()
+                output_dict = manager.dict()
+                for ch, chunk in enumerate(chunks_rec):
+                    if self.verbose:
+                        print('Convolving in: ', chunk[0], chunk[1], ' chunk')
+                    idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+                    p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
+                                                                                output_dict, spike_matrix,
+                                                                                modulation, drifting,
+                                                                                drifting_units, templates,
+                                                                                cut_outs_samples,
+                                                                                template_locs, velocity_vector,
+                                                                                t_start_drift, fs, self.verbose,
+                                                                                amp_mod, shape_mod,
+                                                                                bursting_fc, chunk[0],
+                                                                                voltage_peaks))
+                    p.start()
+                    threads.append(p)
+                for p in threads:
+                    p.join()
+                # retrieve annotated spiketrains
+                for ch, chunk in enumerate(chunks_rec):
+                    rec = output_dict[ch]['rec']
+                    spike_trace = output_dict[ch]['spike_traces']
+                    idxs = output_dict[ch]['idxs']
+                    recordings[:, idxs] += rec
+                    for st in np.arange(n_neurons):
+                        spike_traces[st, idxs] = spike_trace[st]
+                        if ch == len(chunks_rec) - 1:
+                            final_locs = output_dict[ch]['final_locs']
+                            final_idxs = output_dict[ch]['final_idxs']
                             if drifting and st in drifting_units:
-                                rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
-                                                                                                       spike_bin[idxs],
-                                                                                                       templates[st],
-                                                                                                       cut_out=
-                                                                                                       cut_outs_samples,
-                                                                                                       fs=fs,
-                                                                                                       loc=
-                                                                                                       template_locs[
-                                                                                                           st],
-                                                                                                       v_drift=
-                                                                                                       velocity_vector,
-                                                                                                       t_start_drift=
-                                                                                                       t_start_drift,
-                                                                                                       chunk_start=
-                                                                                                       chunk[0],
-                                                                                                       verbose=self.verbose)
-                                recordings[:, idxs] += rec
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] += convolve_single_template(st, spike_bin[idxs],
-                                                                                   templates[st, 0, :, max_electrode],
-                                                                                   cut_out=cut_outs_samples)
-                                if ch == len(chunks_rec) - 1:
-                                    spiketrains[st].annotate(drifting=True)
-                                    spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                                    spiketrains[st].annotate(final_soma_position=fin_pos)
-                                    spiketrains[st].annotate(final_idx=final_idx)
-                                    final_loc.append(fin_pos)
-                                    final_idxs.append(final_idx)
-                            else:
-                                if drifting:
-                                    template = templates[st, 0]
-                                else:
-                                    template = templates[st]
-                                recordings[:, idxs] += convolve_templates_spiketrains(st, spike_bin[idxs],
-                                                                                      template,
-                                                                                      cut_out=cut_outs_samples,
-                                                                                      verbose=self.verbose)
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] += convolve_single_template(st, spike_bin[idxs],
-                                                                                   template[:, max_electrode],
-                                                                                   cut_out=cut_outs_samples)
-                                if drifting and ch == len(chunks_rec) - 1:
-                                    final_loc.append(template_locs[st, 0])
-                                    final_idxs.append(0)
-                        elif 'electrode' in modulation:
-                            seed = np.random.randint(10000)
-                            np.random.seed(seed)
-
-                            if drifting and st in drifting_units:
-                                rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
-                                                                                                       spike_bin[idxs],
-                                                                                                       templates[st],
-                                                                                                       cut_out=
-                                                                                                       cut_outs_samples,
-                                                                                                       modulation=True,
-                                                                                                       mod_array=
-                                                                                                       amp_mod[st],
-                                                                                                       fs=fs,
-                                                                                                       loc=
-                                                                                                       template_locs[
-                                                                                                           st],
-                                                                                                       v_drift=
-                                                                                                       velocity_vector,
-                                                                                                       t_start_drift=
-                                                                                                       t_start_drift,
-                                                                                                       chunk_start=
-                                                                                                       chunk[0],
-                                                                                                       bursting=shape_mod,
-                                                                                                       fc=bursting_fc,
-                                                                                                       verbose=self.verbose)
-                                recordings[:, idxs] += rec
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] = convolve_single_template(st, spike_bin[idxs],
-                                                                                  templates[st, 0, :,
-                                                                                  np.argmax(voltage_peaks[st])],
-                                                                                  cut_out=cut_outs_samples,
-                                                                                  modulation=True,
-                                                                                  mod_array=amp_mod[st][:,
-                                                                                            max_electrode])
-                                if ch == len(chunks_rec) - 1:
-                                    spiketrains[st].annotate(drifting=True)
-                                    spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                                    spiketrains[st].annotate(final_soma_position=fin_pos)
-                                    spiketrains[st].annotate(final_idx=final_idx)
-                                    final_loc.append(fin_pos)
-                                    final_idxs.append(final_idx)
-                            else:
-                                if drifting:
-                                    template = templates[st, 0]
-                                else:
-                                    template = templates[st]
-                                recordings[:, idxs] += convolve_templates_spiketrains(st, spike_bin[idxs], template,
-                                                                                      cut_out=cut_outs_samples,
-                                                                                      modulation=True,
-                                                                                      mod_array=amp_mod[st],
-                                                                                      bursting=shape_mod,
-                                                                                      fc=bursting_fc,
-                                                                                      fs=fs, verbose=self.verbose)
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] = convolve_single_template(st, spike_bin[idxs],
-                                                                                  template[:,
-                                                                                  np.argmax(voltage_peaks[st])],
-                                                                                  cut_out=cut_outs_samples,
-                                                                                  modulation=True,
-                                                                                  mod_array=amp_mod[st][:,
-                                                                                            max_electrode],
-                                                                                  bursting=shape_mod,
-                                                                                  fc=bursting_fc,
-                                                                                  fs=fs)
-                                if drifting and ch == len(chunks_rec) - 1:
-                                    final_loc.append(template_locs[st, 0])
-                                    final_idxs.append(0)
-                        elif 'template' in modulation:
-                            seed = np.random.randint(10000)
-                            np.random.seed(seed)
-                            if drifting and st in drifting_units:
-                                rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st,
-                                                                                                       spike_bin[idxs],
-                                                                                                       templates[st],
-                                                                                                       cut_out=
-                                                                                                       cut_outs_samples,
-                                                                                                       modulation=True,
-                                                                                                       mod_array=
-                                                                                                       amp_mod[st],
-                                                                                                       fs=fs,
-                                                                                                       loc=
-                                                                                                       template_locs[
-                                                                                                           st],
-                                                                                                       v_drift=
-                                                                                                       velocity_vector,
-                                                                                                       t_start_drift=
-                                                                                                       t_start_drift,
-                                                                                                       chunk_start=
-                                                                                                       chunk[0],
-                                                                                                       bursting=shape_mod,
-                                                                                                       fc=bursting_fc,
-                                                                                                       verbose=self.verbose)
-                                recordings[:, idxs] += rec
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] = convolve_single_template(st, spike_bin[idxs],
-                                                                                  templates[st, 0, :, max_electrode],
-                                                                                  cut_out=cut_outs_samples,
-                                                                                  modulation=True,
-                                                                                  mod_array=amp_mod[st])
-                                if ch == len(chunks_rec) - 1:
-                                    spiketrains[st].annotate(drifting=True)
-                                    spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                                    spiketrains[st].annotate(final_soma_position=fin_pos)
-                                    spiketrains[st].annotate(final_idx=final_idx)
-                                    final_loc.append(fin_pos)
-                                    final_idxs.append(final_idx)
-                            else:
-                                if drifting:
-                                    template = templates[st, 0]
-                                else:
-                                    template = templates[st]
-                                recordings[:, idxs] += convolve_templates_spiketrains(st, spike_bin[idxs], template,
-                                                                                      cut_out=cut_outs_samples,
-                                                                                      modulation=True,
-                                                                                      mod_array=amp_mod[st],
-                                                                                      bursting=shape_mod,
-                                                                                      fc=bursting_fc,
-                                                                                      fs=fs, verbose=self.verbose)
-                                np.random.seed(seed)
-                                spike_traces[st, idxs] = convolve_single_template(st, spike_bin[idxs],
-                                                                                  template[:,
-                                                                                  np.argmax(voltage_peaks[st])],
-                                                                                  cut_out=cut_outs_samples,
-                                                                                  modulation=True,
-                                                                                  mod_array=amp_mod[st],
-                                                                                  bursting=shape_mod,
-                                                                                  fc=bursting_fc,
-                                                                                  fs=fs)
-                                if drifting and ch == len(chunks_rec) - 1:
-                                    final_loc.append(template_locs[st, 0])
-                                    final_idxs.append(0)
-                else:
-                    if modulation == 'none':
-                        # reset random seed to keep sampling of jitter spike same
-                        seed = np.random.randint(10000)
-                        np.random.seed(seed)
-
-                        if drifting and st in drifting_units:
-                            rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
-                                                                                                   templates[st],
-                                                                                                   cut_out=
-                                                                                                   cut_outs_samples,
-                                                                                                   fs=fs,
-                                                                                                   loc=
-                                                                                                   template_locs[st],
-                                                                                                   v_drift=
-                                                                                                   velocity_vector,
-                                                                                                   t_start_drift=
-                                                                                                   t_start_drift,
-                                                                                                   verbose=self.verbose)
-                            recordings += rec
-                            final_loc.append(fin_pos)
-                            final_idxs.append(final_idx)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        templates[st, 0, :,
-                                                                        np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples)
-                            spiketrains[st].annotate(drifting=True)
-                            spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                            spiketrains[st].annotate(final_soma_position=fin_pos)
-                            spiketrains[st].annotate(final_idx=final_idx)
-                        else:
-                            if drifting:
-                                template = templates[st, 0]
-                            else:
-                                template = templates[st]
-                            recordings += convolve_templates_spiketrains(st, spike_bin, template,
-                                                                         cut_out=cut_outs_samples, verbose=self.verbose)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        template[:, np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples)
-                            if drifting:
-                                final_loc.append(template_locs[st, 0])
-                                final_idxs.append(0)
-                    elif 'electrode' in modulation:
-                        seed = np.random.randint(10000)
-                        np.random.seed(seed)
-
-                        if drifting and st in drifting_units:
-                            rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
-                                                                                                   templates[st],
-                                                                                                   cut_out=
-                                                                                                   cut_outs_samples,
-                                                                                                   modulation=True,
-                                                                                                   mod_array=
-                                                                                                   amp_mod[st],
-                                                                                                   fs=fs,
-                                                                                                   loc=
-                                                                                                   template_locs[st],
-                                                                                                   v_drift=
-                                                                                                   velocity_vector,
-                                                                                                   t_start_drift=
-                                                                                                   t_start_drift,
-                                                                                                   bursting=shape_mod,
-                                                                                                   fc=bursting_fc,
-                                                                                                   verbose=self.verbose)
-                            recordings += rec
-                            final_loc.append(fin_pos)
-                            final_idxs.append(final_idx)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        templates[st, 0, :,
-                                                                        np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples,
-                                                                        modulation=True,
-                                                                        mod_array=amp_mod[st][:,
-                                                                                  np.argmax(voltage_peaks[st])])
-                            spiketrains[st].annotate(drifting=True)
-                            spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                            spiketrains[st].annotate(final_soma_position=fin_pos)
-                            spiketrains[st].annotate(final_idx=final_idx)
-                        else:
-                            if drifting:
-                                template = templates[st, 0]
-                            else:
-                                template = templates[st]
-                            recordings += convolve_templates_spiketrains(st, spike_bin, template,
-                                                                         cut_out=cut_outs_samples,
-                                                                         modulation=True,
-                                                                         mod_array=amp_mod[st],
-                                                                         bursting=shape_mod,
-                                                                         fc=bursting_fc,
-                                                                         fs=fs, verbose=self.verbose)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        template[:, np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples,
-                                                                        modulation=True,
-                                                                        mod_array=amp_mod[st][:,
-                                                                                  np.argmax(voltage_peaks[st])],
-                                                                        bursting=shape_mod,
-                                                                        fc=bursting_fc,
-                                                                        fs=fs)
-                            if drifting:
-                                final_loc.append(template_locs[st, 0])
-                                final_idxs.append(0)
-                    elif 'template' in modulation:
-                        seed = np.random.randint(10000)
-                        np.random.seed(seed)
-                        if drifting and st in drifting_units:
-                            rec, fin_pos, final_idx, mix = convolve_drifting_templates_spiketrains(st, spike_bin,
-                                                                                                   templates[st],
-                                                                                                   cut_out=
-                                                                                                   cut_outs_samples,
-                                                                                                   modulation=True,
-                                                                                                   mod_array=
-                                                                                                   amp_mod[st],
-                                                                                                   fs=fs,
-                                                                                                   loc=
-                                                                                                   template_locs[st],
-                                                                                                   v_drift=
-                                                                                                   velocity_vector,
-                                                                                                   t_start_drift=
-                                                                                                   t_start_drift,
-                                                                                                   bursting=shape_mod,
-                                                                                                   fc=bursting_fc,
-                                                                                                   verbose=self.verbose)
-                            recordings += rec
-                            final_idxs.append(final_idx)
-                            final_loc.append(fin_pos)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        templates[st, 0, :,
-                                                                        np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples,
-                                                                        modulation=True,
-                                                                        mod_array=amp_mod[st])
-                            spiketrains[st].annotate(drifting=True)
-                            spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                            spiketrains[st].annotate(final_soma_position=fin_pos)
-                            spiketrains[st].annotate(final_idx=final_idx)
-                        else:
-                            if drifting:
-                                template = templates[st, 0]
-                            else:
-                                template = templates[st]
-                            recordings += convolve_templates_spiketrains(st, spike_bin, template,
-                                                                         cut_out=cut_outs_samples,
-                                                                         modulation=True,
-                                                                         mod_array=amp_mod[st],
-                                                                         bursting=shape_mod,
-                                                                         fc=bursting_fc,
-                                                                         fs=fs, verbose=self.verbose)
-                            np.random.seed(seed)
-                            spike_traces[st] = convolve_single_template(st, spike_bin,
-                                                                        template[:, np.argmax(voltage_peaks[st])],
-                                                                        cut_out=cut_outs_samples,
-                                                                        modulation=True,
-                                                                        mod_array=amp_mod[st],
-                                                                        bursting=shape_mod,
-                                                                        fc=bursting_fc,
-                                                                        fs=fs)
-                            if drifting:
-                                final_loc.append(template_locs[st, 0])
-                                final_idxs.append(0)
+                                spiketrains[st].annotate(drifting=True)
+                                spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
+                                spiketrains[st].annotate(final_soma_position=final_locs[st])
+                                spiketrains[st].annotate(final_idx=final_idxs[st])
+            else:
+                # convolve in single chunk
+                output_dict = dict()
+                idxs = np.arange(spike_matrix.shape[1])
+                ch = 0
+                # reorder this
+                chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
+                                  cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
+                                  amp_mod, shape_mod, bursting_fc, 0*pq.s, voltage_peaks)
+                recordings = output_dict[ch]['rec']
+                timestamps = np.arange(recordings.shape[1]) / fs
+                spike_traces = output_dict[ch]['spike_traces']
+                for st in np.arange(n_neurons):
+                    final_locs = output_dict[ch]['final_locs']
+                    final_idxs = output_dict[ch]['final_idxs']
+                    if drifting and st in drifting_units:
+                        spiketrains[st].annotate(drifting=True)
+                        spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
+                        spiketrains[st].annotate(final_soma_position=final_locs[st])
+                        spiketrains[st].annotate(final_idx=final_idxs[st])
             if drifting:
-                print(final_idxs)
                 templates_drift = np.zeros((templates.shape[0], np.max(final_idxs) + 1,
                                             templates.shape[2], templates.shape[3],
                                             templates.shape[4]))
@@ -1417,10 +1132,13 @@ class RecordingGenerator:
                         templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
                 templates = templates_drift
         else:
+            recordings = np.zeros((n_elec, n_samples))
+            timestamps = np.arange(recordings.shape[1]) / fs
             spiketrains = np.array([])
             voltage_peaks = np.array([])
             spike_traces = np.array([])
             templates = np.array([])
+            template_locs = np.array([])
             overlapping = np.array([])
 
         if self.verbose:
@@ -1526,7 +1244,6 @@ class RecordingGenerator:
                 templates_noise = eaps[np.array(idxs_cells)]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
-
                 # resample spikes
                 up = fs
                 down = spike_fs
@@ -1650,6 +1367,7 @@ class RecordingGenerator:
         self.timestamps = timestamps
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
+        self.template_locations = template_locs
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
         self.spike_traces = spike_traces
