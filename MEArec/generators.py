@@ -1049,7 +1049,7 @@ class RecordingGenerator:
                 if len(chunks_rec) > 0:
                     for ch, chunk in enumerate(chunks_rec):
                         if self.verbose:
-                            print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
+                            print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         max_electrode = np.argmax(voltage_peaks[st])
                         if modulation == 'none':
@@ -1071,12 +1071,13 @@ class RecordingGenerator:
                                                                                                        velocity_vector,
                                                                                                        t_start_drift=
                                                                                                        t_start_drift,
+                                                                                                       chunk_start=
+                                                                                                       chunk[0],
                                                                                                        verbose=self.verbose)
                                 recordings[:, idxs] += rec
                                 np.random.seed(seed)
                                 spike_traces[st, idxs] += convolve_single_template(st, spike_bin[idxs],
-                                                                                   templates[st, 0, :,
-                                                                                   np.argmax(voltage_peaks[st])],
+                                                                                   templates[st, 0, :, max_electrode],
                                                                                    cut_out=cut_outs_samples)
                                 if ch == len(chunks_rec) - 1:
                                     spiketrains[st].annotate(drifting=True)
@@ -1085,7 +1086,6 @@ class RecordingGenerator:
                                     spiketrains[st].annotate(final_idx=final_idx)
                                     final_loc.append(fin_pos)
                                     final_idxs.append(final_idx)
-                                    print(final_idx)
                             else:
                                 if drifting:
                                     template = templates[st, 0]
@@ -1097,8 +1097,7 @@ class RecordingGenerator:
                                                                                       verbose=self.verbose)
                                 np.random.seed(seed)
                                 spike_traces[st, idxs] += convolve_single_template(st, spike_bin[idxs],
-                                                                                   template[:,
-                                                                                   np.argmax(voltage_peaks[st])],
+                                                                                   template[:, max_electrode],
                                                                                    cut_out=cut_outs_samples)
                                 if drifting and ch == len(chunks_rec) - 1:
                                     final_loc.append(template_locs[st, 0])
@@ -1124,6 +1123,8 @@ class RecordingGenerator:
                                                                                                        velocity_vector,
                                                                                                        t_start_drift=
                                                                                                        t_start_drift,
+                                                                                                       chunk_start=
+                                                                                                       chunk[0],
                                                                                                        bursting=shape_mod,
                                                                                                        fc=bursting_fc,
                                                                                                        verbose=self.verbose)
@@ -1135,8 +1136,7 @@ class RecordingGenerator:
                                                                                   cut_out=cut_outs_samples,
                                                                                   modulation=True,
                                                                                   mod_array=amp_mod[st][:,
-                                                                                            np.argmax(
-                                                                                                voltage_peaks[st])])
+                                                                                            max_electrode])
                                 if ch == len(chunks_rec) - 1:
                                     spiketrains[st].annotate(drifting=True)
                                     spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
@@ -1163,8 +1163,7 @@ class RecordingGenerator:
                                                                                   cut_out=cut_outs_samples,
                                                                                   modulation=True,
                                                                                   mod_array=amp_mod[st][:,
-                                                                                            np.argmax(
-                                                                                                voltage_peaks[st])],
+                                                                                            max_electrode],
                                                                                   bursting=shape_mod,
                                                                                   fc=bursting_fc,
                                                                                   fs=fs)
@@ -1191,14 +1190,15 @@ class RecordingGenerator:
                                                                                                        velocity_vector,
                                                                                                        t_start_drift=
                                                                                                        t_start_drift,
+                                                                                                       chunk_start=
+                                                                                                       chunk[0],
                                                                                                        bursting=shape_mod,
                                                                                                        fc=bursting_fc,
                                                                                                        verbose=self.verbose)
                                 recordings[:, idxs] += rec
                                 np.random.seed(seed)
                                 spike_traces[st, idxs] = convolve_single_template(st, spike_bin[idxs],
-                                                                                  templates[st, 0, :,
-                                                                                  np.argmax(voltage_peaks[st])],
+                                                                                  templates[st, 0, :, max_electrode],
                                                                                   cut_out=cut_outs_samples,
                                                                                   modulation=True,
                                                                                   mod_array=amp_mod[st])
@@ -1400,16 +1400,21 @@ class RecordingGenerator:
                             if drifting:
                                 final_loc.append(template_locs[st, 0])
                                 final_idxs.append(0)
-            #TODO FIX drift indexes
             if drifting:
+                print(final_idxs)
                 templates_drift = np.zeros((templates.shape[0], np.max(final_idxs) + 1,
                                             templates.shape[2], templates.shape[3],
                                             templates.shape[4]))
                 for i, st in enumerate(spiketrains):
                     if i in drifting_units:
-                        templates_drift[i] = templates[i, :(final_idxs[i] + 1)]
+                        if final_idxs[i] == np.max(final_idxs):
+                            templates_drift[i] = templates[i, :(final_idxs[i] + 1)]
+                        else:
+                            templates_drift[i] = np.vstack((templates[i, :(final_idxs[i] + 1)],
+                                                            np.array([templates[i, final_idxs[i]]]
+                                                                     * (np.max(final_idxs) - final_idxs[i]))))
                     else:
-                        templates_drift[i] = np.array([templates[i, 0]] * (final_idxs[i] + 1))
+                        templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
                 templates = templates_drift
         else:
             spiketrains = np.array([])

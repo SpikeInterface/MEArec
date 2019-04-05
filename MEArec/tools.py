@@ -1647,7 +1647,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
                                             cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
-                                            verbose=False, bursting=False, fc=None):
+                                            verbose=False, bursting=False, fc=None, chunk_start=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -1703,14 +1703,15 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         len_spike = template.shape[3]
     n_samples = len(spike_bin)
     dur = (n_samples / fs).rescale('s').magnitude
-    t_steps = np.arange(0, dur, n_step_sec)
     dt = 1. / fs.magnitude
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
+    if chunk_start is None:
+        chunk_start = 0 * pq.s
+    t_steps = np.arange(chunk_start.magnitude, chunk_start.magnitude + dur, n_step_sec)
 
     peaks = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
     recordings = np.zeros((n_elec, n_samples))
-
     # recordings_test = np.zeros((n_elec, n_samples))
     if not modulation:
         # No modulation
@@ -1719,7 +1720,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         if len(template.shape) == 4:
             rand_idx = np.random.randint(njitt)
             for pos, spos in enumerate(spike_pos):
-                sp_time = spos / fs
+                sp_time = chunk_start + spos / fs
                 if sp_time < t_start_drift:
                     temp_idx = 0
                     temp_jitt = template[temp_idx, rand_idx]
@@ -1894,6 +1895,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                     peaks[i] = -np.squeeze(feat['na'])
         else:
             raise Exception('For drifting len(template.shape) should be 4')
+    print(temp_idx)
     final_loc = loc[temp_idx]
     final_idx = temp_idx
 
