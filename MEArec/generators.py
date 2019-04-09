@@ -460,6 +460,14 @@ class RecordingGenerator:
                 self.template_locations = rec_dict['template_locations']
             else:
                 self.template_locations = np.array([])
+            if 'template_rotations' in rec_dict.keys():
+                self.template_rotations = rec_dict['template_rotations']
+            else:
+                self.template_rotations = np.array([])
+            if 'template_celltypes' in rec_dict.keys():
+                self.template_celltypes = rec_dict['template_celltypes']
+            else:
+                self.template_celltypes = np.array([])
             if 'channel_positions' in rec_dict.keys():
                 self.channel_positions = rec_dict['channel_positions']
             else:
@@ -820,6 +828,7 @@ class RecordingGenerator:
                 idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
                 template_celltypes = celltypes[idxs_cells]
                 template_locs = locs[idxs_cells]
+                template_rots = rots[idxs_cells]
                 templates_bin = bin_cat[idxs_cells]
                 templates = eaps[idxs_cells]
 
@@ -944,6 +953,8 @@ class RecordingGenerator:
                 cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
                 templates = self.templates
                 template_locs = self.template_locations
+                template_rots = self.template_rotations
+                template_celltypes = self.template_celltypes
                 voltage_peaks = self.voltage_peaks
                 if not drifting:
                     velocity_vector = None
@@ -1139,6 +1150,8 @@ class RecordingGenerator:
             spike_traces = np.array([])
             templates = np.array([])
             template_locs = np.array([])
+            template_rots = np.array([])
+            template_celltypes = np.array([])
             overlapping = np.array([])
 
         if self.verbose:
@@ -1368,6 +1381,8 @@ class RecordingGenerator:
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
         self.template_locations = template_locs
+        self.template_rotations = template_rots
+        self.template_celltypes = template_celltypes
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
         self.spike_traces = spike_traces

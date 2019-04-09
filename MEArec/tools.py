@@ -246,6 +246,17 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
                 rec_dict['template_locations'] = F.get('template_locations')
             else:
                 rec_dict['template_locations'] = np.array(F.get('template_locations'))
+        if F.get('template_rotations') is not None:
+            if return_h5_objects:
+                rec_dict['template_rotations'] = F.get('template_rotations')
+            else:
+                rec_dict['template_rotations'] = np.array(F.get('template_rotations'))
+        if F.get('template_celltypes') is not None:
+            if return_h5_objects:
+                rec_dict['template_celltypes'] = F.get('template_celltypes')
+            else:
+                celltypes =  np.array(([n.decode() for n in F.get('template_celltypes')]))
+                rec_dict['template_celltypes'] = np.array(celltypes)
         if F.get('timestamps') is not None:
             if return_h5_objects:
                 rec_dict['timestamps'] = F.get('timestamps')
@@ -352,6 +363,11 @@ def save_recording_generator(recgen, filename=None, verbose=True):
             F.create_dataset('templates', data=recgen.templates)
         if len(recgen.template_locations) > 0:
             F.create_dataset('template_locations', data=recgen.template_locations)
+        if len(recgen.template_rotations) > 0:
+            F.create_dataset('template_rotations', data=recgen.template_rotations)
+        if len(recgen.template_celltypes) > 0:
+            celltypes = [n.encode("ascii", "ignore") for n in recgen.template_celltypes]
+            F.create_dataset('template_celltypes', data=celltypes)
         if len(recgen.timestamps) > 0:
             F.create_dataset('timestamps', data=recgen.timestamps)
         F.close()
@@ -2164,7 +2180,11 @@ def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
         sp_rec_wf = []
         sp_amp = []
         for t in st:
-            idx = np.where(timestamps >= t)[0][0]
+            idx = np.where(timestamps >= t)[0]
+            if len(idx) > 0:
+                idx = idx[0]
+            else:
+                idx = len(timestamps) - 1
             # find single waveforms crossing thresholds
             if idx - n_pad[0] > 0 and idx + n_pad[1] < n_samples:
                 t_spike = timestamps[idx - n_pad[0]:idx + n_pad[1]]
