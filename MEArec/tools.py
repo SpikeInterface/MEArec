@@ -1400,7 +1400,6 @@ def compute_stretched_template(template, mod, sigmoid_range=30):
     -------
     temp_filt : np.array
         Modulated template
-
     """
     import scipy.interpolate as interp
     if len(template.shape) == 2:
@@ -1931,7 +1930,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
-                      amp_mod, shape_mod, bursting_fc, chunk_start, voltage_peaks):
+                      amp_mod, shape_mod, bursting_fc, chunk_start, extract_spike_traces, voltage_peaks):
     '''
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -1973,12 +1972,17 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         Low and high frequency for bursting
     chunk_start: quantity
         Start time for current chunk
+    extract_spike_traces: bool
+        If True (default), spike traces are extracted
+    voltage_peaks: np.array
+        Array containing the voltage values at the peak
     '''
     final_locs = []
     final_idxs = []
     spike_traces = np.zeros((len(spike_matrix), len(idxs)))
     for st, spike_bin in enumerate(spike_matrix):
-        max_electrode = np.argmax(voltage_peaks[st])
+        if extract_spike_traces:
+            max_electrode = np.argmax(voltage_peaks[st])
         if modulation == 'none':
             # reset random seed to keep sampling of jitter spike same
             seed = np.random.randint(10000)
@@ -2001,24 +2005,28 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                     chunk_start=chunk_start,
                                                                                     verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        templates[st, 0, :, max_electrode],
                                                        cut_out=cut_outs_samples)
             else:
                 if drifting:
                     template = templates[st, 0]
+                    locs = template_locs[st, 0]
                 else:
                     template = templates[st]
+                    locs = template_locs[st]
                 rec = convolve_templates_spiketrains(st, spike_bin[idxs],
                                                      template,
                                                      cut_out=cut_outs_samples,
                                                      verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        template[:,
                                                        max_electrode],
                                                        cut_out=cut_outs_samples)
-                final_pos = template_locs[st, 0]
+                final_pos = locs[0]
                 final_idx = 0
         elif 'electrode' in modulation:
             seed = np.random.randint(10000)
@@ -2046,7 +2054,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                     fc=bursting_fc,
                                                                                     verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        templates[st, 0, :,
                                                        max_electrode],
                                                        cut_out=cut_outs_samples,
@@ -2055,8 +2064,10 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
             else:
                 if drifting:
                     template = templates[st, 0]
+                    locs = template_locs[st, 0]
                 else:
                     template = templates[st]
+                    locs = template_locs[st]
                 rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
                                                      cut_out=cut_outs_samples,
                                                      modulation=True,
@@ -2065,7 +2076,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                      fc=bursting_fc,
                                                      fs=fs, verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        template[:,
                                                        max_electrode],
                                                        cut_out=cut_outs_samples,
@@ -2074,7 +2086,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                        bursting=shape_mod,
                                                        fc=bursting_fc,
                                                        fs=fs)
-                final_pos = template_locs[st, 0]
+                final_pos = locs[0]
                 final_idx = 0
                 
         elif 'template' in modulation:
@@ -2102,7 +2114,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                     fc=bursting_fc,
                                                                                     verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        templates[st, 0, :,
                                                        max_electrode],
                                                        cut_out=cut_outs_samples,
@@ -2111,8 +2124,10 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
             else:
                 if drifting:
                     template = templates[st, 0]
+                    locs = template_locs[st, 0]
                 else:
                     template = templates[st]
+                    locs = template_locs[st]
                 rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
                                                      cut_out=cut_outs_samples,
                                                      modulation=True,
@@ -2121,7 +2136,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                      fc=bursting_fc,
                                                      fs=fs, verbose=verbose)
                 np.random.seed(seed)
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                if extract_spike_traces:
+                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                        template[:,
                                                        max_electrode],
                                                        cut_out=cut_outs_samples,
@@ -2130,7 +2146,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                        bursting=shape_mod,
                                                        fc=bursting_fc,
                                                        fs=fs)
-                final_pos = template_locs[st, 0]
+                final_pos = locs[0]
                 final_idx = 0
         else:
             raise Exception('Modulation is unknown!')

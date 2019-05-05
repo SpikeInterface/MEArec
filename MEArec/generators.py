@@ -1085,7 +1085,7 @@ class RecordingGenerator:
                                                                                 template_locs, velocity_vector,
                                                                                 t_start_drift, fs, self.verbose,
                                                                                 amp_mod, shape_mod,
-                                                                                bursting_fc, chunk[0],
+                                                                                bursting_fc, chunk[0], True,
                                                                                 voltage_peaks))
                     p.start()
                     threads.append(p)
@@ -1115,7 +1115,7 @@ class RecordingGenerator:
                 # reorder this
                 chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                                   cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
-                                  amp_mod, shape_mod, bursting_fc, 0*pq.s, voltage_peaks)
+                                  amp_mod, shape_mod, bursting_fc, 0*pq.s, True, voltage_peaks)
                 recordings = output_dict[ch]['rec']
                 timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = output_dict[ch]['spike_traces']
@@ -1255,6 +1255,7 @@ class RecordingGenerator:
                                                             max_amp=far_neurons_max_amp, min_dist=1,
                                                             verbose=False)
                 templates_noise = eaps[np.array(idxs_cells)]
+                template_noise_locs = locs[np.array(idxs_cells)]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
                 # resample spikes
@@ -1272,8 +1273,7 @@ class RecordingGenerator:
                         tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
                         templates_noise_pol[t, :] = tem_poly[:,
                                                     int(sampling_ratio * pad_samples[0]):int(
-                                                        sampling_ratio * pad_samples[0])
-                                                                                         + n_resample]
+                                                        sampling_ratio * pad_samples[0]) + n_resample]
                 else:
                     templates_noise_pol = templates_noise
 
@@ -1305,9 +1305,63 @@ class RecordingGenerator:
                     print('Convolving noisy spike trains')
                 templates_noise = templates_noise.reshape((templates_noise.shape[0], 1, templates_noise.shape[1],
                                                            templates_noise.shape[2]))
-                for st, spike_bin in enumerate(spike_matrix_noise):
-                    additive_noise += convolve_templates_spiketrains(st, spike_bin, templates_noise[st],
-                                                                     cut_out=cut_outs_samples, verbose=self.verbose)
+
+                # for st, spike_bin in enumerate(spike_matrix_noise):
+                #     additive_noise += convolve_templates_spiketrains(st, spike_bin, templates_noise[st],
+                #                                                      cut_out=cut_outs_samples, verbose=self.verbose)
+
+                chunks_rec = []
+                if duration > chunk_conv_duration and chunk_conv_duration != 0:
+                    if self.verbose:
+                        print('Splitting in chunks of', chunk_conv_duration, 's')
+                    start = 0 * pq.s
+                    finished = False
+                    while not finished:
+                        chunks_rec.append([start, start + chunk_conv_duration])
+                        start = start + chunk_conv_duration
+                        if start >= duration:
+                            finished = True
+
+                additive_noise = np.zeros((n_elec, n_samples))
+                # for st, spike_bin in enumerate(spike_matrix):
+                if len(chunks_rec) > 0:
+                    import multiprocessing
+                    threads = []
+                    manager = multiprocessing.Manager()
+                    output_dict = manager.dict()
+                    for ch, chunk in enumerate(chunks_rec):
+                        if self.verbose:
+                            print('Convolving in: ', chunk[0], chunk[1], ' chunk')
+                        idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+                        p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
+                                                                                    output_dict, spike_matrix_noise,
+                                                                                    'none', False,
+                                                                                    None, templates_noise,
+                                                                                    cut_outs_samples,
+                                                                                    template_noise_locs, None,
+                                                                                    None, None, self.verbose,
+                                                                                    None, False,
+                                                                                    None, chunk[0], False,
+                                                                                    voltage_peaks))
+                        p.start()
+                        threads.append(p)
+                    for p in threads:
+                        p.join()
+                    # retrieve annotated spiketrains
+                    for ch, chunk in enumerate(chunks_rec):
+                        rec = output_dict[ch]['rec']
+                        idxs = output_dict[ch]['idxs']
+                        additive_noise[:, idxs] += rec
+                else:
+                    # convolve in single chunk
+                    output_dict = dict()
+                    idxs = np.arange(spike_matrix_noise.shape[1])
+                    ch = 0
+                    # reorder this
+                    chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
+                                      templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
+                                      self.verbose, None, False, None, 0 * pq.s, False, voltage_peaks)
+                    additive_noise = output_dict[ch]['rec']
 
                 # remove mean
                 for i, m in enumerate(np.mean(additive_noise, axis=1)):
@@ -1321,8 +1375,6 @@ class RecordingGenerator:
                 if self.verbose:
                     print('Scaling to reach desired level by: ', noise_scale)
                 additive_noise *= noise_scale
-                print(np.std(additive_noise))
-                # additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                 recordings += additive_noise
         else:
             if self.verbose:

@@ -86,6 +86,9 @@ class TestGenerators(unittest.TestCase):
         shutil.rmtree(self.test_dir)
         shutil.rmtree('./templates')
         shutil.rmtree('./recordings')
+        shutil.rmtree('./intracellular')
+        shutil.rmtree('./physrot')
+        shutil.rmtree('./norot')
 
     def test_gen_templates(self):
         print('Test templates generation')
@@ -286,7 +289,7 @@ class TestGenerators(unittest.TestCase):
                     assert len(recgen_noise.spike_traces) == n_neurons
                     del recgen_noise
 
-    def test_gen_recordings_only_noise(self):
+    def test_gen_recordings_far_neurons(self):
         print('Test recording generation - far neurons')
         info, info_folder = mr.get_default_config()
         ne = 0
@@ -311,6 +314,16 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['far_neurons_n'] = 10
         rec_params['recordings']['far_neurons_max_amp'] = 100
         rec_params['recordings']['far_neurons_exc_inh_ratio'] = 0.8
+        recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
+
+        assert recgen_noise.recordings.shape[0] == num_chan
+        assert recgen_noise.channel_positions.shape == (num_chan, 3)
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spiketrains) == n_neurons
+        assert len(recgen_noise.spike_traces) == n_neurons
+
+        rec_params['recordings']['chunk_conv_duration'] = 1
         recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen)
 
         assert recgen_noise.recordings.shape[0] == num_chan
