@@ -86,9 +86,7 @@ class TestGenerators(unittest.TestCase):
         shutil.rmtree(self.test_dir)
         shutil.rmtree('./templates')
         shutil.rmtree('./recordings')
-        shutil.rmtree('./intracellular')
-        shutil.rmtree('./physrot')
-        shutil.rmtree('./norot')
+
 
     def test_gen_templates(self):
         print('Test templates generation')
