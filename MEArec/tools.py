@@ -1977,6 +1977,11 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     final_locs = []
     final_idxs = []
     spike_traces = np.zeros((len(spike_matrix), len(idxs)))
+    if len(templates.shape) == 4:
+        n_elec = templates.shape[2]
+    elif len(templates.shape) == 5:
+        n_elec = templates.shape[3]
+    recordings = np.zeros((n_elec, len(idxs)))
     for st, spike_bin in enumerate(spike_matrix):
         max_electrode = np.argmax(voltage_peaks[st])
         if modulation == 'none':
@@ -2137,9 +2142,10 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
 
         final_idxs.append(final_idx)
         final_locs.append(final_pos)
+        recordings += rec
 
     return_dict = dict()
-    return_dict['rec'] = rec
+    return_dict['rec'] = recordings
     return_dict['idxs'] = idxs
     return_dict['spike_traces'] = spike_traces
     return_dict['final_locs'] = final_locs
