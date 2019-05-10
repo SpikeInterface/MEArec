@@ -84,8 +84,6 @@ class TestGenerators(unittest.TestCase):
     def tearDownClass(self):
         # Remove the directory after the test
         shutil.rmtree(self.test_dir)
-        shutil.rmtree('./templates')
-        shutil.rmtree('./recordings')
 
 
     def test_gen_templates(self):
@@ -198,7 +196,7 @@ class TestGenerators(unittest.TestCase):
                         assert len(recgen_mod.spike_traces) == n_neurons
                         del recgen_mod
 
-    def test_gen_recordings_mod_shape_mod_sync(self):
+    def test_gen_recordings_bursting(self):
         print('Test recording generation - shape_mod')
         info, info_folder = mr.get_default_config()
         ne = 10

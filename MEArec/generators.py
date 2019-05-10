@@ -632,11 +632,11 @@ class RecordingGenerator:
         if shape_mod:
             if 'bursting_sigmoid' not in rec_params.keys():
                 params['recordings']['bursting_sigmoid'] = 30
-            sigmoid = params['recordings']['bursting_sigmoid']
+            bursting_sigmoid = params['recordings']['bursting_sigmoid']
             if self.verbose:
-                print('Bursting with modulation sigmoid: ', sigmoid)
+                print('Bursting with modulation sigmoid: ', bursting_sigmoid)
         else:
-            sigmoid = None
+            bursting_sigmoid = None
 
         if 'isi' in modulation:
             if 'exp_decay' not in rec_params.keys():
@@ -1087,7 +1087,7 @@ class RecordingGenerator:
                                                                                 template_locs, velocity_vector,
                                                                                 t_start_drift, fs, self.verbose,
                                                                                 amp_mod, shape_mod,
-                                                                                sigmoid, chunk[0], True,
+                                                                                bursting_sigmoid, chunk[0], True,
                                                                                 voltage_peaks))
                     p.start()
                     threads.append(p)
@@ -1117,7 +1117,7 @@ class RecordingGenerator:
                 # reorder this
                 chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                                   cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
-                                  amp_mod, shape_mod, sigmoid, 0*pq.s, True, voltage_peaks)
+                                  amp_mod, shape_mod, bursting_sigmoid, 0*pq.s, True, voltage_peaks)
                 recordings = output_dict[ch]['rec']
                 timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = output_dict[ch]['spike_traces']
