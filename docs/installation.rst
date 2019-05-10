@@ -49,7 +49,7 @@ On Linux systems you also need install libncurses and libreadlines:
 
 .. code-block:: bash
 
-    sudo apt install lib32ncurses5-dev libreadlines-dev
+    sudo apt install lib32ncurses5-dev libreadline-dev
 
 Installing LFPy
 ---------------
