@@ -2346,7 +2346,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     return ax
 
 
-def plot_templates(gen, single_axes=False, max_templates=None):
+def plot_templates(gen, single_jitter=True, single_axes=False, max_templates=None):
     """
     Plot templates.
 
@@ -2355,7 +2355,9 @@ def plot_templates(gen, single_axes=False, max_templates=None):
     gen : TemplateGenerator or RecordingGenerator
         Generator object containing templates
     single_axes : bool
-        If True all templates are plotted on the same axis.
+        If True all templates are plotted on the same axis
+    single_jitter: bool
+        If True and jittered templates are present, a single jittered template is plotted
     max_templates: int
         Maximum number of templates to be plotted.
 
@@ -2369,6 +2371,24 @@ def plot_templates(gen, single_axes=False, max_templates=None):
 
     templates = gen.templates
     mea = mu.return_mea(info=gen.info['electrodes'])
+
+    if 'params' in gen.info.keys():
+        if gen.info['params']['drifting']:
+            templates = templates[:, 0]
+    if 'recordings' in gen.info.keys():
+        if gen.info['recordings']['drifting']:
+            if single_jitter:
+                if len(templates.shape) == 5:
+                    templates = templates[:, 0, 0]
+                else:
+                    templates = templates[:, 0]
+            else:
+                if len(templates.shape) == 5:
+                    templates = templates[:, 0]
+        else:
+            if single_jitter:
+                if len(templates.shape) == 4:
+                    templates = templates[:, 0]
 
     if max_templates is not None:
         if max_templates < len(templates):
