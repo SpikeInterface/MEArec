@@ -155,7 +155,11 @@ def gen_templates(params, **kwargs):
         params_dict['drift_zlim'] = kwargs['drift_zlim']
 
     if kwargs['probe'] is not None:
-        params_dict['probe'] = kwargs['probe']
+        if kwargs['probe'] in mu.return_mea_list():
+            params_dict['probe'] = kwargs['probe']
+        else:
+            print("The probe ", kwargs['probe'], " is not listead as a MEAutility probe.")
+            return
     if kwargs['no_parallel']:
         parallel = False
     else:
