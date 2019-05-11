@@ -2348,7 +2348,8 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     return ax
 
 
-def plot_templates(gen, single_jitter=True, single_axes=False, max_templates=None):
+def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False, max_templates=None,
+                   drifting=False, **kwargs):
     """
     Plot templates.
 
@@ -2356,12 +2357,16 @@ def plot_templates(gen, single_jitter=True, single_axes=False, max_templates=Non
     ----------
     gen : TemplateGenerator or RecordingGenerator
         Generator object containing templates
+    template_ids : int or list
+        The template(s) to plot
     single_axes : bool
         If True all templates are plotted on the same axis
     single_jitter: bool
         If True and jittered templates are present, a single jittered template is plotted
     max_templates: int
-        Maximum number of templates to be plotted.
+        Maximum number of templates to be plotted
+    drifting: bool
+        If True and templates are drifting, drifting templates are displayed
 
     Returns
     -------
@@ -2380,23 +2385,34 @@ def plot_templates(gen, single_jitter=True, single_axes=False, max_templates=Non
     if 'recordings' in gen.info.keys():
         if gen.info['recordings']['drifting']:
             if single_jitter:
-                if len(templates.shape) == 5:
-                    templates = templates[:, 0, 0]
+                if not drifting:
+                    if len(templates.shape) == 5:
+                        templates = templates[:, 0, 0]
+                    else:
+                        templates = templates[:, 0]
                 else:
-                    templates = templates[:, 0]
+                    if len(templates.shape) == 5:
+                        templates = templates[:, :, 0]
             else:
-                if len(templates.shape) == 5:
-                    templates = templates[:, 0]
+                if not drifting:
+                    if len(templates.shape) == 5:
+                        templates = templates[:, 0]
         else:
             if single_jitter:
                 if len(templates.shape) == 4:
                     templates = templates[:, 0]
 
+    if template_ids is not None:
+        if isinstance(template_ids, (int, np.integer)):
+            template_ids = [template_ids]
+    else:
+        template_ids = np.arange(templates.shape[0])
+
     if max_templates is not None:
         if max_templates < len(templates):
             templates = templates[np.random.permutation(len(templates))][:max_templates]
 
-    n_sources = len(templates)
+    n_sources = len(template_ids)
     fig = plt.figure()
 
     if single_axes:
@@ -2404,19 +2420,18 @@ def plot_templates(gen, single_jitter=True, single_axes=False, max_templates=Non
         ax_t = fig.add_subplot(111)
 
         for n, t in enumerate(templates):
-            print('Plotting spike ', n, ' out of ', n_sources)
-            if len(t.shape) == 3:
-                mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
-            else:
-                mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
-
+            if n in template_ids:
+                if len(t.shape) == 3:
+                    mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                else:
+                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
     else:
         cols = int(np.ceil(np.sqrt(n_sources)))
         rows = int(np.ceil(n_sources / float(cols)))
 
-        for n in range(n_sources):
-            ax_t = fig.add_subplot(rows, cols, n + 1)
-            mu.plot_mea_recording(templates[n], mea, ax=ax_t)
+        for i_n, n in enumerate(template_ids):
+            ax_t = fig.add_subplot(rows, cols, i_n + 1)
+            mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
 
     return fig
 

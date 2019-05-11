@@ -9,17 +9,13 @@ Loading and plotting the templates and recordings can be done easily in Python u
 .. code-block:: python
 
     import MEArec as mr
-    import MEAutility as mu
     import matplotlib.pylab as plt
 
     # load recordings
     recgen = mr.load_recordings('path-to-recording.h5')
 
-    # create mea object
-    mea = mu.return_mea(info=recgen.info['electrodes'])
-
     # plot recordings
-    mu.plot_mea_recording(recgen.recordings, mea)
+    mr.plot_recordings(recgen)
     plt.show()
 
 .. image:: images/recordings_static.png
@@ -32,17 +28,14 @@ This is an example on how to plot a drifting template.
 .. code-block:: python
 
     import MEArec as mr
-    import MEAutility as mu
     import matplotlib.pylab as plt
 
     # load recordings
     tempgen = mr.load_recordings('path-to-drifting-template.h5')
 
-    # create mea object
-    mea = mu.return_mea(info=tempgen.info['electrodes'])
-
     # select one drifting template
-    temp = tempgen[100]
+    template_id = 100
+    temp = tempgen.templates[template_id]
     n_steps = temp.shape[0]
 
     # choose colormap
@@ -50,7 +43,7 @@ This is an example on how to plot a drifting template.
     colors = [cmap(i/n_steps) for i in range(n_steps)]
 
     # plot recordings
-    mu.plot_mea_recording(temp, mea, colors=colors)
+    mr.plot_templates(tempgen, template_ids=100, colors=colors, drifting=True)
     plt.show()
 
 .. image:: images/templates_drift.png

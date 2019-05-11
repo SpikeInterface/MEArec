@@ -32,7 +32,7 @@ folder of the default output templates folder, so that currents do not need to b
 
 
 Intracellular parameters summary
-"""""""""""""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -80,7 +80,7 @@ For reproducibility, the :code:`seed` can be manually set by the user (if :code:
 
 
 Extracellular parameters summary
-"""""""""""""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. code-block:: bash
 
     # extracellular simulation settings
@@ -115,7 +115,7 @@ is [20, 80] and the final position will be pointing upwards in the z-direction, 
 y-axes.
 
 Drifting parameters summary
-"""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -158,7 +158,7 @@ The :code:`gen_templates()` function returns a gen_templates :code:`TemplateGene
 
 
 The TemplateGenerator object
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :code:`TemplateGenerator` class contains several fields:
 
