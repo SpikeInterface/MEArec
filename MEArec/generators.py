@@ -623,22 +623,19 @@ class RecordingGenerator:
 
         if 'modulation' not in rec_params.keys():
             params['recordings']['modulation'] = 'electrode'
+        elif params['recordings']['modulation'] not in ['none', 'electrode', 'template']:
+            raise Exception("'modulation' can be 'none', 'template', or 'electrode'")
         modulation = params['recordings']['modulation']
+
+        if 'bursting' not in rec_params.keys():
+            params['recordings']['bursting'] = False
+        bursting = params['recordings']['bursting']
 
         if 'shape_mod' not in rec_params.keys():
             params['recordings']['shape_mod'] = False
         shape_mod = params['recordings']['shape_mod']
 
-        if shape_mod:
-            if 'bursting_sigmoid' not in rec_params.keys():
-                params['recordings']['bursting_sigmoid'] = 30
-            bursting_sigmoid = params['recordings']['bursting_sigmoid']
-            if self.verbose:
-                print('Bursting with modulation sigmoid: ', bursting_sigmoid)
-        else:
-            bursting_sigmoid = None
-
-        if 'isi' in modulation:
+        if bursting:
             if 'exp_decay' not in rec_params.keys():
                 params['recordings']['exp_decay'] = 0.2
             exp_decay = params['recordings']['exp_decay']
@@ -648,6 +645,26 @@ class RecordingGenerator:
             if 'max_burst_duration' not in rec_params.keys():
                 params['recordings']['max_burst_duration'] = 100
             max_burst_duration = 100 * pq.ms
+
+            if rec_params['n_bursting'] is None:
+                n_bursting = n_neurons
+            else:
+                n_bursting = rec_params['n_bursting']
+
+            if shape_mod:
+                if 'bursting_sigmoid' not in rec_params.keys():
+                    params['recordings']['bursting_sigmoid'] = 30
+                bursting_sigmoid = params['recordings']['bursting_sigmoid']
+                if self.verbose:
+                    print('Bursting with modulation sigmoid: ', bursting_sigmoid)
+            else:
+                bursting_sigmoid = None
+        else:
+            exp_decay = None
+            n_burst_spikes = None
+            max_burst_duration = None
+            bursting_sigmoid = None
+            n_bursting = None
 
         if 'chunk_noise_duration' not in rec_params.keys():
             params['recordings']['chunk_noise_duration'] = 0
@@ -1011,48 +1028,54 @@ class RecordingGenerator:
             amp_mod = []
             cons_spikes = []
 
-            if modulation == 'template':
-                if self.verbose:
-                    print('Template modulation')
-                for st in spiketrains:
-                    amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
-                                                   n_spikes=0)
-                    amp_mod.append(amp)
-                    cons_spikes.append(cons)
-            elif modulation == 'electrode':
-                if self.verbose:
-                    print('Electrode modulaton')
-                for st in spiketrains:
-                    amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                   n_spikes=0)
-                    amp_mod.append(amp)
-                    cons_spikes.append(cons)
-            elif modulation == 'template-isi':
-                if self.verbose:
-                    print('Template-ISI modulation')
-                for st in spiketrains:
-                    amp, cons = compute_modulation(st, sdrand=sdrand,
-                                                   n_spikes=n_burst_spikes, exp=exp_decay,
-                                                   max_burst_duration=max_burst_duration)
-                    amp_mod.append(amp)
-                    cons_spikes.append(cons)
-            elif modulation == 'electrode-isi':
-                if self.verbose:
-                    print('Electrode-ISI modulation')
-                for st in spiketrains:
-                    amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                   n_spikes=n_burst_spikes, exp=exp_decay,
-                                                   max_burst_duration=max_burst_duration)
-                    amp_mod.append(amp)
-                    cons_spikes.append(cons)
-
-            spike_matrix = resample_spiketrains(spiketrains, fs=fs)
-            # # modulated convolution
+            # modulated convolution
             if drifting:
                 drifting_units = np.random.permutation(n_neurons)[:n_drifting]
             else:
                 drifting_units = []
+            if bursting:
+                bursting_units = np.random.permutation(n_neurons)[:n_bursting]
+            else:
+                bursting_units = []
 
+            if modulation == 'template':
+                if self.verbose:
+                    print('Template modulation')
+                for i_s, st in enumerate(spiketrains):
+                    if bursting and i_s in bursting_units:
+                        if self.verbose:
+                            print('Bursting unit: ', i_s)
+                        amp, cons = compute_modulation(st, sdrand=sdrand,
+                                                       n_spikes=n_burst_spikes, exp=exp_decay,
+                                                       max_burst_duration=max_burst_duration)
+                        amp_mod.append(amp)
+                        cons_spikes.append(cons)
+                        st.annotate(bursting=True)
+                    else:
+                        amp, cons = compute_modulation(st, mrand=mrand, sdrand=sdrand,
+                                                       n_spikes=0)
+                        amp_mod.append(amp)
+                        cons_spikes.append(cons)
+            elif modulation == 'electrode':
+                if self.verbose:
+                    print('Electrode modulaton')
+                for i_s, st in enumerate(spiketrains):
+                    if bursting and i_s in bursting_units:
+                        if self.verbose:
+                            print('Bursting unit: ', i_s)
+                        amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
+                                                       n_spikes=n_burst_spikes, exp=exp_decay,
+                                                       max_burst_duration=max_burst_duration)
+                        amp_mod.append(amp)
+                        cons_spikes.append(cons)
+                        st.annotate(bursting=True)
+                    else:
+                        amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
+                                                       n_spikes=0)
+                        amp_mod.append(amp)
+                        cons_spikes.append(cons)
+
+            spike_matrix = resample_spiketrains(spiketrains, fs=fs)
             # divide in chunks
             chunks_rec = []
             if duration > chunk_conv_duration and chunk_conv_duration != 0:
@@ -1069,7 +1092,6 @@ class RecordingGenerator:
             recordings = np.zeros((n_elec, n_samples))
             timestamps = np.arange(recordings.shape[1]) / fs
 
-            # for st, spike_bin in enumerate(spike_matrix):
             if len(chunks_rec) > 0:
                 import multiprocessing
                 threads = []
@@ -1086,7 +1108,7 @@ class RecordingGenerator:
                                                                                 cut_outs_samples,
                                                                                 template_locs, velocity_vector,
                                                                                 t_start_drift, fs, self.verbose,
-                                                                                amp_mod, shape_mod,
+                                                                                amp_mod, bursting_units, shape_mod,
                                                                                 bursting_sigmoid, chunk[0], True,
                                                                                 voltage_peaks))
                     p.start()
@@ -1117,7 +1139,7 @@ class RecordingGenerator:
                 # reorder this
                 chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                                   cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
-                                  amp_mod, shape_mod, bursting_sigmoid, 0*pq.s, True, voltage_peaks)
+                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0*pq.s, True, voltage_peaks)
                 recordings = output_dict[ch]['rec']
                 timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = output_dict[ch]['spike_traces']
@@ -1342,7 +1364,7 @@ class RecordingGenerator:
                                                                                     cut_outs_samples,
                                                                                     template_noise_locs, None,
                                                                                     None, None, self.verbose,
-                                                                                    None, False,
+                                                                                    None, None, False,
                                                                                     None, chunk[0], False,
                                                                                     voltage_peaks))
                         p.start()
@@ -1362,7 +1384,7 @@ class RecordingGenerator:
                     # reorder this
                     chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
                                       templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
-                                      self.verbose, None, False, None, 0 * pq.s, False, voltage_peaks)
+                                      self.verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks)
                     additive_noise = output_dict[ch]['rec']
 
                 # remove mean

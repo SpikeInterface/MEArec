@@ -50,15 +50,15 @@ recordings:
 
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
-    # electrode (each electrode is modulated separately) |
-    # template-isi (spike amplitude is modulated depending on isi interval with the same value on each electrode)
-    # electrode-isi (spike amplitude is modulated depending on isi interval and each electrode is modulated separately)]
+    # electrode (each electrode is modulated separately)]
   sdrand:  0.05 # standard deviation of gaussian modulation
-  exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
+  bursting: False # if True, spikes are modulated in amplitude depending on the isi and in shape (if shape_mod is True)
+  exp_decay: 0.2 # with bursting modulation experimental decay in aplitude between consecutive spikes
   n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
   max_burst_duration: 100 # duration in ms of maximum burst modulation
   shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
   bursting_sigmoid: 30.  # min and max frequencies to be mapped to modulation value
+  n_bursting: null  # number of bursting units
   chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
 
   noise_level: 20 # noise standard deviation in uV

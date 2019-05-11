@@ -1393,7 +1393,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         Template to be modulated (num_chan, n_samples) or (n_samples)
     mod : int or np.array
         Amplitude modulation for template or single electrodes
-    sigmoid_range: float
+    sigmoid_range : float
         Sigmoid range to stretch the template
 
     Returns
@@ -1406,12 +1406,16 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.unravel_index(np.argmin(template), template.shape)[1]
         x_centered = np.arange(-min_idx, template.shape[1] - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered *= sigmoid_range
+        x_centered = x_centered * sigmoid_range
+
+        if isinstance(mod, (int, np.integer)):
+            mod = np.array(mod)
 
         if mod.size > 1:
             stretch_factor = np.mean(mod)
         else:
             stretch_factor = mod
+
         if stretch_factor >= 1:
             x_stretch = x_centered
         else:
@@ -1423,8 +1427,11 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         x_recovered = np.round(x_recovered, 6)
         temp_filt = np.zeros(template.shape)
         for i, t in enumerate(template):
-            f = interp.interp1d(x_stretch, t, kind='cubic')
-            temp_filt[i] = f(x_recovered)
+            try:
+                f = interp.interp1d(x_stretch, t, kind='cubic')
+                temp_filt[i] = f(x_recovered)
+            except Exception as e:
+                raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
         if mod.size > 1:
             temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
                                   temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
@@ -1434,7 +1441,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.argmin(template)
         x_centered = np.arange(-min_idx, len(template) - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered *= float(sigmoid_range)
+        x_centered = x_centered * sigmoid_range
 
         if mod.size > 1:
             stretch_factor = np.mean(mod)
@@ -1449,8 +1456,11 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
         x_stretch = np.round(x_stretch, 6)
         x_recovered = np.round(x_recovered, 6)
-        f = interp.interp1d(x_stretch, template, kind='cubic')
-        temp_filt = f(x_recovered)
+        try:
+            f = interp.interp1d(x_stretch, template, kind='cubic')
+            temp_filt = f(x_recovered)
+        except Exception as e:
+            raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
         temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
     return temp_filt
 
@@ -1475,14 +1485,13 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         Array with modulation value for each spike
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range: float
+    sigmoid_range : float
         Range of sigmoid transform for bursting shape stretch
 
     Returns
     -------
     spike_trace : np.array
         Trace with convolved signal (n_samples)
-
     """
     if len(template.shape) == 2:
         njitt = template.shape[0]
@@ -1558,7 +1567,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range: float
+    sigmoid_range : float
         Range of sigmoid transform for bursting shape stretch
 
     Returns
@@ -1568,7 +1577,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
     """
     if verbose:
-        print('Starting convolution with spike ', spike_id)
+        print('Starting convolution with spike:', spike_id, 'shape modulation:', bursting)
     if len(template.shape) == 3:
         njitt = template.shape[0]
         n_elec = template.shape[1]
@@ -1696,9 +1705,9 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range: float
+    sigmoid_range : float
         Range of sigmoid transform for bursting shape stretch
-    chunk_start: quantity
+    chunk_start : quantity
         Chunk start time used to compute drifting position
 
     Returns
@@ -1714,7 +1723,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
     """
     if verbose:
-        print('Starting drifting convolution with spike ', spike_id)
+        print('Starting drifting convolution with spike:', spike_id, 'shape modulation:', bursting)
     if len(template.shape) == 4:
         njitt = template.shape[1]
         n_elec = template.shape[2]
@@ -1902,7 +1911,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
-                      amp_mod, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces, voltage_peaks):
+                      amp_mod, bursting_units, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces,
+                      voltage_peaks):
     '''
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -1925,7 +1935,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     templates: np.array
         Templates
     cut_outs_samples: list
-        List with nummber of samples to cut out before and after spike peaks
+        List with number of samples to cut out before and after spike peaks
     template_locs: np.array
         For drifting, array with drifting locations
     velocity_vector: np.array
@@ -1938,9 +1948,11 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         If True output is verbose
     amp_mod: np.array
         Array with modulation values
+    bursting_units : list
+        List of bursting units
     shape_mod: bool
         If True waveforms are modulated in shape
-    bursting_sigmoid: list
+    bursting_sigmoid: float
         Low and high frequency for bursting
     chunk_start: quantity
         Start time for current chunk
@@ -2009,6 +2021,14 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
             seed = np.random.randint(10000)
             np.random.seed(seed)
 
+            if bursting_units is not None:
+                if st in bursting_units and shape_mod:
+                    unit_burst = True
+                else:
+                    unit_burst = False
+            else:
+                unit_burst = False
+
             if drifting and st in drifting_units:
                 rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
                                                                                     spike_bin[idxs],
@@ -2027,7 +2047,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                     t_start_drift=
                                                                                     t_start_drift,
                                                                                     chunk_start=chunk_start,
-                                                                                    bursting=shape_mod,
+                                                                                    bursting=unit_burst,
                                                                                     sigmoid_range=bursting_sigmoid,
                                                                                     verbose=verbose)
                 np.random.seed(seed)
@@ -2038,6 +2058,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 cut_out=cut_outs_samples,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st][:, max_electrode],
+                                                                bursting=unit_burst,
                                                                 sigmoid_range=bursting_sigmoid)
             else:
                 if drifting:
@@ -2050,24 +2071,33 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                      cut_out=cut_outs_samples,
                                                      modulation=True,
                                                      mod_array=amp_mod[st],
-                                                     bursting=shape_mod,
+                                                     bursting=unit_burst,
                                                      sigmoid_range=bursting_sigmoid, verbose=verbose)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                       template[:,
-                                                       max_electrode],
-                                                       cut_out=cut_outs_samples,
-                                                       modulation=True,
-                                                       mod_array=amp_mod[st][:, max_electrode],
-                                                       bursting=shape_mod,
-                                                       sigmoid_range=bursting_sigmoid)
+                                                                template[:,
+                                                                max_electrode],
+                                                                cut_out=cut_outs_samples,
+                                                                modulation=True,
+                                                                mod_array=amp_mod[st][:, max_electrode],
+                                                                bursting=unit_burst,
+                                                                sigmoid_range=bursting_sigmoid)
                 final_pos = locs[0]
                 final_idx = 0
                 
         elif 'template' in modulation:
             seed = np.random.randint(10000)
             np.random.seed(seed)
+
+            if bursting_units is not None:
+                if st in bursting_units and shape_mod:
+                    unit_burst = True
+                else:
+                    unit_burst = False
+            else:
+                unit_burst = False
+
             if drifting and st in drifting_units:
                 rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
                                                                                     spike_bin[idxs],
@@ -2086,7 +2116,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                     t_start_drift=
                                                                                     t_start_drift,
                                                                                     chunk_start=chunk_start,
-                                                                                    bursting=shape_mod,
+                                                                                    bursting=unit_burst,
                                                                                     sigmoid_range=bursting_sigmoid,
                                                                                     verbose=verbose)
                 np.random.seed(seed)
@@ -2097,6 +2127,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 cut_out=cut_outs_samples,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st],
+                                                                bursting=unit_burst,
                                                                 sigmoid_range=bursting_sigmoid)
             else:
                 if drifting:
@@ -2109,19 +2140,19 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                      cut_out=cut_outs_samples,
                                                      modulation=True,
                                                      mod_array=amp_mod[st],
-                                                     bursting=shape_mod,
-                                                     sigmoid_range=sigmoid,
+                                                     bursting=unit_burst,
+                                                     sigmoid_range=bursting_sigmoid,
                                                      verbose=verbose)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                       template[:,
-                                                       max_electrode],
-                                                       cut_out=cut_outs_samples,
-                                                       modulation=True,
-                                                       mod_array=amp_mod[st],
-                                                       bursting=shape_mod,
-                                                       sigmoid_range=sigmoid)
+                                                                template[:,
+                                                                max_electrode],
+                                                                cut_out=cut_outs_samples,
+                                                                modulation=True,
+                                                                mod_array=amp_mod[st],
+                                                                bursting=unit_burst,
+                                                                sigmoid_range=bursting_sigmoid)
                 final_pos = locs[0]
                 final_idx = 0
         else:
