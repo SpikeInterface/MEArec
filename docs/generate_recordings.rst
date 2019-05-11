@@ -37,7 +37,7 @@ The :code:`seed` parameter can be set to ensure reproducibility, and if :code:`n
 
 
 Spike trains parameters section summary
-"""""""""""""""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -67,9 +67,8 @@ Spike trains parameters section summary
 Recordings Generation
 ---------------------
 
-
 Specyfying excitatory and inhibitory cell-types
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to select the proper cell type (excitatory - inhibitory) the :code:`cell-types` section of the parameters
 allows the user to specify which  strings to look for in the cell model name (from the NMC database) to assign it to
@@ -93,9 +92,9 @@ Templates are selected so that they match the excitatory-inhibitory spike trains
 provided) and they follow the following rules:
 
 * neuron locations cannot be closer than the :code:`min_dist` parameter (default 25 :math:`\mu m`)
-* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`) and at most :code:`max_amp`
-(default 500 :math:`\mu V`)
+* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`) and at most :code:`max_amp` (default 500 :math:`\mu V`)
 * if specified, neuron locations are selected within the :code:`xlim`, :code:`ylim`, and :code:`zlim` limits
+
 
 Once the templates are selected and matched to the corresponding spike train, temporal jitter is added to them to
 simulate the uncertainty of the spike event within the sampling period. :code:`n_jitters` (default is 10) templates are
@@ -147,11 +146,13 @@ The :code:`modulation` parameter is extremely important, as it controls the vari
 * if :code:`modulation` id :code:`none`, spikes are not modulated and each instance will have the same aplitude
 * if :code:`modulation` id :code:`template`, each spike event is modulated with the same amplitude for all electrodes
 * if :code:`modulation` id :code:`electrode`, each spike event is modulated with different amplitude for each electrode
-* if :code:`modulation` id :code:`template-isi`, each spike event is modulated based on the inter-spike-interval, with the same amplitude for all electrodes
-* if :code:`modulation` id :code:`electrode-isi`, each spike event is modulated based on the inter-spike-interval, with different amplitude for each electrode
+
 For the :code:`template` and :code:`electrode` modulations, the amplitude is modulated as a Normal distribution with
 amplitude 1 and standard deviation of :code:`sdrand` (default is 0.05).
-For the :code:`template-isi` and :code:`electrode-isi` modulations, on top of the gaussian modulation the amplitude is
+
+Bursting behavior can be selected by setting :code:`bursting` to True. The number of bursting units can be selected using the
+:code:`n_bursting` parameter. By default, if bursting is used, all units are bursty.
+When bursting is selected, on top of the gaussian modulation the amplitude is
 modulated by the previous inter-spike-intervals, to simulate the amplitude decay due to bursting. In this case, the
 :code:`max_burst_duration` and :code:`n_burst_spikes` parameters control the maximum length and maximum number of spikes of a bursting event.
 During a bursting event, the amplitude modulation, previous to the gaussian one, is computed as:
@@ -160,29 +161,44 @@ During a bursting event, the amplitude modulation, previous to the gaussian one,
 
 where :math:`mod` is the resulting amplitude modulation, :math:`avg_{ISI}` is the average ISI so far during the
 bursting event, :math:`n_{consecutive}` is the number of spikes occurred in the bursting period (maximum is
-:code:`n_burst_spikes`) and :code:`exp` is the exponent of the decay (0.2 by default).
+:code:`n_burst_spikes`) and :code:`exp` is the exponent of the decay (0.1 by default).
 
-While isi modulation only modulates in amplitude, bursting can also modulate the spike shape. In order to model this, if
-:code:`shape_mod` is True, then the templates are low-pass filtered depending on the :math:`mod` value. The :code:`bursting_fc`
-parameter ([500, 12000] Hz by default) indicates how the :math:`mod` values will be mapped to the filter: For the minimum
-:math:`mod` value the low pass filter will have a cutoff frequency of 500 Hz, and for the highest :math:`mod` of 12000 Hz.
-The templates are filtered with the same value on all electrodes, and then, in case of an :code:`electrode`-type modulation,
+In addition to amplitude modulation, bursting can also modulate the spike shape. In order to model this, if
+:code:`shape_mod` is True, then the templates are *stretched*  depending on the :math:`mod` value.
+The stretching is obtained by projecting the template on a sigmoid-transformed scale, which effectively stretches the waveform.
+The :code:`bursting_sigmoid` parameter controls the amount of stretching (default 30). Larger :code:`bursting_sigmoid` will result
+in more shape modulation, lower values in less shape modulation.
+The templates are stretched with the same value on all electrodes, and then, in case of an :code:`electrode`-type modulation,
 the eap on each electrode to match the specific :math:`mod` for the electrode. Also for an :code:`template`-type modulation,
 the eap is rescaled at the template level.
 
-Next, noise is added to to the clean recordings. Two different noise modes can be used (using the :code:`noise_mode`
-parameter):
-1. :code:`uncorrelated`: additive gaussian noise (default) with a standard deviation of :code:`noise_level` (10 :math:`\mu V` by default)
-2. :code:`distance-correlated`: noise is generated as a multivariate normal with covariance matrix decaying with distance between electrodes. The :code:`noise_half_distance` parameter is the distance for which correlation is 0.5.
-Noise can be added in chunks (:code:`chunk_noise_duration`) as for long recordings the user can run into :code:`MemoryError`.
+To speed up the convolution operation and reduce the memory need, the convolution can be performed in chunks.
+The :code:`chunk_conv_duration` (20 s by default) controls the length of the chunks. Chunks are processed in parallel.
 
-In order to simulate noise that resembles experimental noise, one can use the :code:`noise_color` option (default is False),
+Next, noise is added to to the clean recordings. Three different noise modes can be used (using the :code:`noise_mode`
+parameter):
+
+1. :code:`uncorrelated`: additive gaussian noise (default) with a standard deviation of :code:`noise_level` (10 :math:`\mu V` by default)
+
+2. :code:`distance-correlated`: noise is generated as a multivariate normal with covariance matrix decaying with distance between electrodes. The :code:`noise_half_distance` parameter is the distance for which correlation is 0.5.
+
+3. :code:`far-neurons`: noise is generated by the activity of :code:`far_neurons_n` far neurons (default 300). In order to use this mode,
+   it is recommended to generate templates with a small or null maximum amplitude. In fact, far neurons if their maximum amplitude
+   is below :code:`far_neurons_max_amp` (default 10 :math:`\mu V`) and with an excitatory/inhibitory ratio of
+   :code:`far_neurons_exc_inh_ratio` (default 0.8). Finally, a random gaussian noise floor is added, with a standard
+   deviation :code:`far_neurons_noise_floor` times the one from the far neurons' activity, and the noise level is adjusted
+   to match :code:`noise_level`.
+
+When selecting :code:`uncorrelated` or :code:`distance-correlated`, one can use the :code:`noise_color` option (default is False),
 so that the noise spectrum is similar to biological noise.
 If :code:`noise_color` is True, the gaussian noise is filtered with an IIR resonant filter with a peak at :code:`color_peak`
 (default 500) and quality factor :code:`color_q` (default 1). Moreover, a gaussian noise floor is added to the noise.
 The amplitude of the gaussian added noise is controlled by :code:`random_noise_floor` (default 1), which is the percent
 of gaussian noise over the colored noise (when :code:`random_noise_floor=1` 50% of the noise is additive gaussian. The final
 noise level is adjusted so that the overall standard deviation is equal to :code:`noise_level`.
+
+Noise can be added in chunks (:code:`chunk_noise_duration`) as for long recordings the user can run into :code:`MemoryError`.
+
 
 Finally, and optionally, the recordings can be filtered (if :code:`filter` is :code:`True`) with a high-pass or band-pass
 filter with :code:`filter_cutoff` frequency(ies) ([300, 6000] by default). If :code:`filter_cutoff` is a scalar, the signal is high-pass
@@ -199,40 +215,45 @@ Recordings parameters section summary
 .. code-block:: bash
 
     recordings:
-        fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
+      fs: null # sampling frequency in kHz (corresponds to dt=0.03125 ms)
 
-        sync_rate: 0.1 # added synchrony rate for spatially overlapping templates
+      sync_rate: 0 # added synchrony rate for spatilly overlapping templates
+      sync_jitt: 1 # jitter in ms for added spikes
 
-        modulation: electrode # type of spike modulation [none (no modulation) |
-            # template (each spike instance is modulated with the same value on each electrode) |
-            # electrode (each electrode is modulated separately) |
-            # template-isi (spike amplitude is modulated depending on isi interval with the same value on each electrode)
-            # electrode-isi (spike amplitude is modulated depending on isi interval and each electrode is modulated separately)]
-        mrand: 1 # mean of gaussian modulation (should be 1)
-        sdrand:  0.05 # standard deviation of gaussian modulation
-        exp_decay: 0.2 # with isi modulation experimental decay in aplitude between consecutive spikes
-        n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
-        max_burst_duration: 100 # duration in ms of maximum burst modulation
-        shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
-        bursting_fc: [1000., 12000.]  # min and max frequencies to be mapped to modulation value
+      modulation: electrode # type of spike modulation [none (no modulation) |
+        # template (each spike instance is modulated with the same value on each electrode) |
+        # electrode (each electrode is modulated separately)]
+      sdrand:  0.05 # standard deviation of gaussian modulation
+      bursting: True # if True, spikes are modulated in amplitude depending on the isi and in shape (if shape_mod is True)
+      exp_decay: 0.1 # with bursting modulation experimental decay in aplitude between consecutive spikes
+      n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
+      max_burst_duration: 100 # duration in ms of maximum burst modulation
+      shape_mod: True # if True waveforms are modulated in shape with a low pass filter depending on the isi
+      bursting_sigmoid: 30.  # min and max frequencies to be mapped to modulation value
+      n_bursting: 3  # number of bursting units
+      chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
 
-        noise_level: 20 # noise standard deviation in uV
-        noise_mode: uncorrelated # [uncorrelated | distance-correlated]
-        noise_color: True # if True noise is colored resembling experimental noise
-        noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
-        color_peak: 500 # (color) peak / curoff frequency of resonating filter
-        color_q: 1 # (color) quality factor of resonating filter
-        random_noise_floor: 1 # (color) additional noise floor
-        chunk_noise_duration: 0 # chunk duration for noise addition
-        seed: null # random seed for noise generation
+      noise_level: 0 # noise standard deviation in uV
+      noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
+      noise_color: False # if True noise is colored resembling experimental noise
+      noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+      far_neurons_n: 300 # number of far noisy neurons to be simulated
+      far_neurons_max_amp: 10 # maximum amplitude of far neurons
+      far_neurons_noise_floor: 0.5 # percent of random noise
+      far_neurons_exc_inh_ratio: 0.8 # excitatory / inhibitory noisy neurons ratio
+      color_peak: 500 # (color) peak / curoff frequency of resonating filter
+      color_q: 1 # (color) quality factor of resonating filter
+      random_noise_floor: 1 # (color) additional noise floor
+      chunk_noise_duration: 0 # chunk duration for noise addition
+      seed: null # random seed for noise generation
 
-        filter: False # if True it filters the recordings
-        filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
-        filter_order: 3 # filter order
-        chunk_filter_duration: 0 # chunk duration for filtering
+      filter: True # if True it filters the recordings
+      filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
+      filter_order: 3 # filter order
+      chunk_filter_duration: 0 # chunk duration for filtering
 
-        overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
-        extract_waveforms: False # if True, waveforms are extracted from recordings
+      overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+      extract_waveforms: False # if True, waveforms are extracted from recordings
 
 
 Drifting recordings
@@ -242,16 +263,18 @@ When drifting templates are generated (:ref:`drift-templates`), drifting recordi
 :code:`drifting` is set to :code:`True`. The :code:`preferred_dir` parameter indicates the 3D vector with the
 preferred direction of drift ([0,0,1], default, is upwards in the z-direction) and the :code:`angle_tol` (default is 15
 degrees) corresponds to the tolerance in this direction.
-The :code:`drift_velocity` controls how fast templates are 'replayed' along their trajectory (default is 5
-:math:`\mu m`/min). Finally, :code:`t_start_drift` (default is 0) is the starting time from which cells start drifting.
+The :code:`drift_velocity` parameter controls how fast templates are 'replayed' along their trajectory (default is 5
+:math:`\mu m`/min). :code:`n_drifting` is the number of drifting neurons and, if not specified, all neurons will drift.
+Finally, :code:`t_start_drift` (default is 0) is the starting time from which cells start drifting.
 
 .. code-block:: bash
 
-        drifting: False # if True templates are drifted
-        preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
-        angle_tol: 15  # tolerance for direction in degrees
-        drift_velocity: 30  # drift velocity in um/min
-        t_start_drift: 0  # tim in s from which drifting starts
+      drifting: False # if True templates are drifted
+      n_drifting: null # number of drifting units
+      preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
+      angle_tol: 15  # tolerance for direction in degrees
+      drift_velocity: 5  # drift velocity in um/min
+      t_start_drift: 0  # tim in s from which drifting starts
 
 Running recording generation using CLI
 --------------------------------------
@@ -281,15 +304,18 @@ The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGe
 
 
 The RecordingGenerator object
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :code:`RecordingGenerator` class contains several fields:
 
 * recordings: (n_electrodes, n_samples) recordings
 * spiketrains: list of (n_spiketrains) :code:`neo.Spiketrain` objects
 * templates: (n_spiketrains, n_electrodes, n_templates samples) templates
+* templates_celltypes: (n_spiketrains) templates cell type
+* templates_locations: (n_spiketrains, 3) templates soma locations
+* templates_rotations: (n_spiketrains, 3) 3d model rotations
 * channel_positions: (n_electrodes, 3) electrodes 3D positions
-* times: (n_samples) timestamps in seconds (quantities)
+* timestamps: (n_samples) timestamps in seconds (quantities)
 * voltage_peaks: (n_spiketrains, n_electrodes) average voltage peaks on the electrodes
 * spike_traces: (n_spiketrains, n_samples) clean spike trace for each spike train
 * info: dictionary with parameters used

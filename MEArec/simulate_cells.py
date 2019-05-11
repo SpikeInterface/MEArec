@@ -169,6 +169,35 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T, verbose=
     return cell
 
 
+def return_cell_morphology(cell_name, cell_folder):
+    """ Function to load cell models
+
+    Parameters:
+    -----------
+    cell_name : string
+        Name of the cell type.
+    cell_folder : string
+        Folder containing cell models.
+
+    Returns:
+    --------
+    cell : object
+        LFPy cell object
+    """
+    import mpi4py.MPI
+    import LFPy
+
+    if not os.path.isdir(join(cell_folder, cell_name)):
+        raise NotImplementedError('Cell model %s is not found in %s' \
+                                  % (cell_name, cell_folder))
+
+    morphologyfile = os.listdir(join(cell_folder, cell_name, 'morphology'))[0]
+    morphology = join(cell_folder, cell_name, 'morphology', morphologyfile)
+
+    cell = LFPy.Cell(morphology=morphology, pt3d=True)
+    return cell
+
+
 def find_spike_idxs(v, thresh=-30, find_max=30):
     """ Find spike indices
     

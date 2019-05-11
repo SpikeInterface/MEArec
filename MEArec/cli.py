@@ -155,7 +155,11 @@ def gen_templates(params, **kwargs):
         params_dict['drift_zlim'] = kwargs['drift_zlim']
 
     if kwargs['probe'] is not None:
-        params_dict['probe'] = kwargs['probe']
+        if kwargs['probe'] in mu.return_mea_list():
+            params_dict['probe'] = kwargs['probe']
+        else:
+            print("The probe ", kwargs['probe'], " is not listead as a MEAutility probe.")
+            return
     if kwargs['no_parallel']:
         parallel = False
     else:
@@ -269,6 +273,8 @@ def gen_templates(params, **kwargs):
               help='overlap threshold for spatial overlap')
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
+@click.option('--bursting', is_flag=True,
+              help='if True bursting shape modulation is performed')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting recordings')
 @click.option('--preferred-dir', '-prd', default=None, nargs=3, type=float,
@@ -410,6 +416,11 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['color_q'] = kwargs['color_q']
     if kwargs['random_noise_floor'] is not None:
         params_dict['recordings']['random_noise_floor'] = kwargs['random_noise_floor']
+
+    if kwargs['bursting']:
+        params_dict['recordings']['bursting'] = True
+    elif 'bursting' not in params_dict['recordings'].keys():
+        params_dict['recordings']['bursting'] = False
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
