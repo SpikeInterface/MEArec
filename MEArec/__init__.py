@@ -4,4 +4,4 @@ from MEArec.generators import gen_recordings, gen_templates, RecordingGenerator,
 from MEArec.simulate_cells import return_cell, run_cell_model, return_cell_morphology
 
 
-__version__ = '1.2.7'
+__version__ = '1.3.0'
