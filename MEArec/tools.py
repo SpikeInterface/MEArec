@@ -83,39 +83,39 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
     """
     if verbose:
-        print("Loading spike data ...")
-    spikelist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
+        print("Loading eap data ...")
+    eaplist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
     loclist = [f for f in os.listdir(templates_folder) if f.startswith('pos')]
     rotlist = [f for f in os.listdir(templates_folder) if f.startswith('rot')]
 
-    spikes_list = []
+    eap_list = []
     loc_list = []
     rot_list = []
     cat_list = []
 
-    spikelist = sorted(spikelist)
+    eaplist = sorted(eaplist)
     loclist = sorted(loclist)
     rotlist = sorted(rotlist)
 
     loaded_categories = set()
     ignored_categories = set()
 
-    for idx, f in enumerate(spikelist):
+    for idx, f in enumerate(eaplist):
         celltype = f.split('-')[1][:-4]
         if verbose:
             print('loading cell type: ', f)
         if celltypes is not None:
             if celltype in celltypes:
-                spikes = np.load(join(templates_folder, f))
+                eaps = np.load(join(templates_folder, f))
                 locs = np.load(join(templates_folder, loclist[idx]))
                 rots = np.load(join(templates_folder, rotlist[idx]))
 
-                if samples_per_cat is None or samples_per_cat > len(spikes):
-                    samples_to_read = len(spikes)
+                if samples_per_cat is None or samples_per_cat > len(eaps):
+                    samples_to_read = len(eaps)
                 else:
                     samples_to_read = samples_per_cat
 
-                spikes_list.extend(spikes[:samples_to_read])
+                eap_list.extend(eaps[:samples_to_read])
                 rot_list.extend(rots[:samples_to_read])
                 loc_list.extend(locs[:samples_to_read])
                 cat_list.extend([celltype] * samples_to_read)
@@ -123,16 +123,16 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             else:
                 ignored_categories.add(celltype)
         else:
-            spikes = np.load(join(templates_folder, f))
+            eaps = np.load(join(templates_folder, f))
             locs = np.load(join(templates_folder, loclist[idx]))
             rots = np.load(join(templates_folder, rotlist[idx]))
 
-            if samples_per_cat is None or samples_per_cat > len(spikes):
-                samples_to_read = len(spikes)
+            if samples_per_cat is None or samples_per_cat > len(eaps):
+                samples_to_read = len(eaps)
             else:
                 samples_to_read = samples_per_cat
 
-            spikes_list.extend(spikes[:samples_to_read])
+            eap_list.extend(eaps[:samples_to_read])
             rot_list.extend(rots[:samples_to_read])
             loc_list.extend(locs[:samples_to_read])
             cat_list.extend([celltype] * samples_to_read)
@@ -140,7 +140,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
     if verbose:
         print("Done loading spike data ...")
-    return np.array(spikes_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
+    return np.array(eap_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
 def load_templates(templates, return_h5_objects=False, verbose=False):
@@ -1545,7 +1545,7 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
 
 
 def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False, bursting=False, sigmoid_range=None):
+                                   verbose=False, bursting=False, sigmoid_range=None, nan_init=False):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -1584,6 +1584,10 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         len_spike = template.shape[2]
     n_samples = len(spike_bin)
     recordings = np.zeros((n_elec, n_samples))
+
+    # if nan_init:
+    #     recordings *= np.nan
+
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
     if modulation is False:
@@ -2172,7 +2176,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
 
 
 ### RECORDING OPERATION ###
-def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
+def extract_wf(spiketrains, recordings, fs, cut_out=2 * pq.ms, timestamps=None):
     """
     Extract waveforms from recordings and load it in waveform field of neo spike trains.
 
@@ -2189,11 +2193,11 @@ def extract_wf(spiketrains, recordings, fs, pad_len=2 * pq.ms, timestamps=None):
     timestamps : Quantity array (optional)
         Array with recordings timestamps
     """
-    if not isinstance(pad_len, list):
-        n_pad = int(pad_len * fs.rescale('kHz'))
+    if not isinstance(cut_out, list):
+        n_pad = int(cut_out * fs.rescale('kHz'))
         n_pad = [n_pad, n_pad]
     else:
-        n_pad = [int(p * fs.rescale('kHz')) for p in pad_len]
+        n_pad = [int(p * fs.rescale('kHz')) for p in cut_out]
 
     n_elec, n_samples = recordings.shape
     if timestamps is None:
@@ -2404,13 +2408,17 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
 
     if template_ids is not None:
         if isinstance(template_ids, (int, np.integer)):
-            template_ids = [template_ids]
+            template_ids = np.array([template_ids])
+        elif isinstance(template_ids, list):
+            template_ids = np.array(template_ids)
     else:
         template_ids = np.arange(templates.shape[0])
 
     if max_templates is not None:
         if max_templates < len(templates):
-            templates = templates[np.random.permutation(len(templates))][:max_templates]
+            random_idxs = np.random.permutation(len(templates))
+            template_ids = np.arange(templates.shape[0])[random_idxs][:max_templates]
+            # templates = templates[random_idxs][:max_templates]
 
     n_sources = len(template_ids)
     fig = plt.figure()
@@ -2429,14 +2437,17 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
         cols = int(np.ceil(np.sqrt(n_sources)))
         rows = int(np.ceil(n_sources / float(cols)))
 
+        vscale = 1.5 * np.max(np.abs(templates[template_ids]))
+
         for i_n, n in enumerate(template_ids):
             ax_t = fig.add_subplot(rows, cols, i_n + 1)
-            mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
+            mu.plot_mea_recording(templates[n], mea, ax=ax_t, vscale=vscale, **kwargs)
 
     return fig
 
 
-def plot_recordings(recgen, ax=None, start_frame=None, end_frame=None, **kwargs):
+def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_templates=False, n_templates=None,
+                    cmap=None, **kwargs):
     """
     Plot recordings.
 
@@ -2444,6 +2455,14 @@ def plot_recordings(recgen, ax=None, start_frame=None, end_frame=None, **kwargs)
     ----------
     recgen : RecordingGenerator
         Recording generator object to plot
+    start_time : float
+        Start time to plot recordings in s
+    end_time : float
+        End time to plot recordings in s
+    overlay_templates : bool
+        If True, templates are overlaid on the recordings
+    n_templates : int
+        Number of templates to overlay (if overlay_templates is True)
 
     Returns
     -------
@@ -2455,15 +2474,50 @@ def plot_recordings(recgen, ax=None, start_frame=None, end_frame=None, **kwargs)
 
     recordings = recgen.recordings
     mea = mu.return_mea(info=recgen.info['electrodes'])
+    fs = recgen.info['recordings']['fs']
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    if start_frame is None:
+    if start_time is None:
         start_frame = 0
-    if end_frame is None:
+    else:
+        start_frame = int(start_time * fs)
+    if end_time is None:
         end_frame = recordings.shape[1]
+    else:
+        end_frame = int(end_time * fs)
 
-    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
+    vscale = 1.5 * np.max(np.abs(recordings))
+    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, vscale=vscale, **kwargs)
+
+    if overlay_templates:
+        fs = recgen.info['recordings']['fs'] * pq.Hz
+        if n_templates is None:
+            template_ids = np.arange(len(recgen.templates))
+        else:
+            template_ids = np.random.permutation(len(recgen.templates))[:n_templates]
+
+        cut_out_samples = [int((c + p) * fs.rescale('kHz').magnitude)
+                           for (c, p) in zip(recgen.info['templates']['cut_out'], recgen.info['templates']['pad_len'])]
+
+        spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
+        if cmap is not None:
+            cm = plt.get_cmap(cmap)
+            colors = [cm(i/len(template_ids)) for i in np.arange(len(template_ids))]
+        else:
+            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        i_col = 0
+        if 'lw' in kwargs.keys():
+            kwargs['lw'] = 1
+        for i, (sp, t) in enumerate(zip(spike_matrix, recgen.templates)):
+            if i in template_ids:
+                rec_t = convolve_templates_spiketrains(i, sp, t,
+                                                       cut_out=cut_out_samples)
+                rec_t[np.abs(rec_t) < 1e-4] = np.nan
+                mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,
+                                      colors=colors[np.mod(i_col, len(colors))], vscale=vscale, **kwargs)
+                i_col += 1
+                del rec_t
     return ax
 
 
@@ -2539,5 +2593,110 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
                 ax.plot(wf[i, electrode], color=color[i], lw=0.5)
 
     return ax
+
+
+def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None):
+    try:
+        from sklearn.decomposition import PCA
+    except:
+        raise Exception("'plot_pca_map' requires scikit-learn package")
+
+    import matplotlib.pylab as plt
+    # from scipy.optimize import curve_fit
+    # from scipy.stats import norm
+    #
+    # def gauss(x, *p):
+    #     A, mu, sigma = p
+    #     return A * np.exp(-(x - mu) ** 2 / (2. * sigma ** 2))
+
+    waveforms = []
+    n_spikes = []
+
+    if n_units is None:
+        n_units = len(recgen.spiketrains)
+
+    if recgen.spiketrains[0].waveforms is None:
+        print('Computing waveforms')
+        recgen.extract_waveforms()
+
+    for st in recgen.spiketrains:
+        wf = st.waveforms
+        waveforms.append(wf)
+    n_elec = waveforms[0].shape[1]
+
+    for i_w, wf in enumerate(waveforms):
+        # wf_reshaped = wf.reshape((wf.shape[0] * wf.shape[1], wf.shape[2]))
+        wf_reshaped = wf.reshape((wf.shape[0] * wf.shape[1], wf.shape[2]))
+        n_spikes.append(len(wf) * n_elec)
+
+        if i_w == 0:
+            all_waveforms = wf_reshaped
+        else:
+            all_waveforms = np.vstack((all_waveforms, wf_reshaped))
+
+    print("Fitting PCA of %d dimensions on %d waveforms" % (n_pc, len(all_waveforms)))
+
+    pca = PCA(n_components=n_pc, whiten=False)
+    # pca.fit_transform(all_waveforms)
+    pca.fit(all_waveforms)
+
+    pca_scores = []
+    for st in recgen.spiketrains:
+        pct = np.dot(st.waveforms, pca.components_.T)
+        pca_scores.append(pct)
+
+    fig, ax = plt.subplots(n_pc * n_elec, n_pc * n_elec)
+
+    if cmap is not None:
+        cm = plt.get_cmap(cmap)
+        colors = [cm(i / n_units) for i in np.arange(n_units)]
+    else:
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    for p1 in range(n_pc):
+        for ch1 in range(n_elec):
+            for p2 in range(n_pc):
+                for ch2 in range(n_elec):
+                    if n_pc * ch2 + p2 < n_pc * ch1 + p1:
+                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].axis('off')
+                    else:
+                        if n_pc * ch1 + p1 == 0:
+                            ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_xlabel('Ch.' + str(ch2 + 1) + ':PC' + str(p2 + 1))
+                            ax[n_pc * ch1 + p1][n_pc * ch2 + p2].xaxis.set_label_position('top')
+
+                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_xticks([])
+                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_yticks([])
+                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].spines['right'].set_visible(False)
+                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].spines['top'].set_visible(False)
+                        for i, pc in enumerate(pca_scores):
+                            if ch1 == ch2 and p1 == p2:
+                                h, b, _ = ax[n_pc * ch1 + p1][n_pc * ch2 + p2].hist(pc[:, ch1, p1], bins=50, alpha=0.6,
+                                                                                    color=colors[i], density=True)
+                                # h, b = np.histogram(pc[:, ch1, p1], bins=10)
+                                # # bin_centres = (b[:-1] + b[1:]) / 2
+                                # # p0 = [np.max(h), np.mean(h), np.std(h)]
+                                # # coeff, var_matrix = curve_fit(gauss, bin_centres, h, p0=p0)
+                                # (mu, sigma) = norm.fit(h)
+                                # var = sigma**2
+                                #
+                                # pdf_x = np.linspace(np.min(b), np.max(b), 1000)
+                                # pdf_y = np.max(h) * np.exp(-0.5 * (pdf_x - mu) ** 2 / var)
+                                #
+                                # print(np.max(h), np.max(pdf_y), mu, sigma)
+
+                                # ax[n_pc * ch1 + p1][n_pc * ch2 + p2].plot(pdf_x, pdf_y, color=colors[i])
+                                ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_ylabel('Ch.'+str(ch1+1)+':PC'+str(p1+1))
+                            else:
+                                ax[n_pc * ch1 + p1][n_pc * ch2 + p2].plot(pc[:, ch2, p2], pc[:, ch1, p1], marker='*',
+                                                                          ms=2, ls='', alpha=0.7, color=colors[i])
+
+    fig.subplots_adjust(wspace=0.01, hspace=0)
+    return fig, pca_scores, all_waveforms, pca
+
+
+
+
+
+
 
 # if __name__ == '__main__':

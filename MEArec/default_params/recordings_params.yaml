@@ -31,7 +31,7 @@ templates:
   # recording generation parameters
   min_dist: 25 # minimum distance between neurons
   min_amp: 50 # minimum spike amplitude in uV
-  max_amp: 500 # maximum spike amplitude in uV
+  max_amp: 300 # maximum spike amplitude in uV
   xlim: null # limits for neuron depths (x-coord) in um [min, max]
   ylim: null # limits for neuron depths (y-coord) in um [min, max]
   zlim: null # limits for neuron depths (z-coord) in um [min, max]
@@ -61,7 +61,7 @@ recordings:
   n_bursting: null  # number of bursting units
   chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
 
-  noise_level: 20 # noise standard deviation in uV
+  noise_level: 10 # noise standard deviation in uV
   noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
   noise_color: False # if True noise is colored resembling experimental noise
   noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
