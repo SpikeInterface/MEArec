@@ -1121,12 +1121,12 @@ class RecordingGenerator:
                     spike_trace = output_dict[ch]['spike_traces']
                     idxs = output_dict[ch]['idxs']
                     recordings[:, idxs] += rec
-                    for st in np.arange(n_neurons):
-                        spike_traces[st, idxs] = spike_trace[st]
-                        if ch == len(chunks_rec) - 1:
+                    spike_traces[:, idxs] = spike_trace
+                    if ch == len(chunks_rec) - 1 and drifting:
+                        for st in np.arange(n_neurons):
                             final_locs = output_dict[ch]['final_locs']
                             final_idxs = output_dict[ch]['final_idxs']
-                            if drifting and st in drifting_units:
+                            if st in drifting_units:
                                 spiketrains[st].annotate(drifting=True)
                                 spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
                                 spiketrains[st].annotate(final_soma_position=final_locs[st])
@@ -1144,9 +1144,9 @@ class RecordingGenerator:
                 timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = output_dict[ch]['spike_traces']
                 for st in np.arange(n_neurons):
-                    final_locs = output_dict[ch]['final_locs']
-                    final_idxs = output_dict[ch]['final_idxs']
                     if drifting and st in drifting_units:
+                        final_locs = output_dict[ch]['final_locs']
+                        final_idxs = output_dict[ch]['final_idxs']
                         spiketrains[st].annotate(drifting=True)
                         spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
                         spiketrains[st].annotate(final_soma_position=final_locs[st])

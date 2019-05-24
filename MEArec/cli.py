@@ -260,8 +260,8 @@ def gen_templates(params, **kwargs):
               help='random seed for spike trains')
 @click.option('--temp-seed', '-tseed', default=None, type=int,
               help='random seed for template selection')
-@click.option('--no-filt', is_flag=True,
-              help='if True no filter is applied')
+@click.option('--filter', is_flag=True,
+              help='if True filter is applied')
 @click.option('--filt-cutoff', '-fc', default=None, type=float, multiple=True,
               help='filter cutoff frequencies.'
                    'High-pass: -fc hp-cutoff. Band-pass: -fc hp-cutoff -fc lp-cutoff')
@@ -373,7 +373,9 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['chunk_noise_duration'] = kwargs['chunk_noise']
     if kwargs['chunk_filt'] is not None:
         params_dict['recordings']['chunk_filter_duration'] = kwargs['chunk_filt']
-    if kwargs['no_filt'] is True:
+    if kwargs['filter']:
+        params_dict['recordings']['filter'] = True
+    else:
         params_dict['recordings']['filter'] = False
     if kwargs['filt_cutoff'] is not None:
         if isinstance(kwargs['filt_cutoff'], tuple):
