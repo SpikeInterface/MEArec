@@ -2176,7 +2176,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
 
 
 ### RECORDING OPERATION ###
-def extract_wf(spiketrains, recordings, fs, cut_out=2 * pq.ms, timestamps=None):
+def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
     """
     Extract waveforms from recordings and load it in waveform field of neo spike trains.
 
@@ -2188,16 +2188,18 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2 * pq.ms, timestamps=None):
         Array with recordings (n_elec, n_samples)
     fs : Quantity
         Sampling frequency
-    pad_len : Quantity (single or list)
+    pad_len : float or list
          Length in ms to cut before and after spike peak. If a single value the cut is symmetrical
     timestamps : Quantity array (optional)
         Array with recordings timestamps
     """
+    if cut_out is None:
+        cut_out = 2
     if not isinstance(cut_out, list):
-        n_pad = int(cut_out * fs.rescale('kHz'))
+        n_pad = int(cut_out * pq.ms * fs.rescale('kHz'))
         n_pad = [n_pad, n_pad]
     else:
-        n_pad = [int(p * fs.rescale('kHz')) for p in cut_out]
+        n_pad = [int(p * pq.ms * fs.rescale('kHz')) for p in cut_out]
 
     n_elec, n_samples = recordings.shape
     if timestamps is None:

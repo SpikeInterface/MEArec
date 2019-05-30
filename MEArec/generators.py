@@ -1467,6 +1467,9 @@ class RecordingGenerator:
     def annotate_overlapping_spikes(self, parallel=True):
         '''
         Annnotate spike trains with overlapping information.
+
+        parallel : bool
+            If True, spike trains are annotated in parallel
         '''
         if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
             if self.verbose:
@@ -1485,9 +1488,14 @@ class RecordingGenerator:
             self.info['templates']['overlapping'] = self.overlapping
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
-    def extract_waveforms(self, cut_out=None):
+    def extract_waveforms(self, cut_out=[0.5, 2]):
         '''
         Extract waveforms from spike trains.
+
+        Parameters
+        ----------
+        cut_out : float or list
+            Ms before and after peak to cut out. If float the cut is symmetric.
         '''
         fs = self.info['recordings']['fs'] * pq.Hz
         extract_wf(self.spiketrains, self.recordings, fs=fs, cut_out=cut_out)
