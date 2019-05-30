@@ -1545,7 +1545,7 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
 
 
 def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False, bursting=False, sigmoid_range=None, nan_init=False):
+                                   verbose=False, bursting=False, sigmoid_range=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -2166,6 +2166,9 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         final_locs.append(final_pos)
         recordings += rec
 
+    if verbose:
+        print('Done all convolutions')
+
     return_dict = dict()
     return_dict['rec'] = recordings
     return_dict['idxs'] = idxs
@@ -2489,8 +2492,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     else:
         end_frame = int(end_time * fs)
 
-    vscale = 1.5 * np.max(np.abs(recordings))
-    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, vscale=vscale, **kwargs)
+    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
 
     if overlay_templates:
         fs = recgen.info['recordings']['fs'] * pq.Hz
@@ -2523,8 +2525,8 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None,
-                   max_waveforms=None):
+def plot_waveforms(recgen, spiketrain_id=None, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None,
+                   max_waveforms=None, ncols=6):
     """
     Plot waveforms of a spike train.
 
@@ -2552,64 +2554,119 @@ def plot_waveforms(recgen, spiketrain_id=0, ax=None, color_isi=False, color='k',
 
     """
     import matplotlib.pylab as plt
+    import matplotlib.gridspec as gridspec
     import matplotlib as mpl
 
-    wf = recgen.spiketrains[spiketrain_id].waveforms
+    if spiketrain_id is None:
+        spiketrain_id = np.arange(len(recgen.spiketrains))
+    elif isinstance(spiketrain_id, (int, np.integer)):
+        spiketrain_id = [spiketrain_id]
 
-    if wf is None:
-        fs = recgen.info['recordings']['fs'] * pq.Hz
-        extract_wf([recgen.spiketrains[spiketrain_id]], recgen.recordings, fs)
-        wf = recgen.spiketrains[spiketrain_id].waveforms
+    n_units = len(spiketrain_id)
+
+    waveforms = []
+    for sp in spiketrain_id:
+        wf = recgen.spiketrains[sp].waveforms
+        if wf is None:
+            fs = recgen.info['recordings']['fs'] * pq.Hz
+            extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs)
+            wf = recgen.spiketrains[sp].waveforms
+        waveforms.append(wf)
+
     mea = mu.return_mea(info=recgen.info['electrodes'])
-
     if max_waveforms is not None:
-        if len(wf) > max_waveforms:
-            wf = wf[np.random.permutation(len(wf))][:max_waveforms]
+        for i, wf in enumerate(waveforms):
+            if len(wf) > max_waveforms:
+                waveforms[i] = wf[np.random.permutation(len(wf))][:max_waveforms]
 
     if color_isi:
         import elephant.statistics as stat
         isi = stat.isi(recgen.spiketrains[spiketrain_id]).rescale('ms')
         cm = mpl.cm.get_cmap(cmap)
-        color = [cm(1)]
+        colors = [cm(1)]
         for i in isi:
-            color.append(cm(i / np.max(isi)))
+            colors.append(cm(i / np.max(isi)))
+    elif n_units > 1:
+        if cmap is not None:
+            cm = plt.get_cmap(cmap)
+            colors = [cm(i / n_units) for i in np.arange(n_units)]
+        else:
+            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    else:
+        colors = color
 
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
+    else:
+        fig = ax.get_figure()
 
     if electrode is None:
-        vscale = 1.5 * np.max(np.abs(wf))
-        ax = mu.plot_mea_recording(wf, mea, colors=color, ax=ax, lw=0.1, vscale=vscale)
-        ax = mu.plot_mea_recording(wf.mean(axis=0), mea, colors=color, ax=ax, lw=2, vscale=vscale)
+        for i, wf in enumerate(waveforms):
+            vscale = 1.5 * np.max(np.abs(wf))
+            ax = mu.plot_mea_recording(wf, mea, colors=colors[i], ax=ax, lw=0.1, vscale=vscale)
+            ax = mu.plot_mea_recording(wf.mean(axis=0), mea, colors=colors[i], ax=ax, lw=2, vscale=vscale)
     else:
         assert isinstance(electrode, (int, np.integer)) or electrode == 'max', "electrode must be int or 'max'"
-        if electrode == 'max':
-            electrode = np.unravel_index(np.argmin(wf.mean(axis=0)), wf.mean(axis=0).shape)[0]
-            print('max electrode: ', electrode)
-        if not color_isi:
-            ax.plot(wf[:, electrode].T, color=color, lw=0.1)
-            ax.plot(wf[:, electrode].mean(axis=0), color=color, lw=2)
+        if len(spiketrain_id) > ncols:
+            nrows = np.mod(len(spiketrain_id), ncols)
         else:
-            for i in range(wf.shape[0]):
-                ax.plot(wf[i, electrode], color=color[i], lw=0.5)
+            nrows = 1
+            ncols = len(spiketrain_id)
+
+        gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
+
+        # find ylim
+        min_wf = 0
+        max_wf = 0
+
+        for wf in waveforms:
+            wf_mean = wf.mean(axis=0)
+            if np.min(wf_mean) < min_wf:
+                min_wf = np.min(wf_mean)
+            if np.max(wf_mean) > max_wf:
+                max_wf = np.max(wf_mean)
+
+        print(min_wf, max_wf)
+
+        ylim = [min_wf - 0.2*abs(min_wf), max_wf + 0.2*abs(min_wf)]
+
+        for i, wf in enumerate(waveforms):
+            r = i // ncols
+            c = np.mod(i, ncols)
+            gs_sel = gs[r, c]
+            ax_sel = fig.add_subplot(gs_sel)
+            if electrode == 'max':
+                electrode_idx = np.unravel_index(np.argmin(wf.mean(axis=0)), wf.mean(axis=0).shape)[0]
+                print('max electrode: ', electrode_idx)
+            else:
+                electrode_idx = electrode
+            if not color_isi:
+                ax_sel.plot(wf[:, electrode_idx].T, color=colors[i], lw=0.1)
+                ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
+                ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
+                ax_sel.set_ylim(ylim)
+                if c != 0:
+                    ax_sel.spines['left'].set_visible(False)
+                    ax_sel.set_yticks([])
+                ax_sel.spines['right'].set_visible(False)
+                ax_sel.spines['top'].set_visible(False)
+            else:
+                for i in range(wf.shape[0]):
+                    ax_sel.plot(wf[i, electrode], color=colors[i], lw=0.5)
+    ax.axis('off')
 
     return ax
 
 
-def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None):
+def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
     try:
         from sklearn.decomposition import PCA
     except:
         raise Exception("'plot_pca_map' requires scikit-learn package")
 
     import matplotlib.pylab as plt
-    # from scipy.optimize import curve_fit
-    # from scipy.stats import norm
-    #
-    # def gauss(x, *p):
-    #     A, mu, sigma = p
-    #     return A * np.exp(-(x - mu) ** 2 / (2. * sigma ** 2))
+    import matplotlib.gridspec as gridspec
 
     waveforms = []
     n_spikes = []
@@ -2647,7 +2704,12 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None):
         pct = np.dot(st.waveforms, pca.components_.T)
         pca_scores.append(pct)
 
-    fig, ax = plt.subplots(n_pc * n_elec, n_pc * n_elec)
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    else:
+        fig = ax.get_figure()
+    ax.axis('off')
 
     if cmap is not None:
         cm = plt.get_cmap(cmap)
@@ -2655,50 +2717,37 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None):
     else:
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+    nrows = n_pc * n_elec
+    ncols = nrows
+    gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
+
     for p1 in range(n_pc):
         for ch1 in range(n_elec):
             for p2 in range(n_pc):
                 for ch2 in range(n_elec):
-                    if n_pc * ch2 + p2 < n_pc * ch1 + p1:
-                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].axis('off')
+                    r = n_pc * ch1 + p1
+                    c = n_pc * ch2 + p2
+                    gs_sel = gs[r, c]
+                    ax_sel = fig.add_subplot(gs_sel)
+                    if c < r:
+                        ax_sel.axis('off')
                     else:
-                        if n_pc * ch1 + p1 == 0:
-                            ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_xlabel('Ch.' + str(ch2 + 1) + ':PC' + str(p2 + 1))
-                            ax[n_pc * ch1 + p1][n_pc * ch2 + p2].xaxis.set_label_position('top')
+                        if r == 0:
+                            ax_sel.set_xlabel('Ch.' + str(ch2 + 1) + ':PC' + str(p2 + 1))
+                            ax_sel.xaxis.set_label_position('top')
 
-                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_xticks([])
-                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_yticks([])
-                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].spines['right'].set_visible(False)
-                        ax[n_pc * ch1 + p1][n_pc * ch2 + p2].spines['top'].set_visible(False)
+                        ax_sel.set_xticks([])
+                        ax_sel.set_yticks([])
+                        ax_sel.spines['right'].set_visible(False)
+                        ax_sel.spines['top'].set_visible(False)
                         for i, pc in enumerate(pca_scores):
                             if ch1 == ch2 and p1 == p2:
-                                h, b, _ = ax[n_pc * ch1 + p1][n_pc * ch2 + p2].hist(pc[:, ch1, p1], bins=50, alpha=0.6,
-                                                                                    color=colors[i], density=True)
-                                # h, b = np.histogram(pc[:, ch1, p1], bins=10)
-                                # # bin_centres = (b[:-1] + b[1:]) / 2
-                                # # p0 = [np.max(h), np.mean(h), np.std(h)]
-                                # # coeff, var_matrix = curve_fit(gauss, bin_centres, h, p0=p0)
-                                # (mu, sigma) = norm.fit(h)
-                                # var = sigma**2
-                                #
-                                # pdf_x = np.linspace(np.min(b), np.max(b), 1000)
-                                # pdf_y = np.max(h) * np.exp(-0.5 * (pdf_x - mu) ** 2 / var)
-                                #
-                                # print(np.max(h), np.max(pdf_y), mu, sigma)
-
-                                # ax[n_pc * ch1 + p1][n_pc * ch2 + p2].plot(pdf_x, pdf_y, color=colors[i])
-                                ax[n_pc * ch1 + p1][n_pc * ch2 + p2].set_ylabel('Ch.'+str(ch1+1)+':PC'+str(p1+1))
+                                h, b, _ = ax_sel.hist(pc[:, ch1, p1], bins=50, alpha=0.6,
+                                                      color=colors[i], density=True)
+                                ax_sel.set_ylabel('Ch.'+str(ch1+1)+':PC'+str(p1+1))
                             else:
-                                ax[n_pc * ch1 + p1][n_pc * ch2 + p2].plot(pc[:, ch2, p2], pc[:, ch1, p1], marker='*',
-                                                                          ms=2, ls='', alpha=0.7, color=colors[i])
+                                ax_sel.plot(pc[:, ch2, p2], pc[:, ch1, p1], marker='o',
+                                            ms=1, ls='', alpha=0.5, color=colors[i])
 
-    fig.subplots_adjust(wspace=0.01, hspace=0)
+    fig.subplots_adjust(wspace=0.02, hspace=0.02)
     return fig, pca_scores, all_waveforms, pca
-
-
-
-
-
-
-
-# if __name__ == '__main__':
