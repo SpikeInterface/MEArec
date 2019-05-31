@@ -12,6 +12,7 @@ from os.path import join
 import MEAutility as mu
 import h5py
 from pathlib import Path
+from copy import copy, deepcopy
 from distutils.version import StrictVersion
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
@@ -688,7 +689,7 @@ def is_position_within_boundaries(position, x_lim, y_lim, z_lim):
 
 def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=None, y_lim=None, z_lim=None,
                      min_amp=None, max_amp=None, drifting=False, drift_dir=None, preferred_dir=None, angle_tol=15,
-                     verbose=False):
+                     n_overlap_pairs=None, overlap_threshold=0.8, verbose=False):
     """
     Select templates given specified rules.
 
@@ -724,6 +725,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
         3D array with preferred
     angle_tol : float
         Tollerance in degrees for selecting final drift position
+    n_overlap_pairs: int
+        Number of spatially overlapping templates to select
+    overlap_threshold: float
+        Threshold for considering spatially overlapping pairs ([0-1])
     verbose : bool
         If True the output is verbose
 
@@ -750,6 +755,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
             print('Selecting random templates (cell types not specified)')
         excinh = False
         selected_cat = []
+
     permuted_idxs = np.random.permutation(len(loc))
     if bin_cat is not None:
         permuted_bin_cats = bin_cat[permuted_idxs]
@@ -773,6 +779,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     n_sel_exc = 0
     n_sel_inh = 0
     iter = 0
+    current_overlapping_pairs = 0
 
     for i, (id_cell, bcat) in enumerate(zip(permuted_idxs, permuted_bin_cats)):
         placed = False
@@ -793,10 +800,47 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                                 # save cell
-                                pos_sel.append(loc[id_cell])
-                                selected_idxs.append(id_cell)
-                                n_sel += 1
-                                placed = True
+                                if n_overlap_pairs is None:
+                                    pos_sel.append(loc[id_cell])
+                                    selected_idxs.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if len(selected_idxs) == 0:
+                                        # save cell
+                                        pos_sel.append(loc[id_cell])
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                    else:
+                                        possible_selected = deepcopy(selected_idxs)
+                                        possible_selected.append(id_cell)
+                                        possible_overlapping_pairs = len(find_overlapping_templates(
+                                            templates[np.array(possible_selected)],
+                                            overlap_threshold))
+                                        current_overlapping_pairs = len(find_overlapping_templates(
+                                            templates[np.array(selected_idxs)],
+                                            overlap_threshold))
+                                        if current_overlapping_pairs < n_overlap_pairs and \
+                                                possible_overlapping_pairs <= n_overlap_pairs:
+                                            if possible_overlapping_pairs == current_overlapping_pairs:
+                                                continue
+                                            else:
+                                                pos_sel.append(loc[id_cell])
+                                                selected_idxs.append(id_cell)
+                                                n_sel += 1
+                                                placed = True
+                                                if verbose:
+                                                    print('Number of overlapping pairs:', possible_overlapping_pairs)
+                                        else:
+                                            if possible_overlapping_pairs == current_overlapping_pairs:
+                                                pos_sel.append(loc[id_cell])
+                                                selected_idxs.append(id_cell)
+                                                n_sel += 1
+                                                placed = True
+                                            else:
+                                                if verbose:
+                                                    print('Overlapping violation:', possible_overlapping_pairs)
                             else:
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
@@ -807,10 +851,48 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
-                                    pos_sel.append(loc[id_cell])
-                                    selected_idxs.append(id_cell)
-                                    n_sel += 1
-                                    placed = True
+                                    if n_overlap_pairs is None:
+                                        pos_sel.append(loc[id_cell])
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                    else:
+                                        if len(selected_idxs) == 0:
+                                            # save cell
+                                            pos_sel.append(loc[id_cell])
+                                            selected_idxs.append(id_cell)
+                                            n_sel += 1
+                                            placed = True
+                                        else:
+                                            possible_selected = deepcopy(selected_idxs)
+                                            possible_selected.append(id_cell)
+                                            possible_overlapping_pairs = len(find_overlapping_templates(
+                                                templates[np.array(possible_selected), 0],
+                                                overlap_threshold))
+                                            current_overlapping_pairs = len(find_overlapping_templates(
+                                                templates[np.array(selected_idxs), 0],
+                                                overlap_threshold))
+                                            if current_overlapping_pairs < n_overlap_pairs and \
+                                                    possible_overlapping_pairs <= n_overlap_pairs:
+                                                if possible_overlapping_pairs == current_overlapping_pairs:
+                                                    continue
+                                                else:
+                                                    pos_sel.append(loc[id_cell])
+                                                    selected_idxs.append(id_cell)
+                                                    n_sel += 1
+                                                    placed = True
+                                                    if verbose:
+                                                        print('Number of overlapping pairs:',
+                                                              possible_overlapping_pairs)
+                                            else:
+                                                if possible_overlapping_pairs == current_overlapping_pairs:
+                                                    pos_sel.append(loc[id_cell])
+                                                    selected_idxs.append(id_cell)
+                                                    n_sel += 1
+                                                    placed = True
+                                                else:
+                                                    if verbose:
+                                                        print('Overlapping violation:', possible_overlapping_pairs)
                                 else:
                                     if verbose:
                                         print('Drift violation', loc[id_cell, 0], iter)
@@ -833,10 +915,47 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                                     amp < max_amp:
                                 # save cell
-                                pos_sel.append(loc[id_cell])
-                                selected_idxs.append(id_cell)
-                                n_sel += 1
-                                placed = True
+                                if n_overlap_pairs is None:
+                                    pos_sel.append(loc[id_cell])
+                                    selected_idxs.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                else:
+                                    if len(selected_idxs) == 0:
+                                        # save cell
+                                        pos_sel.append(loc[id_cell])
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                    else:
+                                        possible_selected = deepcopy(selected_idxs)
+                                        possible_selected.append(id_cell)
+                                        possible_overlapping_pairs = len(find_overlapping_templates(
+                                            templates[np.array(possible_selected)],
+                                            overlap_threshold))
+                                        current_overlapping_pairs = len(find_overlapping_templates(
+                                            templates[np.array(selected_idxs)],
+                                            overlap_threshold))
+                                        if current_overlapping_pairs < n_overlap_pairs and \
+                                                possible_overlapping_pairs <= n_overlap_pairs:
+                                            if possible_overlapping_pairs == current_overlapping_pairs:
+                                                continue
+                                            else:
+                                                pos_sel.append(loc[id_cell])
+                                                selected_idxs.append(id_cell)
+                                                n_sel += 1
+                                                placed = True
+                                                if verbose:
+                                                    print('Number of overlapping pairs:', possible_overlapping_pairs)
+                                        else:
+                                            if possible_overlapping_pairs == current_overlapping_pairs:
+                                                pos_sel.append(loc[id_cell])
+                                                selected_idxs.append(id_cell)
+                                                n_sel += 1
+                                                placed = True
+                                            else:
+                                                if verbose:
+                                                    print('Overlapping violation:', possible_overlapping_pairs)
                             else:
                                 if verbose:
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
@@ -847,9 +966,47 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
-                                    selected_idxs.append(id_cell)
-                                    n_sel += 1
-                                    placed = True
+                                    if n_overlap_pairs is None:
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                    else:
+                                        if len(selected_idxs) == 0:
+                                            # save cell
+                                            pos_sel.append(loc[id_cell])
+                                            selected_idxs.append(id_cell)
+                                            n_sel += 1
+                                            placed = True
+                                        else:
+                                            possible_selected = deepcopy(selected_idxs)
+                                            possible_selected.append(id_cell)
+                                            possible_overlapping_pairs = len(find_overlapping_templates(
+                                                templates[np.array(possible_selected), 0],
+                                                overlap_threshold))
+                                            current_overlapping_pairs = len(find_overlapping_templates(
+                                                templates[np.array(selected_idxs), 0],
+                                                overlap_threshold))
+                                            if current_overlapping_pairs < n_overlap_pairs and \
+                                                    possible_overlapping_pairs <= n_overlap_pairs:
+                                                if possible_overlapping_pairs == current_overlapping_pairs:
+                                                    continue
+                                                else:
+                                                    pos_sel.append(loc[id_cell])
+                                                    selected_idxs.append(id_cell)
+                                                    n_sel += 1
+                                                    placed = True
+                                                    if verbose:
+                                                        print('Number of overlapping pairs:',
+                                                              possible_overlapping_pairs)
+                                            else:
+                                                if possible_overlapping_pairs == current_overlapping_pairs:
+                                                    pos_sel.append(loc[id_cell])
+                                                    selected_idxs.append(id_cell)
+                                                    n_sel += 1
+                                                    placed = True
+                                                else:
+                                                    if verbose:
+                                                        print('Overlapping violation:', possible_overlapping_pairs)
                                 else:
                                     if verbose:
                                         print('Drift violation', loc[id_cell], iter)
@@ -870,10 +1027,48 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                 if not drifting:
                     if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
                             amp < max_amp:
-                        # save cell
-                        pos_sel.append(loc[id_cell])
-                        selected_idxs.append(id_cell)
-                        placed = True
+                        if n_overlap_pairs is None:
+                            # save cell
+                            pos_sel.append(loc[id_cell])
+                            selected_idxs.append(id_cell)
+                            n_sel += 1
+                            placed = True
+                        else:
+                            if len(selected_idxs) == 0:
+                                # save cell
+                                pos_sel.append(loc[id_cell])
+                                selected_idxs.append(id_cell)
+                                n_sel += 1
+                                placed = True
+                            else:
+                                possible_selected = deepcopy(selected_idxs)
+                                possible_selected.append(id_cell)
+                                possible_overlapping_pairs = len(find_overlapping_templates(
+                                    templates[np.array(possible_selected)],
+                                    overlap_threshold))
+                                current_overlapping_pairs = len(find_overlapping_templates(
+                                    templates[np.array(selected_idxs)],
+                                    overlap_threshold))
+                                if current_overlapping_pairs < n_overlap_pairs and \
+                                        possible_overlapping_pairs <= n_overlap_pairs:
+                                    if possible_overlapping_pairs == current_overlapping_pairs:
+                                        continue
+                                    else:
+                                        pos_sel.append(loc[id_cell])
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                        if verbose:
+                                            print('Number of overlapping pairs:', possible_overlapping_pairs)
+                                else:
+                                    if possible_overlapping_pairs == current_overlapping_pairs:
+                                        pos_sel.append(loc[id_cell])
+                                        selected_idxs.append(id_cell)
+                                        n_sel += 1
+                                        placed = True
+                                    else:
+                                        if verbose:
+                                            print('Overlapping violation:', possible_overlapping_pairs)
                     else:
                         if verbose:
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
@@ -884,9 +1079,27 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         # save cell
                         drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                         if drift_angle - angle_tol <= 0:
-                            pos_sel.append(loc[id_cell])
-                            selected_idxs.append(id_cell)
-                            placed = True
+                            if n_overlap_pairs is None:
+                                pos_sel.append(loc[id_cell])
+                                selected_idxs.append(id_cell)
+                                placed = True
+                            else:
+                                possible_selected = deepcopy(selected_idxs)
+                                possible_selected.append(id_cell)
+                                overlapping = find_overlapping_templates(templates[np.array(possible_selected), 0],
+                                                                         overlap_threshold)
+                                possible_overlapping_pairs = len(overlapping)
+                                if possible_overlapping_pairs <= n_overlap_pairs:
+                                    pos_sel.append(loc[id_cell])
+                                    selected_idxs.append(id_cell)
+                                    n_sel += 1
+                                    placed = True
+                                    current_overlapping_pairs = len(overlapping)
+                                    if verbose:
+                                        print('Number of overlapping pairs:', current_overlapping_pairs)
+                                else:
+                                    if verbose:
+                                        print('Overlapping violation:', current_overlapping_pairs)
                         else:
                             if verbose:
                                 print('Drift violation', loc[id_cell, 0], iter)
@@ -894,13 +1107,11 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                         if verbose:
                             print('Amplitude or boundary violation', amp, loc[id_cell, 0], iter)
             if placed:
-                n_sel += 1
                 selected_cat.append('U')
 
     if i == len(permuted_idxs) - 1 and n_sel < n_exc + n_inh:
         raise RuntimeError("Templates could not be selected. \n"
                            "Decrease number of spiketrains, decrease 'min_dist', or use more templates.")
-
     return selected_idxs, selected_cat
 
 
@@ -960,7 +1171,7 @@ def cubic_padding(template, pad_len, fs):
     return padded_template
 
 
-def find_overlapping_templates(templates, thresh=0.7):
+def find_overlapping_templates(templates, thresh=0.8):
     """
     Find spatially overlapping templates.
 
@@ -990,14 +1201,40 @@ def find_overlapping_templates(templates, thresh=0.7):
                 temp_2 = temp_2[0]
 
             if i != j:
-                peak_2_on_max = np.abs(np.min(temp_2[peak_electrode_idx]))
-                peak_2 = np.abs(np.min(temp_2))
-
-                if peak_2_on_max > thresh * peak_2:
+                if are_templates_overlapping([temp_1, temp_2], thresh):
                     if [i, j] not in overlapping_pairs and [j, i] not in overlapping_pairs:
                         overlapping_pairs.append(sorted([i, j]))
 
     return np.array(overlapping_pairs)
+
+
+def are_templates_overlapping(templates, thresh):
+    '''
+    Returns true if templates are spatially overlapping
+
+    Parameters
+    ----------
+    templates : np.array
+        Array with 2 templates (2, n_elec, n_samples)
+    thresh : float
+        Overlapping threshold ([0 - 1])
+
+    Returns
+    -------
+    overlab : bool
+        Whether the templates are spatially overlapping or not
+    '''
+    assert len(templates) == 2
+    temp_1 = templates[0]
+    temp_2 = templates[1]
+    peak_electrode_idx = np.unravel_index(temp_1.argmin(), temp_1.shape)
+    peak_2_on_max = np.abs(np.min(temp_2[peak_electrode_idx]))
+    peak_2 = np.abs(np.min(temp_2))
+
+    if peak_2_on_max > thresh * peak_2:
+        return True
+    else:
+        return False
 
 
 ### SPIKETRAIN OPERATIONS ###
@@ -2494,6 +2731,9 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
 
     mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
 
+    if 'vscale' not in kwargs.keys():
+        kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
+
     if overlay_templates:
         fs = recgen.info['recordings']['fs'] * pq.Hz
         if n_templates is None:
@@ -2519,13 +2759,13 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
                                                        cut_out=cut_out_samples)
                 rec_t[np.abs(rec_t) < 1e-4] = np.nan
                 mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,
-                                      colors=colors[np.mod(i_col, len(colors))], vscale=vscale, **kwargs)
+                                      colors=colors[np.mod(i_col, len(colors))], **kwargs)
                 i_col += 1
                 del rec_t
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=None, ax=None, color_isi=False, color='k', cmap='viridis', electrode=None,
+def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis', electrode=None,
                    max_waveforms=None, ncols=6):
     """
     Plot waveforms of a spike train.
@@ -2538,8 +2778,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color_isi=False, color='
         Indes of spike train
     ax : axis
         Matplotlib  axis
-    color_isi : bool
-        If True the color is mapped to the isi
     color : matplotlib color
         Color of the waveforms
     cmap : matplotlib colormap
@@ -2579,14 +2817,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color_isi=False, color='
             if len(wf) > max_waveforms:
                 waveforms[i] = wf[np.random.permutation(len(wf))][:max_waveforms]
 
-    if color_isi:
-        import elephant.statistics as stat
-        isi = stat.isi(recgen.spiketrains[spiketrain_id]).rescale('ms')
-        cm = mpl.cm.get_cmap(cmap)
-        colors = [cm(1)]
-        for i in isi:
-            colors.append(cm(i / np.max(isi)))
-    elif n_units > 1:
+    if n_units > 1:
         if cmap is not None:
             cm = plt.get_cmap(cmap)
             colors = [cm(i / n_units) for i in np.arange(n_units)]
@@ -2641,19 +2872,17 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color_isi=False, color='
                 print('max electrode: ', electrode_idx)
             else:
                 electrode_idx = electrode
-            if not color_isi:
-                ax_sel.plot(wf[:, electrode_idx].T, color=colors[i], lw=0.1)
-                ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
-                ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
-                ax_sel.set_ylim(ylim)
-                if c != 0:
-                    ax_sel.spines['left'].set_visible(False)
-                    ax_sel.set_yticks([])
-                ax_sel.spines['right'].set_visible(False)
-                ax_sel.spines['top'].set_visible(False)
-            else:
-                for i in range(wf.shape[0]):
-                    ax_sel.plot(wf[i, electrode], color=colors[i], lw=0.5)
+            if i == 0:
+                ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=12)
+            ax_sel.plot(wf[:, electrode_idx].T, color=colors[i], lw=0.1)
+            ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
+            ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
+            ax_sel.set_ylim(ylim)
+            if c != 0:
+                ax_sel.spines['left'].set_visible(False)
+                ax_sel.set_yticks([])
+            ax_sel.spines['right'].set_visible(False)
+            ax_sel.spines['top'].set_visible(False)
     ax.axis('off')
 
     return ax

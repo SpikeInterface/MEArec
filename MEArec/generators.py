@@ -399,37 +399,64 @@ class SpikeTrainGenerator:
         all_times_shuffle = all_times_shuffle[np.random.permutation(len(all_times_shuffle))] * unit
 
         sync_rate = compute_sync_rate(st1, st2, time_jitt)
-        for t in all_times_shuffle:
-            if sync_rate <= rate:
-                # check time difference
-                if t in times1:
-                    t_diff = np.abs(t.rescale(pq.ms).magnitude - times2.rescale(pq.ms).magnitude)
-                    if np.all(t_diff > self.params['ref_per']):
-                        t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
-                                  (time_jitt.rescale(unit) / 2).magnitude
-                        times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
-                        times2 = times2 * unit
-                        st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                        added_spikes_t1 += 1
-                elif t in times2:
-                    t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
-                    if np.all(t_diff > self.params['ref_per']):
-                        t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
-                                  (time_jitt.rescale(unit) / 2).magnitude
-                        times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
-                        times1 = times1 * unit
-                        st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                        added_spikes_t2 += 1
+        if sync_rate < rate:
+            for t in all_times_shuffle:
+                if sync_rate <= rate:
+                    # check time difference
+                    if t in times1:
+                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times2.rescale(pq.ms).magnitude)
+                        if np.all(t_diff > self.params['ref_per']):
+                            t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
+                                      (time_jitt.rescale(unit) / 2).magnitude
+                            times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
+                            times2 = times2 * unit
+                            st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
+                            added_spikes_t1 += 1
+                    elif t in times2:
+                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
+                        if np.all(t_diff > self.params['ref_per']):
+                            t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
+                                      (time_jitt.rescale(unit) / 2).magnitude
+                            times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
+                            times1 = times1 * unit
+                            st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
+                            added_spikes_t2 += 1
+                    sync_rate = compute_sync_rate(st1, st2, time_jitt)
+                else:
+                    break
+            if verbose:
+                print("Added", added_spikes_t1, "spikes to spike train", idxs[0],
+                      "and", added_spikes_t2, "spikes to spike train", idxs[1], 'Sync rate:', sync_rate)
+        else:
+            spiketrains = [st1, st2]
+            annotate_overlapping_spikes(spiketrains)
+            max_overlaps = np.floor(rate * (len(times1) + len(times2)))
+            curr_overlaps = np.floor(sync_rate * (len(times1) + len(times2)))
+            remove_overlaps = int(curr_overlaps - max_overlaps)
+            if curr_overlaps > max_overlaps:
+                st1_ovrl_idx = np.where(spiketrains[0].annotations['overlap'] == 'O')[0]
+                st2_ovrl_idx = np.where(spiketrains[1].annotations['overlap'] == 'O')[0]
+                perm = np.random.permutation(len(st1_ovrl_idx))[:remove_overlaps]
+                st1_ovrl_idx = st1_ovrl_idx[perm]
+                st2_ovrl_idx = st2_ovrl_idx[perm]
+                idx_rm_1 = st1_ovrl_idx[:remove_overlaps//2]
+                idx_rm_2 = st2_ovrl_idx[remove_overlaps//2:]
+                times1 = np.delete(st1.times, idx_rm_1)
+                times1 = times1 * unit
+                times2 = np.delete(st2.times, idx_rm_2)
+                times2 = times2 * unit
+                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
+                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
                 sync_rate = compute_sync_rate(st1, st2, time_jitt)
-            else:
-                break
+                if verbose:
+                    print("Removed", len(idx_rm_1), "spikes from spike train", idxs[0],
+                          "and", len(idx_rm_2), "spikes from spike train", idxs[1], 'Sync rate:', sync_rate)
+
         st1.annotations = self.all_spiketrains[idx1].annotations
         st2.annotations = self.all_spiketrains[idx2].annotations
         self.set_spiketrain(idx1, st1)
         self.set_spiketrain(idx2, st2)
-        if verbose:
-            print("Added", added_spikes_t1, "spikes to spike train", idxs[0],
-                  "and", added_spikes_t2, "spikes to spike train", idxs[1])
+
 
         fr1 = len(st1.times) / st1.t_stop
         fr2 = len(st2.times) / st2.t_stop
@@ -566,8 +593,14 @@ class RecordingGenerator:
         noise_color = params['recordings']['noise_color']
 
         if 'sync_rate' not in rec_params.keys():
-            params['recordings']['sync_rate'] = 0
+            params['recordings']['sync_rate'] = None
         sync_rate = params['recordings']['sync_rate']
+
+        if 'n_overlap_pairs' not in rec_params.keys():
+            params['recordings']['n_overlap_pairs'] = None
+        n_overlap_pairs = params['recordings']['n_overlap_pairs']
+
+        print(n_overlap_pairs)
 
         if 'sync_jitt' not in rec_params.keys():
             params['recordings']['sync_jitt'] = 1
@@ -842,6 +875,8 @@ class RecordingGenerator:
                                                             min_dist=min_dist, drifting=drifting,
                                                             drift_dir=drift_directions,
                                                             preferred_dir=preferred_dir, angle_tol=angle_tol,
+                                                            n_overlap_pairs=n_overlap_pairs,
+                                                            overlap_threshold=overlap_threshold,
                                                             verbose=self.verbose)
 
                 idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
@@ -850,6 +885,8 @@ class RecordingGenerator:
                 template_rots = rots[idxs_cells]
                 templates_bin = bin_cat[idxs_cells]
                 templates = eaps[idxs_cells]
+
+                overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
 
                 # peak images
                 voltage_peaks = []
@@ -984,12 +1021,9 @@ class RecordingGenerator:
                     if self.verbose:
                         print('Drift velocity vector: ', velocity_vector)
 
-            overlapping_computed = False
-            if sync_rate != 0:
+            if sync_rate is not None:
                 if self.verbose:
-                    print('Adding synchrony on overlapping spikes')
-                overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
-                overlapping_computed = True
+                    print('Modifying synchrony of spatially overlapping spikes')
                 if self.verbose:
                     print('Overlapping templates: ', overlapping)
                 for over in overlapping:
@@ -1001,8 +1035,6 @@ class RecordingGenerator:
                     fr2 = len(spgen.all_spiketrains[over[1]].times) / spgen.all_spiketrains[over[1]].t_stop
                     spgen.all_spiketrains[over[0]].annotate(fr=fr1)
                     spgen.all_spiketrains[over[1]].annotate(fr=fr2)
-            else:
-                overlapping = []
             self.overlapping = overlapping
 
             # find SNR and annotate
@@ -1018,11 +1050,8 @@ class RecordingGenerator:
             if tempgen is not None:
                 for i, st in enumerate(spiketrains):
                     st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
+
             if overlap:
-                if not overlapping_computed:
-                    if self.verbose:
-                        print('Finding overlapping spikes')
-                    overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
                 annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
 
             amp_mod = []
