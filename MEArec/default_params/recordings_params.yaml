@@ -46,7 +46,7 @@ recordings:
   fs: null # sampling frequency in Hz (if null it is computed form the templates)
   overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
   extract_waveforms: False # if True, waveforms are extracted from recordings
-  n_overlap_pairs: 1 # number of spatially overlapping templates
+  n_overlap_pairs: null # number of spatially overlapping templates
   sync_rate: null # added synchrony rate for spatially overlapping templates
   sync_jitt: 1 # jitter in ms for added spikes
 

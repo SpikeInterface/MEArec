@@ -174,7 +174,7 @@ class TestGenerators(unittest.TestCase):
                 for j in n_jitter:
                     for ch in chunk_rec:
                         print('Modulation: modulation', mod, 'bursting', b, 'jitter', j, 'chunk', ch)
-                        rec_params['templates']['n_jitters'] =j
+                        rec_params['templates']['n_jitters'] = j
                         rec_params['recordings']['modulation'] = mod
                         rec_params['recordings']['bursting'] = b
                         rec_params['recordings']['chunk_conv_duration'] = ch
@@ -468,7 +468,7 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_waveforms(self.recgen, electrode='max')
         _ = mr.plot_waveforms(self.recgen, electrode='max', max_waveforms=2)
         self.recgen.spiketrains[0].waveforms = None
-        _ = mr.plot_waveforms(self.recgen, electrode='max', color_isi=True)
+        _ = mr.plot_waveforms(self.recgen, electrode='max')
 
     def test_extract_features(self):
         feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['na', 'rep', 'amp', 'width', 'fwhm',
