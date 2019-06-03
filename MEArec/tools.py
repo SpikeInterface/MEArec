@@ -2594,8 +2594,8 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     return ax
 
 
-def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False, max_templates=None,
-                   drifting=False, **kwargs):
+def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_axes=False, max_templates=None,
+                   drifting=False, ncols=6, **kwargs):
     """
     Plot templates.
 
@@ -2607,12 +2607,16 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
         The template(s) to plot
     single_axes : bool
         If True all templates are plotted on the same axis
+    ax : axis
+        Matplotlib  axis
     single_jitter: bool
         If True and jittered templates are present, a single jittered template is plotted
     max_templates: int
         Maximum number of templates to be plotted
     drifting: bool
         If True and templates are drifting, drifting templates are displayed
+    ncols :  int
+        Number of columns for subplots
 
     Returns
     -------
@@ -2621,6 +2625,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
 
     """
     import matplotlib.pylab as plt
+    from matplotlib import gridspec
 
     templates = gen.templates
     mea = mu.return_mea(info=gen.info['electrodes'])
@@ -2663,7 +2668,14 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
             # templates = templates[random_idxs][:max_templates]
 
     n_sources = len(template_ids)
-    fig = plt.figure()
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    else:
+        fig = ax.get_figure()
+
+    if 'vscale' not in kwargs.keys():
+        kwargs['vscale'] = 1.5 * np.max(np.abs(templates[template_ids]))
 
     if single_axes:
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -2672,18 +2684,25 @@ def plot_templates(gen, template_ids=None, single_jitter=True, single_axes=False
         for n, t in enumerate(templates):
             if n in template_ids:
                 if len(t.shape) == 3:
-                    mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                    mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
                 else:
-                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, lw=2)
+                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
     else:
-        cols = int(np.ceil(np.sqrt(n_sources)))
-        rows = int(np.ceil(n_sources / float(cols)))
+        if n_sources > ncols:
+            nrows = np.mod(len(spiketrain_id), ncols)
+        else:
+            nrows = 1
+            ncols = n_sources
 
+        gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
         vscale = 1.5 * np.max(np.abs(templates[template_ids]))
 
         for i_n, n in enumerate(template_ids):
-            ax_t = fig.add_subplot(rows, cols, i_n + 1)
-            mu.plot_mea_recording(templates[n], mea, ax=ax_t, vscale=vscale, **kwargs)
+            r = i_n // ncols
+            c = np.mod(i_n, ncols)
+            gs_sel = gs[r, c]
+            ax_t = fig.add_subplot(gs_sel)
+            mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
 
     return fig
 
@@ -2697,6 +2716,8 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     ----------
     recgen : RecordingGenerator
         Recording generator object to plot
+    ax : axis
+        Matplotlib  axis
     start_time : float
         Start time to plot recordings in s
     end_time : float
@@ -2705,6 +2726,8 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         If True, templates are overlaid on the recordings
     n_templates : int
         Number of templates to overlay (if overlay_templates is True)
+    cmap : matplotlib colormap
+        Colormap to be used
 
     Returns
     -------
@@ -2781,9 +2804,11 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
     color : matplotlib color
         Color of the waveforms
     cmap : matplotlib colormap
-        Colormap if color_isi is True
+        Colormap to be used
     electrode : int or 'max'
         Electrode id or 'max'
+    ncols :  int
+        Number of columns for subplots
 
     Returns
     -------

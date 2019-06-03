@@ -46,6 +46,7 @@ class TestGenerators(unittest.TestCase):
         templates_params['probe'] = 'Neuronexus-32'
         templates_folder = info['templates_folder']
         print('Generating non-drifting templates')
+        templates_params['min_amp'] = 10
         self.tempgen = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
                                         params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params = templates_params
@@ -55,6 +56,7 @@ class TestGenerators(unittest.TestCase):
         templates_params['n'] = self.n_drift
         templates_params['drift_steps'] = 10
         templates_params['rot'] = 'norot'
+        templates_params['min_amp'] = 10
         print('Generating drifting templates')
         self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
                                               params=templates_params, parallel=True, delete_tmp=True, verbose=True)
@@ -501,7 +503,7 @@ class TestGenerators(unittest.TestCase):
                                      '--fs', '32000',  '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
                                      '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
                                      '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
-                                     '--no-filt', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
+                                     '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
                                      '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])
         print(result.output)
         assert result.exit_code == 0

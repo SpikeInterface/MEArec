@@ -1012,6 +1012,7 @@ class RecordingGenerator:
                 template_rots = self.template_rotations
                 template_celltypes = self.template_celltypes
                 voltage_peaks = self.voltage_peaks
+                overlapping = np.array([])
                 if not drifting:
                     velocity_vector = None
                 else:
