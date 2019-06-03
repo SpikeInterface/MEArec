@@ -391,9 +391,11 @@ class TestGenerators(unittest.TestCase):
                         assert len(recgen_drift.spiketrains) == n_neurons
                         assert recgen_drift.channel_positions.shape == (num_chan, 3)
                         if j == 1:
+                            print('Templates shape no jitter:', recgen_drift.templates.shape)
                             assert recgen_drift.templates.shape[0] == n_neurons
                             assert recgen_drift.templates.shape[2] == num_chan
                         else:
+                            print('Templates shape jitter:', recgen_drift.templates.shape)
                             assert recgen_drift.templates.shape[0] == n_neurons
                             assert recgen_drift.templates.shape[2] == j
                             assert recgen_drift.templates.shape[3] == num_chan

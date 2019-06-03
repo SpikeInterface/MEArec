@@ -600,8 +600,6 @@ class RecordingGenerator:
             params['recordings']['n_overlap_pairs'] = None
         n_overlap_pairs = params['recordings']['n_overlap_pairs']
 
-        print(n_overlap_pairs)
-
         if 'sync_jitt' not in rec_params.keys():
             params['recordings']['sync_jitt'] = 1
         sync_jitt = params['recordings']['sync_jitt'] * pq.ms
