@@ -36,7 +36,7 @@ templates:
   ylim: null # limits for neuron depths (y-coord) in um [min, max]
   zlim: null # limits for neuron depths (z-coord) in um [min, max]
   overlap_threshold: 0.9 # threshold to consider two templates spatially overlapping
-  # (e.g 0.8 -> 80% of template B on largest electrode of template A)
+  # (e.g 0.9 -> 90% of template B on largest electrode of template A)
   n_jitters: 10 # number of temporal jittered copies for each eap
   upsample: 8 # upsampling factor to extract jittered copies
   pad_len: [3, 3] # padding of templates in ms
@@ -71,8 +71,8 @@ recordings:
   far_neurons_max_amp: 10 # maximum amplitude of far neurons
   far_neurons_noise_floor: 0.5 # percent of random noise
   far_neurons_exc_inh_ratio: 0.8 # excitatory / inhibitory noisy neurons ratio
-  color_peak: 500 # (color) peak / curoff frequency of resonating filter
-  color_q: 1 # (color) quality factor of resonating filter
+  color_peak: 300 # (color) peak / curoff frequency of resonating filter
+  color_q: 2 # (color) quality factor of resonating filter
   random_noise_floor: 1 # (color) additional noise floor
   chunk_noise_duration: 0 # chunk duration for noise addition
   seed: null # random seed for noise generation
