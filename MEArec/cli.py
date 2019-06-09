@@ -63,6 +63,8 @@ def cli():
               help='run without multiprocessing tool')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting templates')
+@click.option('--min-amp', '-mamp', type=float,
+              help='miniumum template amplitude')
 @click.option('--min-drift', '-mind', type=float,
               help='miniumum drifting distance')
 @click.option('--max-drift', '-maxd', type=float,
@@ -136,6 +138,8 @@ def gen_templates(params, **kwargs):
         params_dict['ylim'] = kwargs['ylim']
     if kwargs['zlim'] is not None and len(kwargs['zlim']) == 2:
         params_dict['zlim'] = kwargs['zlim']
+    if kwargs['min_amp'] is not None:
+        params_dict['min_amp'] = kwargs['min_amp']
 
     if kwargs['drifting']:
         params_dict['drifting'] = True

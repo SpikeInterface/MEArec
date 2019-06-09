@@ -86,5 +86,6 @@ recordings:
   n_drifting: null # number of drifting units
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees
-  drift_velocity: 5  # drift velocity in um/min
-  t_start_drift: 0  # tim in s from which drifting starts
+  drift_velocity: 5  # drift velocity in um/min. If 'linear' it is the constant velocity.
+                     # If 'sin' it is the maximum velocity
+  t_start_drift: 0  # time in s from which drifting starts

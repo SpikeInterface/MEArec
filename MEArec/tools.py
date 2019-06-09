@@ -1475,14 +1475,17 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
                     consecutive = len(consecutive_idx)
 
-                # if consecutive >= 1:
-                # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
-
-                if consecutive == n_spikes:
+                if consecutive == n_spikes - 1:
                     last_burst_event = st[i + 1]
                 if consecutive >= 1:
                     if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
-                        last_burst_event = st[i + 1]
+                        last_burst_event = st[i + 1] - 0.001*pq.ms
+                        consecutive = 0
+                        # last_burst_event = last_burst_event + max_burst_duration
+                print(st[i+1], consecutive, last_burst_event)
+
+                # if consecutive >= 1:
+                #     print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
 
                 if consecutive == 0:
                     mod[i + 1] = sdrand * np.random.randn() + mrand
@@ -2030,7 +2033,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                 # Template modulation
                 if bursting:
                     for pos, spos in enumerate(spike_pos):
-                        sp_time = spos / fs
+                        sp_time = chunk_start + spos / fs
                         if sp_time < t_start_drift:
                             temp_idx = 0
                             temp_jitt = template[temp_idx, rand_idx]
@@ -2052,7 +2055,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                             recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
                 else:
                     for pos, spos in enumerate(spike_pos):
-                        sp_time = spos / fs
+                        sp_time = chunk_start + spos / fs
                         if sp_time < t_start_drift:
                             temp_idx = 0
                             temp_jitt = template[temp_idx, rand_idx]
@@ -2074,7 +2077,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                 # Electrode modulation
                 if bursting:
                     for pos, spos in enumerate(spike_pos):
-                        sp_time = spos / fs
+                        sp_time = chunk_start + spos / fs
                         if sp_time < t_start_drift:
                             temp_idx = 0
                             temp_jitt = template[temp_idx, rand_idx]
@@ -2108,7 +2111,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
                 else:
                     for pos, spos in enumerate(spike_pos):
-                        sp_time = spos / fs
+                        sp_time = chunk_start + spos / fs
                         if sp_time < t_start_drift:
                             temp_idx = 0
                             temp_jitt = template[temp_idx, rand_idx]
@@ -2210,6 +2213,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     elif len(templates.shape) == 5:
         n_elec = templates.shape[3]
     recordings = np.zeros((n_elec, len(idxs)))
+    print('chunk start drift', chunk_start)
     for st, spike_bin in enumerate(spike_matrix):
         if extract_spike_traces:
             max_electrode = np.argmax(voltage_peaks[st])
@@ -2595,7 +2599,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
 
 
 def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_axes=False, max_templates=None,
-                   drifting=False, ncols=6, **kwargs):
+                   drifting=False, cmap='viridis', ncols=6, **kwargs):
     """
     Plot templates.
 
@@ -2615,13 +2619,15 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
         Maximum number of templates to be plotted
     drifting: bool
         If True and templates are drifting, drifting templates are displayed
+    cmap : matplotlib colormap
+        Colormap to be used
     ncols :  int
         Number of columns for subplots
 
     Returns
     -------
-    fig : figure
-        Matplotlib figure
+    ax : ax
+        Matplotlib axes
 
     """
     import matplotlib.pylab as plt
@@ -2632,7 +2638,8 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
 
     if 'params' in gen.info.keys():
         if gen.info['params']['drifting']:
-            templates = templates[:, 0]
+            if not drifting:
+                templates = templates[:, 0]
     if 'recordings' in gen.info.keys():
         if gen.info['recordings']['drifting']:
             if single_jitter:
@@ -2678,24 +2685,36 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
         kwargs['vscale'] = 1.5 * np.max(np.abs(templates[template_ids]))
 
     if single_axes:
-        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        ax_t = fig.add_subplot(111)
+        if cmap is not None:
+            cm = plt.get_cmap(cmap)
+            colors = [cm(i/len(template_ids)) for i in np.arange(len(template_ids))]
+        else:
+            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+        ax_t = fig.add_subplot(111)
         for n, t in enumerate(templates):
             if n in template_ids:
                 if len(t.shape) == 3:
-                    mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
+                    if not drifting:
+                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
+                    else:
+                        if cmap is not None:
+                            cm = plt.get_cmap(cmap)
+                            colors = [cm(i / t.shape[0]) for i in np.arange(t.shape[0])]
+                        else:
+                            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+                        mu.plot_mea_recording(t, mea, colors=colors, ax=ax_t,
+                                              **kwargs)
                 else:
                     mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
     else:
         if n_sources > ncols:
-            nrows = np.mod(len(spiketrain_id), ncols)
+            nrows = np.mod(len(template_ids), ncols)
         else:
             nrows = 1
             ncols = n_sources
 
         gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
-        vscale = 1.5 * np.max(np.abs(templates[template_ids]))
 
         for i_n, n in enumerate(template_ids):
             r = i_n // ncols
@@ -2704,7 +2723,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             ax_t = fig.add_subplot(gs_sel)
             mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
 
-    return fig
+    return ax
 
 
 def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_templates=False, n_templates=None,
