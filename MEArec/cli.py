@@ -535,7 +535,7 @@ def set_recordings_folder(recordings_folder, create):
 @cli.command()
 @click.argument('templates-params')
 def set_templates_params(templates_params):
-    """Set default templates output folder."""
+    """Set default templates parameter file."""
     info, config = get_default_config()
     templates_params = os.path.abspath(templates_params)
     if os.path.isfile(templates_params) and (templates_params.endswith('yaml') or templates_params.endswith('yml')):
@@ -550,7 +550,7 @@ def set_templates_params(templates_params):
 @cli.command()
 @click.argument('recordings-params')
 def set_recordings_params(recordings_params):
-    """Set default templates output folder."""
+    """Set default recordings parameter file."""
     info, config = get_default_config()
     recordings_params = os.path.abspath(recordings_params)
     if os.path.isfile(recordings_params) and (recordings_params.endswith('yaml') or recordings_params.endswith('yml')):
