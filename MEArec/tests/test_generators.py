@@ -369,7 +369,7 @@ class TestGenerators(unittest.TestCase):
         print('Test default params')
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
-        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_folder=info['templates_folder'])
+        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
         recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5')
         recgen.params['recordings']['noise_level'] = 0
         recgen.generate_recordings()
