@@ -40,7 +40,7 @@ class TestGenerators(unittest.TestCase):
         templates_folder = info['templates_folder']
         print('Generating non-drifting templates')
         templates_params['min_amp'] = 10
-        self.tempgen = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
+        self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                         params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params = templates_params
         self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
@@ -51,7 +51,7 @@ class TestGenerators(unittest.TestCase):
         templates_params['rot'] = 'norot'
         templates_params['min_amp'] = 10
         print('Generating drifting templates')
-        self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
+        self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                               params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params_drift = templates_params
         self.num_steps_drift = self.tempgen_drift.templates.shape[1]

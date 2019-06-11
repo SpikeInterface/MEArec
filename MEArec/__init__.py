@@ -4,4 +4,4 @@ from MEArec.tools import load_templates, load_recordings, save_recording_generat
 from MEArec.generators import gen_recordings, gen_templates, RecordingGenerator, TemplateGenerator, SpikeTrainGenerator
 from MEArec.simulate_cells import return_cell, run_cell_model, return_cell_morphology
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
