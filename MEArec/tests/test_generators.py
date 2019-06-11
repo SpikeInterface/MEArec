@@ -24,30 +24,23 @@ class TestGenerators(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         info, info_folder = mr.get_default_config()
-        cell_models_folder = info['cell_models_folder']
+        cell_models_folder = mr.get_default_cell_models_folder()
         self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])
         self.n = 10
         self.n_drift = 5
-        with open(info['templates_params']) as f:
-            if use_loader:
-                templates_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                templates_params = yaml.load(f)
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        templates_params = mr.get_default_templates_params()
+        rec_params = mr.get_default_recordings_params()
 
         self.test_dir = tempfile.mkdtemp()
 
         templates_params['n'] = self.n
+        templates_params['ncontacts'] = 1
         templates_params['probe'] = 'Neuronexus-32'
         templates_folder = info['templates_folder']
         print('Generating non-drifting templates')
         templates_params['min_amp'] = 10
-        self.tempgen = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
+        self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                         params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params = templates_params
         self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
@@ -58,7 +51,7 @@ class TestGenerators(unittest.TestCase):
         templates_params['rot'] = 'norot'
         templates_params['min_amp'] = 10
         print('Generating drifting templates')
-        self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_folder=templates_folder,
+        self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                               params=templates_params, parallel=True, delete_tmp=True, verbose=True)
         self.templates_params_drift = templates_params
         self.num_steps_drift = self.tempgen_drift.templates.shape[1]
@@ -119,12 +112,7 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_spiketrains(self):
         print('Test spike train generation')
-        info, info_folder = mr.get_default_config()
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
         sp_params = rec_params['spiketrains']
         spgen = mr.SpikeTrainGenerator(sp_params)
         spgen.generate_spikes()
@@ -145,7 +133,6 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_recordings_modulations(self):
         print('Test recording generation - modulation')
-        info, info_folder = mr.get_default_config()
         ne = 1
         ni = 2
         fe = 30
@@ -153,11 +140,7 @@ class TestGenerators(unittest.TestCase):
         num_chan = self.num_chan
         n_neurons = ne + ni
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -199,7 +182,6 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_recordings_bursting(self):
         print('Test recording generation - shape_mod')
-        info, info_folder = mr.get_default_config()
         ne = 10
         ni = 5
         fe = 30
@@ -207,11 +189,7 @@ class TestGenerators(unittest.TestCase):
         num_chan = self.num_chan
         n_neurons = ne + ni
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -254,17 +232,12 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_recordings_noise(self):
         print('Test recording generation - noise')
-        info, info_folder = mr.get_default_config()
         rates = [30, 50]
         types = ['E', 'I']
         num_chan = self.num_chan
         n_neurons = len(rates)
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
 
         rec_params['spiketrains']['rates'] = rates
         rec_params['spiketrains']['types'] = types
@@ -302,17 +275,12 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_recordings_far_neurons(self):
         print('Test recording generation - far neurons')
-        info, info_folder = mr.get_default_config()
         ne = 0
         ni = 0
         num_chan = self.num_chan
         n_neurons = ne + ni
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -346,18 +314,13 @@ class TestGenerators(unittest.TestCase):
 
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
-        info, info_folder = mr.get_default_config()
         ne = 1
         ni = 1
         num_chan = self.num_chan
         n_steps = self.num_steps_drift
         n_neurons = ne + ni
 
-        with open(info['recordings_params']) as f:
-            if use_loader:
-                rec_params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                rec_params = yaml.load(f)
+        rec_params = mr.get_default_recordings_params()
 
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -406,7 +369,7 @@ class TestGenerators(unittest.TestCase):
         print('Test default params')
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
-        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_folder=info['templates_folder'])
+        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
         recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5')
         recgen.params['recordings']['noise_level'] = 0
         recgen.generate_recordings()
@@ -494,6 +457,8 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["default-config"])
         assert result.exit_code == 0
+        result = runner.invoke(cli, ["available-probes"])
+        assert result.exit_code == 0
         result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
                                      '-ov', '20', '-off', '0', '-dt', '10', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
@@ -535,15 +500,9 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
 
     def test_simulate_cell(self):
-        default_config, mearec_home = mr.get_default_config()
-        cell_folder = default_config['cell_models_folder']
-        params_yaml = default_config['templates_params']
+        cell_folder = mr.get_default_cell_models_folder()
+        params = mr.get_default_templates_params()
 
-        with open(params_yaml, 'r') as f:
-            if use_loader:
-                params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                params = yaml.load(f)
         target_spikes = [3, 50]
         params['target_spikes'] = target_spikes
         cells = os.listdir(cell_folder)

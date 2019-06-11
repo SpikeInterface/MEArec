@@ -57,6 +57,63 @@ def get_default_config():
     return default_info, str(mearec_home)
 
 
+def get_default_cell_models_folder():
+    """
+    Returns default cell models folder.
+
+    Returns
+    -------
+    cell_models_folder : str
+        Path to default cell models folder
+    """
+    default_info, mearec_home = get_default_config()
+    cell_models_folder = default_info['cell_models_folder']
+
+    return cell_models_folder
+
+
+def get_default_templates_params():
+    """
+    Returns default templates parameters.
+
+    Returns
+    -------
+    templates_params : dict
+        Dictionary with default teplates parameters
+    """
+    default_info, mearec_home = get_default_config()
+    templates_params_file = default_info['templates_params']
+
+    # load template parameters
+    with open(templates_params_file, 'r') as f:
+        if use_loader:
+            templates_params = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            templates_params = yaml.load(f)
+    return templates_params
+
+
+def get_default_recordings_params():
+    """
+    Returns default_recordings parameters.
+
+    Returns
+    -------
+    recordings_params : dict
+        Dictionary with default recording parameters
+    """
+    default_info, mearec_home = get_default_config()
+    recordings_params_file = default_info['recordings_params']
+
+    # load template parameters
+    with open(recordings_params_file, 'r') as f:
+        if use_loader:
+            recordings_params = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            recordings_params = yaml.load(f)
+    return recordings_params
+
+
 ### LOAD FUNCTIONS ###
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
     """
@@ -150,7 +207,7 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
 
     Parameters
     ----------
-    templates : str
+    templates : str or Path object
         templates file
 
     Returns
@@ -164,9 +221,9 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
         print("Loading templates...")
 
     temp_dict = {}
-
-    if templates.endswith('h5') or templates.endswith('hdf5'):
-        F = h5py.File(templates, 'r')
+    templates = Path(templates)
+    if templates.suffix == '.h5' or templates.suffix == '.hdf5':
+        F = h5py.File(str(templates), 'r')
         info = load_dict_from_hdf5(F, 'info/')
         celltypes = np.array(F.get('celltypes'))
         temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
@@ -199,7 +256,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
 
     Parameters
     ----------
-    recordings : str
+    recordings : str or Path object
         recordings file
 
     Returns
@@ -213,9 +270,9 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
         print("Loading recordings...")
 
     rec_dict = {}
-
-    if recordings.endswith('h5') or recordings.endswith('hdf5'):
-        F = h5py.File(recordings, 'r')
+    recordings = Path(recordings)
+    if recordings.suffix == '.h5' or recordings.suffix == '.hdf5':
+        F = h5py.File(str(recordings), 'r')
         info = load_dict_from_hdf5(F, 'info/')
         if F.get('voltage_peaks') is not None:
             if return_h5_objects:
@@ -309,7 +366,10 @@ def save_template_generator(tempgen, filename=None, verbose=True):
     verbose : bool
         If True output is verbose
     """
-    if filename.endswith('h5') or filename.endswith('hdf5'):
+    filename = Path(filename)
+    if not filename.parent.is_dir():
+        os.makedirs(str(filename.parent))
+    if filename.suffix == '.h5' or filename.suffix == '.hdf5':
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(tempgen.info, F, 'info/')
         if len(tempgen.celltypes) > 0:
@@ -341,7 +401,10 @@ def save_recording_generator(recgen, filename=None, verbose=True):
     verbose : bool
         If True output is verbose
     """
-    if filename.endswith('h5') or filename.endswith('hdf5'):
+    filename = Path(filename)
+    if not filename.parent.is_dir():
+        os.makedirs(str(filename.parent))
+    if filename.suffix == '.h5' or filename.suffix == '.hdf5':
         F = h5py.File(filename, 'w')
         save_dict_to_hdf5(recgen.info, F, 'info/')
         if len(recgen.voltage_peaks) > 0:
@@ -2206,7 +2269,6 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     elif len(templates.shape) == 5:
         n_elec = templates.shape[3]
     recordings = np.zeros((n_elec, len(idxs)))
-    print('chunk start drift', chunk_start)
     for st, spike_bin in enumerate(spike_matrix):
         if extract_spike_traces:
             max_electrode = np.argmax(voltage_peaks[st])
@@ -2702,7 +2764,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
                     mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
     else:
         if n_sources > ncols:
-            nrows = np.mod(len(template_ids), ncols)
+            nrows = int(np.ceil(len(template_ids) / ncols))
         else:
             nrows = 1
             ncols = n_sources
@@ -2715,6 +2777,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             gs_sel = gs[r, c]
             ax_t = fig.add_subplot(gs_sel)
             mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
+        ax.axis('off')
 
     return ax
 
@@ -2877,7 +2940,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
     else:
         assert isinstance(electrode, (int, np.integer)) or electrode == 'max', "electrode must be int or 'max'"
         if len(spiketrain_id) > ncols:
-            nrows = np.mod(len(spiketrain_id), ncols)
+            nrows = int(np.ceil(len(spiketrain_id) / ncols))
         else:
             nrows = 1
             ncols = len(spiketrain_id)
@@ -2894,8 +2957,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
                 min_wf = np.min(wf_mean)
             if np.max(wf_mean) > max_wf:
                 max_wf = np.max(wf_mean)
-
-        print(min_wf, max_wf)
 
         ylim = [min_wf - 0.2*abs(min_wf), max_wf + 0.2*abs(min_wf)]
 
@@ -3016,4 +3077,4 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
                                             ms=1, ls='', alpha=0.5, color=colors[i])
 
     fig.subplots_adjust(wspace=0.02, hspace=0.02)
-    return fig, pca_scores, all_waveforms, pca
+    return ax

@@ -174,7 +174,7 @@ def gen_templates(params, **kwargs):
 
     tempgen = generators.gen_templates(cell_models_folder=model_folder,
                                        params=params_dict,
-                                       templates_folder=templates_folder,
+                                       templates_tmp_folder=templates_folder,
                                        intraonly=intraonly,
                                        parallel=parallel,
                                        verbose=verbose)
@@ -472,6 +472,18 @@ def default_config():
     """Print default configurations."""
     info, config = get_default_config()
     pprint.pprint(info)
+
+
+@cli.command()
+def available_probes():
+    """Print available probes."""
+    probe_list = mu.return_mea_list()
+    for p in probe_list:
+        info = mu.return_mea_info(p)
+        if 'description' in info.keys():
+            print(p, '----------', info['description'])
+        else:
+            print(p)
 
 
 @cli.command()
