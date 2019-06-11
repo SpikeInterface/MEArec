@@ -475,6 +475,18 @@ def default_config():
 
 
 @cli.command()
+def available_probes():
+    """Print available probes."""
+    probe_list = mu.return_mea_list()
+    for p in probe_list:
+        info = mu.return_mea_info(p)
+        if 'description' in info.keys():
+            print(p, '----------', info['description'])
+        else:
+            print(p)
+
+
+@cli.command()
 @click.argument('cell-models-folder')
 def set_cell_models_folder(cell_models_folder):
     """Set default cell_models folder."""

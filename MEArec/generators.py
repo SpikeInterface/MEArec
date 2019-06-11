@@ -1616,14 +1616,18 @@ def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
     return recgen
 
 
-def gen_templates(cell_models_folder, params=None, templates_folder=None,
+def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
                   intraonly=False, parallel=True, delete_tmp=True, verbose=True):
     '''
 
     Parameters
     ----------
-    tmp_params_path : str
-        path to tmp params.yaml (same as templates_params with extra 'simulate_script', 'templates_folder' fields)
+    cell_models_folder : str
+        path to folder containing cell models
+    params : str or dict
+        Path to parameters yaml file or parameters dictionary
+    templates_tmp_folder: str
+        Path to temporary folder where templates are temporarily saved
     intraonly : bool
         if True only intracellular simulation is run
     parallel : bool
@@ -1651,13 +1655,13 @@ def gen_templates(cell_models_folder, params=None, templates_folder=None,
     else:
         params_dict = None
 
-    if templates_folder is not None:
-        if not os.path.isdir(templates_folder):
-            os.makedirs(templates_folder)
+    if templates_tmp_folder is not None:
+        if not os.path.isdir(templates_tmp_folder):
+            os.makedirs(templates_tmp_folder)
 
     tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
                                 params=params_dict,
-                                templates_folder=templates_folder,
+                                templates_folder=templates_tmp_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
                                 delete_tmp=delete_tmp,
