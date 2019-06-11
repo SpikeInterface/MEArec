@@ -174,7 +174,7 @@ def gen_templates(params, **kwargs):
 
     tempgen = generators.gen_templates(cell_models_folder=model_folder,
                                        params=params_dict,
-                                       templates_folder=templates_folder,
+                                       templates_tmp_folder=templates_folder,
                                        intraonly=intraonly,
                                        parallel=parallel,
                                        verbose=verbose)

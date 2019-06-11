@@ -1544,11 +1544,6 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
                         last_burst_event = st[i + 1] - 0.001*pq.ms
                         consecutive = 0
-                        # last_burst_event = last_burst_event + max_burst_duration
-                print(st[i+1], consecutive, last_burst_event)
-
-                # if consecutive >= 1:
-                #     print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
 
                 if consecutive == 0:
                     mod[i + 1] = sdrand * np.random.randn() + mrand
@@ -1594,9 +1589,6 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     else:
                         consecutive_idx = np.where((st > last_burst_event) & (st <= st[i]))[0]
                         consecutive = len(consecutive_idx)
-
-                    # if consecutive >= 1:
-                    # print('Bursting event duration: ', ISI[i - consecutive], ' with spikes: ', consecutive)
 
                     if consecutive == n_spikes:
                         last_burst_event = st[i + 1]
