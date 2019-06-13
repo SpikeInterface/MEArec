@@ -1716,6 +1716,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             x_stretch = x_centered
         else:
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
+
         x_stretch = x_stretch / float(np.ptp(x_stretch))
         x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered

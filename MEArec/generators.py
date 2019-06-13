@@ -596,10 +596,6 @@ class RecordingGenerator:
             params['recordings']['sync_rate'] = None
         sync_rate = params['recordings']['sync_rate']
 
-        if 'n_overlap_pairs' not in rec_params.keys():
-            params['recordings']['n_overlap_pairs'] = None
-        n_overlap_pairs = params['recordings']['n_overlap_pairs']
-
         if 'sync_jitt' not in rec_params.keys():
             params['recordings']['sync_jitt'] = 1
         sync_jitt = params['recordings']['sync_jitt'] * pq.ms
@@ -630,9 +626,9 @@ class RecordingGenerator:
             if 'color_q' not in rec_params.keys():
                 params['recordings']['color_q'] = 1
             color_q = params['recordings']['color_q']
-            if 'color_random_noise_floor' not in rec_params.keys():
-                params['recordings']['color_random_noise_floor'] = 0.3
-            random_noise_floor = params['recordings']['color_random_noise_floor']
+            if 'color_noise_floor' not in rec_params.keys():
+                params['recordings']['color_noise_floor'] = 1
+            color_noise_floor = params['recordings']['color_noise_floor']
 
         if 'noise_level' not in rec_params.keys():
             params['recordings']['noise_level'] = 10
@@ -742,6 +738,10 @@ class RecordingGenerator:
         if 'zlim' not in temp_params.keys():
             params['templates']['zlim'] = None
         z_lim = params['templates']['zlim']
+
+        if 'n_overlap_pairs' not in temp_params.keys():
+            params['templates']['n_overlap_pairs'] = None
+        n_overlap_pairs = params['templates']['n_overlap_pairs']
 
         if 'min_amp' not in temp_params.keys():
             params['templates']['min_amp'] = 50
@@ -1234,11 +1234,11 @@ class RecordingGenerator:
                         if noise_color:
                             if self.verbose:
                                 print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                                      ' and random noise level: ', random_noise_floor)
+                                      ' and random noise level: ', color_noise_floor)
                             # iir peak filter
                             b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                             additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
-                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                            additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                                              np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                             additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                         recordings[:, idxs] += additive_noise
@@ -1248,11 +1248,11 @@ class RecordingGenerator:
                     if noise_color:
                         if self.verbose:
                             print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                                  ' and random noise level: ', random_noise_floor)
+                                  ' and random noise level: ', color_noise_floor)
                         # iir peak filter
                         b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-                        additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) \
+                        additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) \
                                          * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
@@ -1276,11 +1276,11 @@ class RecordingGenerator:
                         if noise_color:
                             if self.verbose:
                                 print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                                      ' and random noise level: ', random_noise_floor)
+                                      ' and random noise level: ', color_noise_floor)
                             # iir peak filter
                             b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                             additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-                            additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                            additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                                              np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                            size=(len(idxs))).T
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
@@ -1291,11 +1291,11 @@ class RecordingGenerator:
                     if noise_color:
                         if self.verbose:
                             print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
-                                  ' and random noise level: ', random_noise_floor)
+                                  ' and random noise level: ', color_noise_floor)
                         # iir peak filter
                         b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
                         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-                        additive_noise = additive_noise + random_noise_floor * np.std(additive_noise) * \
+                        additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                                          np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                        size=recordings.shape[1]).T
                     additive_noise = additive_noise * (noise_level / np.std(additive_noise))

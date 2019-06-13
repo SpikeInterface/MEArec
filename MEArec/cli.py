@@ -475,15 +475,28 @@ def default_config():
 
 
 @cli.command()
-def available_probes():
+@click.option('--info', is_flag=True,
+              default=False,
+              help='if True probe information is printed')
+def available_probes(info):
     """Print available probes."""
+    from pprint import pprint
     probe_list = mu.return_mea_list()
     for p in probe_list:
-        info = mu.return_mea_info(p)
-        if 'description' in info.keys():
-            print(p, '----------', info['description'])
+        probe_info = mu.return_mea_info(p)
+        if 'description' in probe_info.keys():
+            if info:
+                print(p)
+                pprint(mu.return_mea_info(p))
+            else:
+                print(p, '----------', probe_info['description'])
+            print()
         else:
-            print(p)
+            if probe_info:
+                pprint(mu.return_mea_info(p))
+            else:
+                print(p, '----------', probe_info['description'])
+            print()
 
 
 @cli.command()
