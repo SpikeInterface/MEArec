@@ -1,10 +1,13 @@
 from setuptools import setup, find_packages
 
+d = {}
+exec(open("MEArec/version.py").read(), None, d)
+version = d['version']
 long_description = open("README.md").read()
 
 setup(
     name="MEArec",
-    version="1.3.1",
+    version=version,
     author="Alessio Buccino",
     author_email="alessiob@ifi.uio.no",
     description="Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays.",
