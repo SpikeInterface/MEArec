@@ -2,7 +2,7 @@
 
 # MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays
 
-MEArec is a project for using generating biophysical extracellular neural recording on Multi-Electrode Arrays (MEA). The recording generations combines a Extracellular Action Potentials (EAP) templates generation and spike trains generation. The recordings are built by convoluting and modulating EAP templates with spike trains and adding noise.
+MEArec is a package for generating biophysical extracellular neural recording on Multi-Electrode Arrays (MEA). The recording generations combines a Extracellular Action Potentials (EAP) templates generation and spike trains generation. The recordings are built by convoluting and modulating EAP templates with spike trains and adding noise.
 
 To clone this repo open your terminal and run:
 
