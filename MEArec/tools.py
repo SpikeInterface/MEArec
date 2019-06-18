@@ -250,14 +250,18 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
     return tempgen
 
 
-def load_recordings(recordings, return_h5_objects=False, verbose=False):
+def load_recordings(recordings, return_h5_objects=False, verbose=False, load_waveforms=True):
     """
     Load generated recordings.
 
     Parameters
     ----------
     recordings : str or Path object
-        recordings file
+        Recordings file
+    return_h5_objects : bool
+        If True output objects are h5 objects
+    load_waveforms : bool
+        If True waveforms are loaded
 
     Returns
     -------
@@ -327,7 +331,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
                 unit = str(unit)
                 times = np.array(F.get('spiketrains/' + unit + '/times'))
                 t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
-                if F.get('spiketrains/' + unit + '/waveforms') is not None:
+                if F.get('spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
                     waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
                 else:
                     waveforms = None
@@ -2655,7 +2659,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
 
 
 def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_axes=False, max_templates=None,
-                   drifting=False, cmap='viridis', ncols=6, **kwargs):
+                   drifting=False, cmap=None, ncols=6, **kwargs):
     """
     Plot templates.
 
@@ -2864,7 +2868,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis', electrode=None,
+def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, electrode=None,
                    max_waveforms=None, ncols=6):
     """
     Plot waveforms of a spike train.
