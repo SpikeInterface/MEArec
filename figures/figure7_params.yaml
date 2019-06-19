@@ -1,0 +1,90 @@
+# Default parameters for recording generation
+
+spiketrains:
+  # Default parameters for spike train generation (spiketrain_gen.py)
+
+  # spike train generation parameters
+
+  # rates: [3,3,5] # individual spike trains rates
+  # types: ['E', 'E', 'I'] # individual spike trains class (exc-inh)
+  # alternative to rates - excitatory and inhibitory settings
+  n_exc: 0 # number of excitatory cells
+  n_inh: 0 # number of inhibitory cells
+  f_exc: 5 # average firing rate of excitatory cells in Hz
+  f_inh: 15 # average firing rate of inhibitory cells in Hz
+  st_exc: 1 # firing rate standard deviation of excitatory cells in Hz
+  st_inh: 3 # firing rate standard deviation of inhibitory cells in Hz
+  min_rate: 0.5 # minimum firing rate in Hz
+  ref_per: 2 # refractory period in ms
+  process: poisson # process for spike train simulation (poisson-gamma)
+  gamma_shape: 2 # gamma shape (for gamma process)
+  seed: 7611 # random seed for spiketrain generation
+  t_start: 0 # start time in s
+  duration: 5 # duration in s
+
+cell_types:
+  # excitatory and inhibitory cell names
+  excitatory: ['STPC', 'TTPC1', 'TTPC2', 'UTPC']
+  inhibitory: ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC', 'NGC', 'SBC']
+
+templates:
+  # recording generation parameters
+  min_dist: 40 # minimum distance between neurons
+  min_amp: 70 # minimum spike amplitude in uV
+  max_amp: 300 # maximum spike amplitude in uV
+  xlim: null # limits for neuron depths (x-coord) in um [min, max]
+  ylim: [-25, 25] # limits for neuron depths (y-coord) in um [min, max]
+  zlim: null # limits for neuron depths (z-coord) in um [min, max]
+  overlap_threshold: 0.9 # threshold to consider two templates spatially overlapping
+  # (e.g 0.8 -> 80% of template B on largest electrode of template A)
+  n_overlap_pairs: 0 # number of spatially overlapping templates
+  n_jitters: 10 # number of temporal jittered copies for each eap
+  upsample: 8 # upsampling factor to extract jittered copies
+  pad_len: [3, 3] # padding of templates in ms
+  seed: 3186 # random seed to draw eap templates
+
+recordings:
+  fs: null # sampling frequency in Hz (if null it is computed form the templates)
+  overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+  extract_waveforms: False # if True, waveforms are extracted from recordings
+  sync_rate: null # added synchrony rate for spatially overlapping templates
+  sync_jitt: 1 # jitter in ms for added spikes
+
+  modulation: electrode # type of spike modulation [none (no modulation) |
+    # template (each spike instance is modulated with the same value on each electrode) |
+    # electrode (each electrode is modulated separately)]
+  sdrand:  0.05 # standard deviation of gaussian modulation
+  bursting: False # if True, spikes are modulated in amplitude depending on the isi and in shape (if shape_mod is True)
+  exp_decay: 0.2 # with bursting modulation experimental decay in aplitude between consecutive spikes
+  n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
+  max_burst_duration: 100 # duration in ms of maximum burst modulation
+  shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
+  bursting_sigmoid: 30.  # min and max frequencies to be mapped to modulation value
+  n_bursting: null  # number of bursting units
+  chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
+
+  noise_level: 10 # noise standard deviation in uV
+  noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
+  noise_color: False # if True noise is colored resembling experimental noise
+  noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+  far_neurons_n: 300 # number of far noisy neurons to be simulated
+  far_neurons_max_amp: 10 # maximum amplitude of far neurons
+  far_neurons_noise_floor: 0.5 # percent of random noise
+  far_neurons_exc_inh_ratio: 0.8 # excitatory / inhibitory noisy neurons ratio
+  color_peak: 300 # (color) peak / curoff frequency of resonating filter
+  color_q: 0.5 # (color) quality factor of resonating filter
+  color_noise_floor: 0.5 # (color) additional noise floor
+  chunk_noise_duration: 0 # chunk duration for noise addition
+  seed: null # random seed for noise generation
+
+  filter: False # if True it filters the recordings
+  filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
+  filter_order: 3 # filter order
+  chunk_filter_duration: 0 # chunk duration for filtering
+
+  drifting: False # if True templates are drifted
+  n_drifting: null # number of drifting units
+  preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
+  angle_tol: 15  # tolerance for direction in degrees
+  drift_velocity: 20  # drift velocity in um/min
+  t_start_drift: 0  # tim in s from which drifting starts
