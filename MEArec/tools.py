@@ -2869,7 +2869,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
 
 
 def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, electrode=None,
-                   max_waveforms=None, ncols=6):
+                   max_waveforms=None, ncols=6, cut_out=2):
     """
     Plot waveforms of a spike train.
 
@@ -2889,6 +2889,8 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
         Electrode id or 'max'
     ncols :  int
         Number of columns for subplots
+    cut_out : float or list
+        Cut outs in ms for waveforms (if not computed). If float the cut out is symmetrical.
 
     Returns
     -------
@@ -2912,7 +2914,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
         wf = recgen.spiketrains[sp].waveforms
         if wf is None:
             fs = recgen.info['recordings']['fs'] * pq.Hz
-            extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs)
+            extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs, cut_out=cut_out)
             wf = recgen.spiketrains[sp].waveforms
         waveforms.append(wf)
 
@@ -2977,7 +2979,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
                 electrode_idx = electrode
             if i == 0:
                 ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=12)
-            ax_sel.plot(wf[:, electrode_idx].T, color=colors[i], lw=0.1)
+            ax_sel.plot(wf[:, electrode_idx].T, color=colors[np.mod(i, len(colors))], lw=0.1)
             ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
             ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
             ax_sel.set_ylim(ylim)
