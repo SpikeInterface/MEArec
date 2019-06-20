@@ -2492,7 +2492,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
         Array with recordings (n_elec, n_samples)
     fs : Quantity
         Sampling frequency
-    pad_len : float or list
+    cut_out : float or list
          Length in ms to cut before and after spike peak. If a single value the cut is symmetrical
     timestamps : Quantity array (optional)
         Array with recordings timestamps
@@ -2900,7 +2900,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
     """
     import matplotlib.pylab as plt
     import matplotlib.gridspec as gridspec
-    import matplotlib as mpl
 
     if spiketrain_id is None:
         spiketrain_id = np.arange(len(recgen.spiketrains))
