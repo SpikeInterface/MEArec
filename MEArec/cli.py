@@ -394,7 +394,7 @@ def gen_recordings(params, **kwargs):
     if kwargs['sync_rate'] is not None:
         params_dict['recordings']['sync_rate'] = kwargs['sync_rate']
     else:
-        params_dict['recordings']['sync_rate'] = 0
+        params_dict['recordings']['sync_rate'] = None
     if kwargs['sync_jitt'] is not None:
         params_dict['recordings']['sync_jitt'] = kwargs['sync_jitt']
     else:
