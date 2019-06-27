@@ -178,9 +178,9 @@ def gen_templates(params, **kwargs):
         probe = params_dict['probe']
         if kwargs['fname'] is None:
             if params_dict['drifting']:
-                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
+                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
             else:
-                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
+                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
@@ -189,9 +189,10 @@ def gen_templates(params, **kwargs):
 
 @cli.command()
 @click.option('--templates', '-t', default=None,
-              help='eap templates path')
+              help='templates path')
 @click.option('--params', '-prm', default=None,
-              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters can be overwritten with the following options)')
+              help='path to default_params.yaml (otherwise default default_params are used '
+                   'and some of the parameters can be overwritten with the following options)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
@@ -452,10 +453,10 @@ def gen_recordings(params, **kwargs):
     if kwargs['fname'] is None:
         if kwargs['drifting']:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_drift_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+                                                               noise_level, time.strftime("%d-%m-%Y_%H-%M"))
         else:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+                                                               noise_level, time.strftime("%d-%m-%Y_%H-%M"))
     else:
         fname = kwargs['fname']
 
