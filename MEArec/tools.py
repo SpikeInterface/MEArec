@@ -250,14 +250,18 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
     return tempgen
 
 
-def load_recordings(recordings, return_h5_objects=False, verbose=False):
+def load_recordings(recordings, return_h5_objects=False, verbose=False, load_waveforms=True):
     """
     Load generated recordings.
 
     Parameters
     ----------
     recordings : str or Path object
-        recordings file
+        Recordings file
+    return_h5_objects : bool
+        If True output objects are h5 objects
+    load_waveforms : bool
+        If True waveforms are loaded
 
     Returns
     -------
@@ -327,7 +331,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False):
                 unit = str(unit)
                 times = np.array(F.get('spiketrains/' + unit + '/times'))
                 t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
-                if F.get('spiketrains/' + unit + '/waveforms') is not None:
+                if F.get('spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
                     waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
                 else:
                     waveforms = None
@@ -2488,7 +2492,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
         Array with recordings (n_elec, n_samples)
     fs : Quantity
         Sampling frequency
-    pad_len : float or list
+    cut_out : float or list
          Length in ms to cut before and after spike peak. If a single value the cut is symmetrical
     timestamps : Quantity array (optional)
         Array with recordings timestamps
@@ -2655,7 +2659,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
 
 
 def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_axes=False, max_templates=None,
-                   drifting=False, cmap='viridis', ncols=6, **kwargs):
+                   drifting=False, cmap=None, ncols=6, **kwargs):
     """
     Plot templates.
 
@@ -2864,8 +2868,8 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis', electrode=None,
-                   max_waveforms=None, ncols=6):
+def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, electrode=None,
+                   max_waveforms=None, ncols=6, cut_out=2):
     """
     Plot waveforms of a spike train.
 
@@ -2885,6 +2889,8 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
         Electrode id or 'max'
     ncols :  int
         Number of columns for subplots
+    cut_out : float or list
+        Cut outs in ms for waveforms (if not computed). If float the cut out is symmetrical.
 
     Returns
     -------
@@ -2894,7 +2900,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
     """
     import matplotlib.pylab as plt
     import matplotlib.gridspec as gridspec
-    import matplotlib as mpl
 
     if spiketrain_id is None:
         spiketrain_id = np.arange(len(recgen.spiketrains))
@@ -2908,7 +2913,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
         wf = recgen.spiketrains[sp].waveforms
         if wf is None:
             fs = recgen.info['recordings']['fs'] * pq.Hz
-            extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs)
+            extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs, cut_out=cut_out)
             wf = recgen.spiketrains[sp].waveforms
         waveforms.append(wf)
 
@@ -2973,7 +2978,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap='viridis
                 electrode_idx = electrode
             if i == 0:
                 ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=12)
-            ax_sel.plot(wf[:, electrode_idx].T, color=colors[i], lw=0.1)
+            ax_sel.plot(wf[:, electrode_idx].T, color=colors[np.mod(i, len(colors))], lw=0.1)
             ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
             ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
             ax_sel.set_ylim(ylim)
