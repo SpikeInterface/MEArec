@@ -454,13 +454,11 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
     nobs = kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
-    offset = kwargs['offset']
     x_lim = kwargs['xlim']
     y_lim = kwargs['ylim']
     z_lim = kwargs['zlim']
     min_amp = kwargs['min_amp']
     MEAname = kwargs['probe']
-    offset = kwargs['offset']
     drifting = kwargs['drifting']
     if drifting:
         max_drift = kwargs['max_drift']
@@ -469,6 +467,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
         drift_x_lim = kwargs['drift_xlim']
         drift_y_lim = kwargs['drift_ylim']
         drift_z_lim = kwargs['drift_zlim']
+
+
+    print(ncontacts)
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)

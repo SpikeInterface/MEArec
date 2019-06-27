@@ -125,10 +125,6 @@ class TemplateGenerator:
             self.params['ylim'] = None
         if 'zlim' not in self.params.keys():
             self.params['zlim'] = None
-        if 'offset' not in self.params.keys():
-            self.params['offset'] = 0
-        if 'det_thresh' not in self.params.keys():
-            self.params['det_thresh'] = 30
         if 'n' not in self.params.keys():
             self.params['n'] = 50
         if 'min_amp' not in self.params.keys():
@@ -191,20 +187,21 @@ class TemplateGenerator:
                              self.verbose))
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
-        tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
-        templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
-        if delete_tmp:
-            shutil.rmtree(tmp_folder)
-            os.remove(tmp_params_path)
+        if not intraonly:
+            tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+            templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+            if delete_tmp:
+                shutil.rmtree(tmp_folder)
+                os.remove(tmp_params_path)
 
-        self.info = {}
+            self.info = {}
 
-        self.templates = templates
-        self.locations = locations
-        self.rotations = rotations
-        self.celltypes = celltypes
-        self.info['params'] = self.params
-        self.info['electrodes'] = mu.return_mea_info(probe)
+            self.templates = templates
+            self.locations = locations
+            self.rotations = rotations
+            self.celltypes = celltypes
+            self.info['params'] = self.params
+            self.info['electrodes'] = mu.return_mea_info(probe)
 
 
 class SpikeTrainGenerator:

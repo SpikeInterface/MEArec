@@ -45,16 +45,12 @@ def cli():
               help='number of contacts per electrode (default=1)')
 @click.option('--overhang', '-ov', default=None, type=float,
               help='extension (um) beyond MEA boundaries for neuron locations (default=30.)')
-@click.option('--offset', '-off', default=None, type=float,
-              help='x_plane (um) coordinate for MEA (default=0)')
 @click.option('--xlim', '-xl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the x-axis (depth) (default=[10.,80.])')
 @click.option('--ylim', '-yl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the y-axis (default=None)')
 @click.option('--zlim', '-zl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the z-axis (default=None)')
-@click.option('--det-thresh', '-dt', default=None, type=float,
-              help='detection threshold for EAPs (default=30)')
 @click.option('--seed', '-s', default=None, type=int,
               help='random seed for template generation (int)')
 @click.option('--intraonly', '-io', is_flag=True,
@@ -128,10 +124,6 @@ def gen_templates(params, **kwargs):
         params_dict['ncontacts'] = kwargs['ncontacts']
     if kwargs['overhang'] is not None:
         params_dict['overhang'] = kwargs['overhang']
-    if kwargs['offset'] is not None:
-        params_dict['offset'] = kwargs['offset']
-    if kwargs['det_thresh'] is not None:
-        params_dict['det_thresh'] = kwargs['det_thresh']
     if kwargs['xlim'] is not None and len(kwargs['xlim']) == 2:
         params_dict['xlim'] = kwargs['xlim']
     if kwargs['ylim'] is not None and len(kwargs['ylim']) == 2:
@@ -278,7 +270,9 @@ def gen_templates(params, **kwargs):
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
 @click.option('--bursting', is_flag=True,
-              help='if True bursting shape modulation is performed')
+              help='if True ISI-dependent modulation is performed')
+@click.option('--shape-mod', is_flag=True,
+              help='if True shape modulation is performed')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting recordings')
 @click.option('--preferred-dir', '-prd', default=None, nargs=3, type=float,
@@ -394,7 +388,7 @@ def gen_recordings(params, **kwargs):
     if kwargs['sync_rate'] is not None:
         params_dict['recordings']['sync_rate'] = kwargs['sync_rate']
     else:
-        params_dict['recordings']['sync_rate'] = 0
+        params_dict['recordings']['sync_rate'] = None
     if kwargs['sync_jitt'] is not None:
         params_dict['recordings']['sync_jitt'] = kwargs['sync_jitt']
     else:
@@ -427,6 +421,11 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['bursting'] = True
     elif 'bursting' not in params_dict['recordings'].keys():
         params_dict['recordings']['bursting'] = False
+
+    if kwargs['shape_mod']:
+        params_dict['recordings']['shape_mod'] = True
+    elif 'shape_mod' not in params_dict['recordings'].keys():
+        params_dict['recordings']['shape_mod'] = False
 
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
