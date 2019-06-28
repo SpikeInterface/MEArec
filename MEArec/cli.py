@@ -17,6 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
+
 @click.group()
 def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
@@ -41,6 +42,8 @@ def cli():
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=1000)')
+@click.option('--dt', '-dt', default=None, type=float,
+              help='time period in ms (default=0.03125)')
 @click.option('--ncontacts', '-nc', default=None, type=int,
               help='number of contacts per electrode (default=1)')
 @click.option('--overhang', '-ov', default=None, type=float,
@@ -120,6 +123,8 @@ def gen_templates(params, **kwargs):
         params_dict['rot'] = kwargs['rot']
     if kwargs['n'] is not None:
         params_dict['n'] = kwargs['n']
+    if kwargs['dt'] is not None:
+        params_dict['dt'] = kwargs['dt']
     if kwargs['ncontacts'] is not None:
         params_dict['ncontacts'] = kwargs['ncontacts']
     if kwargs['overhang'] is not None:
@@ -453,7 +458,7 @@ def gen_recordings(params, **kwargs):
     if kwargs['fname'] is None:
         if kwargs['drifting']:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_drift_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y_%H-%M"))
+                                                                     noise_level, time.strftime("%d-%m-%Y_%H-%M"))
         else:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
                                                                noise_level, time.strftime("%d-%m-%Y_%H-%M"))

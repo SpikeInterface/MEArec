@@ -1,4 +1,5 @@
 import MEArec as mr
+import MEAutility as mu
 import matplotlib.pylab as plt
 from plotting_conventions import *
 import numpy as np
@@ -22,13 +23,18 @@ cm = 'coolwarm'
 cmap = plt.cm.get_cmap(cm)
 colors = [cmap(i/n_steps) for i in range(n_steps)]
 
+mea = mu.return_mea(info=tempgen.info['electrodes'])
+
 # plot recordings
 fig1 = plt.figure(figsize=(7, 9))
 ax_t = fig1.add_subplot(111)
 mr.plot_templates(tempgen, template_ids=template_id, drifting=True, single_axes=True, cmap=cm, ax=ax_t)
 for i, t in enumerate(tempgen.locations[template_id]):
-    ax_t.plot(t[1], t[2], '*', color=colors[i], markersize=1)
-plt.show()
+    if i == 0 or i == len(tempgen.locations[template_id])-1:
+        ax_t.plot(t[1], t[2], '*', color=colors[i], markersize=7)
+    else:
+        ax_t.plot(t[1], t[2], '*', color=colors[i], markersize=1)
+
 
 y_lim = ax_t.get_ylim()
 x_lim = ax_t.get_xlim()
@@ -39,8 +45,19 @@ ax_t.plot([x_lim[0], x_lim[0] + 0.38*ts_lim],
            np.min(y_lim) + 0.12*np.abs(np.min(y_lim))], 'k', lw=2)
 ax_t.text(x_lim[0] + 0.07*ts_lim, np.min(y_lim) + 0.05*np.abs(np.min(y_lim)), '5 ms')
 
+ax_t.arrow(0, 0, 0, np.max(y_lim), alpha=0.5, head_width=0.5, head_length=4, fc='k', ec='k', length_includes_head=True,
+           width=0.0001)
+ax_t.arrow(0, 0, np.max(x_lim), 0, alpha=0.5, head_width=2, head_length=1, fc='k', ec='k', length_includes_head=True,
+           width=0.0001)
+ax_t.text(-1.5, np.max(y_lim), 'y', alpha=0.5)
+ax_t.text(np.max(x_lim), -7, 'x', alpha=0.5)
+
+
+for ch in mea.positions:
+    ax_t.plot(ch[1], ch[2], 'o', color='k', markersize=2, alpha=0.5)
 
 recgen = mr.gen_recordings(tempgen=tempgen, params='figure6_params.yaml')
+
 
 fig2 = plt.figure(figsize=(7, 4.5))
 ax_wf = fig2.add_subplot(111)
