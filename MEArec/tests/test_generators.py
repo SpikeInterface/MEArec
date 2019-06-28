@@ -460,7 +460,7 @@ class TestGenerators(unittest.TestCase):
         result = runner.invoke(cli, ["available-probes"])
         assert result.exit_code == 0
         result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
-                                     '-ov', '20', '-off', '0', '-dt', '10', '-s', '1', '-mind', '10', '-maxd', '100',
+                                     '-ov', '20', '-dt', '10', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
         print(result.output)
         assert result.exit_code == 0

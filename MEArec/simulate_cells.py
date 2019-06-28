@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-
 '''
 Test implementation using cell models of the Blue Brain Project with LFPy.
 The example assumes that cell models available from
@@ -454,13 +451,11 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
     nobs = kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
-    offset = kwargs['offset']
     x_lim = kwargs['xlim']
     y_lim = kwargs['ylim']
     z_lim = kwargs['zlim']
     min_amp = kwargs['min_amp']
     MEAname = kwargs['probe']
-    offset = kwargs['offset']
     drifting = kwargs['drifting']
     if drifting:
         max_drift = kwargs['max_drift']

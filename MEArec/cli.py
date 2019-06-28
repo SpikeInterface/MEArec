@@ -17,6 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
+
 @click.group()
 def cli():
     """MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays """
@@ -41,20 +42,18 @@ def cli():
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=1000)')
+@click.option('--dt', '-dt', default=None, type=float,
+              help='time period in ms (default=0.03125)')
 @click.option('--ncontacts', '-nc', default=None, type=int,
               help='number of contacts per electrode (default=1)')
 @click.option('--overhang', '-ov', default=None, type=float,
               help='extension (um) beyond MEA boundaries for neuron locations (default=30.)')
-@click.option('--offset', '-off', default=None, type=float,
-              help='x_plane (um) coordinate for MEA (default=0)')
 @click.option('--xlim', '-xl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the x-axis (depth) (default=[10.,80.])')
 @click.option('--ylim', '-yl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the y-axis (default=None)')
 @click.option('--zlim', '-zl', default=None, nargs=2, type=float,
               help='limits ( low high ) for neuron locations in the z-axis (default=None)')
-@click.option('--det-thresh', '-dt', default=None, type=float,
-              help='detection threshold for EAPs (default=30)')
 @click.option('--seed', '-s', default=None, type=int,
               help='random seed for template generation (int)')
 @click.option('--intraonly', '-io', is_flag=True,
@@ -124,14 +123,12 @@ def gen_templates(params, **kwargs):
         params_dict['rot'] = kwargs['rot']
     if kwargs['n'] is not None:
         params_dict['n'] = kwargs['n']
+    if kwargs['dt'] is not None:
+        params_dict['dt'] = kwargs['dt']
     if kwargs['ncontacts'] is not None:
         params_dict['ncontacts'] = kwargs['ncontacts']
     if kwargs['overhang'] is not None:
         params_dict['overhang'] = kwargs['overhang']
-    if kwargs['offset'] is not None:
-        params_dict['offset'] = kwargs['offset']
-    if kwargs['det_thresh'] is not None:
-        params_dict['det_thresh'] = kwargs['det_thresh']
     if kwargs['xlim'] is not None and len(kwargs['xlim']) == 2:
         params_dict['xlim'] = kwargs['xlim']
     if kwargs['ylim'] is not None and len(kwargs['ylim']) == 2:
@@ -186,9 +183,9 @@ def gen_templates(params, **kwargs):
         probe = params_dict['probe']
         if kwargs['fname'] is None:
             if params_dict['drifting']:
-                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
+                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
             else:
-                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y:%H:%M"))
+                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
@@ -197,9 +194,10 @@ def gen_templates(params, **kwargs):
 
 @cli.command()
 @click.option('--templates', '-t', default=None,
-              help='eap templates path')
+              help='templates path')
 @click.option('--params', '-prm', default=None,
-              help='path to default_params.yaml (otherwise default default_params are used and some of the parameters can be overwritten with the following options)')
+              help='path to default_params.yaml (otherwise default default_params are used '
+                   'and some of the parameters can be overwritten with the following options)')
 @click.option('--default', is_flag=True,
               help='shows default values for simulation')
 @click.option('--fname', '-fn', default=None,
@@ -278,7 +276,9 @@ def gen_templates(params, **kwargs):
 @click.option('--extract-wf', is_flag=True,
               help='if True it annotates overlapping spikes')
 @click.option('--bursting', is_flag=True,
-              help='if True bursting shape modulation is performed')
+              help='if True ISI-dependent modulation is performed')
+@click.option('--shape-mod', is_flag=True,
+              help='if True shape modulation is performed')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting recordings')
 @click.option('--preferred-dir', '-prd', default=None, nargs=3, type=float,
@@ -428,6 +428,11 @@ def gen_recordings(params, **kwargs):
     elif 'bursting' not in params_dict['recordings'].keys():
         params_dict['recordings']['bursting'] = False
 
+    if kwargs['shape_mod']:
+        params_dict['recordings']['shape_mod'] = True
+    elif 'shape_mod' not in params_dict['recordings'].keys():
+        params_dict['recordings']['shape_mod'] = False
+
     if kwargs['drifting']:
         params_dict['recordings']['drifting'] = True
     elif 'drifting' not in params_dict['recordings'].keys():
@@ -453,10 +458,10 @@ def gen_recordings(params, **kwargs):
     if kwargs['fname'] is None:
         if kwargs['drifting']:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_drift_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+                                                                     noise_level, time.strftime("%d-%m-%Y_%H-%M"))
         else:
             fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y:%H:%M"))
+                                                               noise_level, time.strftime("%d-%m-%Y_%H-%M"))
     else:
         fname = kwargs['fname']
 

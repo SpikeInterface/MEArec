@@ -408,19 +408,21 @@ class SpikeTrainGenerator:
                         if np.all(t_diff > self.params['ref_per']):
                             t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
-                            times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
-                            times2 = times2 * unit
-                            st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                            added_spikes_t1 += 1
+                            if t1_jitt < t_stop:
+                                times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
+                                times2 = times2 * unit
+                                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
+                                added_spikes_t1 += 1
                     elif t in times2:
                         t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
                         if np.all(t_diff > self.params['ref_per']):
                             t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
-                            times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
-                            times1 = times1 * unit
-                            st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                            added_spikes_t2 += 1
+                            if t2_jitt < t_stop:
+                                times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
+                                times1 = times1 * unit
+                                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
+                                added_spikes_t2 += 1
                     sync_rate = compute_sync_rate(st1, st2, time_jitt)
                 else:
                     break
