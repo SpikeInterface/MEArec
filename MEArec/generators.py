@@ -125,6 +125,10 @@ class TemplateGenerator:
             self.params['ylim'] = None
         if 'zlim' not in self.params.keys():
             self.params['zlim'] = None
+        if 'offset' not in self.params.keys():
+            self.params['offset'] = 0
+        if 'det_thresh' not in self.params.keys():
+            self.params['det_thresh'] = 30
         if 'n' not in self.params.keys():
             self.params['n'] = 50
         if 'min_amp' not in self.params.keys():
@@ -187,21 +191,20 @@ class TemplateGenerator:
                              self.verbose))
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
-        if not intraonly:
-            tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
-            templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
-            if delete_tmp:
-                shutil.rmtree(tmp_folder)
-                os.remove(tmp_params_path)
+        tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+        templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+        if delete_tmp:
+            shutil.rmtree(tmp_folder)
+            os.remove(tmp_params_path)
 
-            self.info = {}
+        self.info = {}
 
-            self.templates = templates
-            self.locations = locations
-            self.rotations = rotations
-            self.celltypes = celltypes
-            self.info['params'] = self.params
-            self.info['electrodes'] = mu.return_mea_info(probe)
+        self.templates = templates
+        self.locations = locations
+        self.rotations = rotations
+        self.celltypes = celltypes
+        self.info['params'] = self.params
+        self.info['electrodes'] = mu.return_mea_info(probe)
 
 
 class SpikeTrainGenerator:
@@ -405,19 +408,21 @@ class SpikeTrainGenerator:
                         if np.all(t_diff > self.params['ref_per']):
                             t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
-                            times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
-                            times2 = times2 * unit
-                            st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                            added_spikes_t1 += 1
+                            if t1_jitt < t_stop:
+                                times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
+                                times2 = times2 * unit
+                                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
+                                added_spikes_t1 += 1
                     elif t in times2:
                         t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
                         if np.all(t_diff > self.params['ref_per']):
                             t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
-                            times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
-                            times1 = times1 * unit
-                            st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                            added_spikes_t2 += 1
+                            if t2_jitt < t_stop:
+                                times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
+                                times1 = times1 * unit
+                                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
+                                added_spikes_t2 += 1
                     sync_rate = compute_sync_rate(st1, st2, time_jitt)
                 else:
                     break
