@@ -95,7 +95,7 @@ def get_default_templates_params():
 
 def get_default_recordings_params():
     """
-    Returns default_recordings parameters.
+    Returns default recordings parameters.
 
     Returns
     -------
@@ -2992,7 +2992,40 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
     return ax
 
 
-def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
+def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_units=None, ax=None,
+                 whiten=False, pc_comp=None):
+    '''
+    Plots a PCA map of the waveforms.
+
+    Parameters
+    ----------
+    recgen : RecordingGenerator
+        Recording generator object to plot PCA scores of
+    ax : axis
+        Matplotlib  axis
+    n_pc : int
+        Number of principal components (default 2)
+    max_elec :  int
+        Max number of electrodes to plot
+    cmap : matplotlib colormap
+        Colormap to be used
+    cut_out : float or list
+        Cut outs in ms for waveforms (if not computed). If float the cut out is symmetrical.    n_units
+    whiten :  bool
+        If True, PCA scores are whitened
+    pc_comp : np.array
+        PC component matrix to be used.
+
+    Returns
+    -------
+    ax : axis
+        Matplotlib axis
+    pca_scores : list
+        List of np.arrays with pca scores for the different units
+    pca_component : np.array
+        PCA components matrix (n_pc, n_waveform_timepoints)
+
+    '''
     try:
         from sklearn.decomposition import PCA
     except:
@@ -3009,12 +3042,31 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
 
     if recgen.spiketrains[0].waveforms is None:
         print('Computing waveforms')
-        recgen.extract_waveforms()
+        recgen.extract_waveforms(cut_out=cut_out)
 
     for st in recgen.spiketrains:
         wf = st.waveforms
         waveforms.append(wf)
     n_elec = waveforms[0].shape[1]
+
+    if n_pc == 1:
+        pc_dims = [0]
+    elif n_pc > 1:
+        pc_dims = np.arange(n_pc)
+    else:
+        pc_dims = [0]
+
+    if max_elec is not None and max_elec < n_elec:
+        if max_elec == 1:
+            elec_dims = [np.random.randint(n_elec)]
+        elif max_elec > 1:
+            elec_dims = np.random.permutation(np.arange(n_elec))[:max_elec]
+        else:
+            elec_dims = [np.random.randint(n_elec)]
+    else:
+        elec_dims = np.arange(n_elec)
+
+    print(pc_dims, elec_dims)
 
     for i_w, wf in enumerate(waveforms):
         # wf_reshaped = wf.reshape((wf.shape[0] * wf.shape[1], wf.shape[2]))
@@ -3026,15 +3078,27 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
         else:
             all_waveforms = np.vstack((all_waveforms, wf_reshaped))
 
-    print("Fitting PCA of %d dimensions on %d waveforms" % (n_pc, len(all_waveforms)))
+    if pc_comp is None:
+        compute_pca = True
+    elif pc_comp.shape == (n_pc, all_waveforms.shape[1]):
+        compute_pca = False
+    else:
+        print("'pc_comp' has wrong dimensions. Recomputing PCA")
+        compute_pca = True
 
-    pca = PCA(n_components=n_pc, whiten=False)
-    # pca.fit_transform(all_waveforms)
-    pca.fit(all_waveforms)
+    if compute_pca:
+        print("Fitting PCA of %d dimensions on %d waveforms" % (n_pc, len(all_waveforms)))
+
+        pca = PCA(n_components=n_pc, whiten=whiten)
+        # pca.fit_transform(all_waveforms)
+        pca.fit(all_waveforms)
+        pc_comp = pca.components_
 
     pca_scores = []
     for st in recgen.spiketrains:
-        pct = np.dot(st.waveforms, pca.components_.T)
+        pct = np.dot(st.waveforms, pc_comp.T)
+        if whiten:
+            pct /= np.sqrt(pca.explained_variance_)
         pca_scores.append(pct)
 
     if ax is None:
@@ -3050,16 +3114,16 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
     else:
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    nrows = n_pc * n_elec
+    nrows = len(pc_dims) * len(elec_dims)
     ncols = nrows
     gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
 
-    for p1 in range(n_pc):
-        for ch1 in range(n_elec):
-            for p2 in range(n_pc):
-                for ch2 in range(n_elec):
-                    r = n_pc * ch1 + p1
-                    c = n_pc * ch2 + p2
+    for p1 in pc_dims:
+        for i1, ch1 in enumerate(elec_dims):
+            for p2 in pc_dims:
+                for i2, ch2 in enumerate(elec_dims):
+                    r = n_pc * i1 + p1
+                    c = n_pc * i2 + p2
                     gs_sel = gs[r, c]
                     ax_sel = fig.add_subplot(gs_sel)
                     if c < r:
@@ -3074,13 +3138,13 @@ def plot_pca_map(recgen, n_pc=2, cmap='rainbow', n_units=None, ax=None):
                         ax_sel.spines['right'].set_visible(False)
                         ax_sel.spines['top'].set_visible(False)
                         for i, pc in enumerate(pca_scores):
-                            if ch1 == ch2 and p1 == p2:
-                                h, b, _ = ax_sel.hist(pc[:, ch1, p1], bins=50, alpha=0.6,
+                            if i1 == i2 and p1 == p2:
+                                h, b, _ = ax_sel.hist(pc[:, i1, p1], bins=50, alpha=0.6,
                                                       color=colors[i], density=True)
                                 ax_sel.set_ylabel('Ch.'+str(ch1+1)+':PC'+str(p1+1))
                             else:
-                                ax_sel.plot(pc[:, ch2, p2], pc[:, ch1, p1], marker='o',
+                                ax_sel.plot(pc[:, i2, p2], pc[:, i1, p1], marker='o',
                                             ms=1, ls='', alpha=0.5, color=colors[i])
 
     fig.subplots_adjust(wspace=0.02, hspace=0.02)
-    return ax
+    return ax, pca_scores, pc_comp

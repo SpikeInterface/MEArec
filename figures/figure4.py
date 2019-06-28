@@ -8,14 +8,14 @@ from copy import deepcopy
 from plotting_conventions import *
 import os
 
-save_fig = True
+save_fig = False
 
 plt.ion()
 plt.show()
 
 
-plot_mod = True
-plot_burst = True
+plot_mod = False
+plot_burst = False
 plot_pca = True
 
 # create neo spike train
@@ -176,8 +176,8 @@ if plot_pca:
     ax41 = fig41.add_subplot(111)
     ax42 = fig42.add_subplot(111)
 
-    mr.plot_pca_map(recgen_noburst, n_pc=2, ax=ax41, cmap='rainbow')
-    mr.plot_pca_map(recgen_burst, n_pc=2, ax=ax42, cmap='rainbow')
+    ax41, pc_scores1, pc_comp1 = mr.plot_pca_map(recgen_noburst, n_pc=1, ax=ax41, cmap='rainbow', whiten=False)
+    ax42, pc_scores2, _ = mr.plot_pca_map(recgen_burst, n_pc=1, ax=ax42, cmap='rainbow', whiten=False, pc_comp=pc_comp1)
 
     if save_fig:
         if not os.path.isdir('figure4'):
