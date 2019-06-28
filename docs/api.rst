@@ -62,6 +62,20 @@ Module :mod:`MEArec.tools`
     .. autofunction:: get_default_config
 
 
+    function :class:`get_default_cell_models_folder`
+    ------------------------------------------------
+    .. autofunction:: get_default_cell_models_folder
+
+
+    function :class:`get_default_templates_params`
+    ----------------------------------------------
+    .. autofunction:: get_default_templates_params
+
+
+    function :class:`get_default_recordings_params`
+    -----------------------------------------------
+    .. autofunction:: get_default_recordings_params
+
     function :class:`plot_rasters`
     ------------------------------
     .. autofunction:: plot_rasters
