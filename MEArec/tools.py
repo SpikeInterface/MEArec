@@ -1355,17 +1355,17 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
                         id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                         if not np.any(overlapping_pairs):
                             if len(id_over) != 0:
-                                over[i_sp] = 'O'
+                                over[i_sp] = 'TO'
                         else:
                             pair = [i, j]
                             pair_i = [j, i]
                             if np.any([np.all(pair == p) for p in overlapping_pairs]) or \
                                     np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                                 if len(id_over) != 0:
-                                    over[i_sp] = 'SO'
+                                    over[i_sp] = 'STO'
                             else:
                                 if len(id_over) != 0:
-                                    over[i_sp] = 'O'
+                                    over[i_sp] = 'TO'
             st_i.annotate(overlap=over)
 
 
@@ -1399,17 +1399,17 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, return_sp
                 id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                 if not np.any(overlapping_pairs):
                     if len(id_over) != 0:
-                        over[i_sp] = 'O'
+                        over[i_sp] = 'TO'
                 else:
                     pair = [i, j]
                     pair_i = [j, i]
                     if np.any([np.all(pair == p) for p in overlapping_pairs]) or \
                             np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                         if len(id_over) != 0:
-                            over[i_sp] = 'SO'
+                            over[i_sp] = 'STO'
                     else:
                         if len(id_over) != 0:
-                            over[i_sp] = 'O'
+                            over[i_sp] = 'TO'
     st_i.annotate(overlap=over)
     return_spiketrains[i] = st_i
 
