@@ -13,9 +13,8 @@ save_fig = False
 plt.ion()
 plt.show()
 
-
-plot_mod = False
-plot_burst = False
+plot_mod = True
+plot_burst = True
 plot_pca = True
 
 # create neo spike train
@@ -66,7 +65,6 @@ if plot_mod:
             os.mkdir('figure4')
 
         fig1.savefig('figure4/bursting_modulation.pdf')
-
 
 # Load recordings data
 tetrode_rec = 'data/recordings/recordings_6cells_tetrode_30.0_10.0uV.h5'
@@ -123,9 +121,9 @@ if plot_burst:
     modulations = mod_array[template_id]
     cut_out_temp = recgen_noburst.info['templates']['cut_out']
     pad = recgen_noburst.info['templates']['pad_len']
-    cut_outs = [int((c + p) * recgen_noburst.info['recordings']['fs'] / 1000.) for (c,p) in zip(cut_out_temp, pad)]
+    cut_outs = [int((c + p) * recgen_noburst.info['recordings']['fs'] / 1000.) for (c, p) in zip(cut_out_temp, pad)]
     spike_bin = mr.tools.resample_spiketrains(recgen_noburst.spiketrains,
-                                              fs=recgen_noburst.info['recordings']['fs']*pq.Hz)
+                                              fs=recgen_noburst.info['recordings']['fs'] * pq.Hz)
     spike_trace = mr.tools.convolve_single_template(template_id, spike_bin[template_id], templates[template_id, 0],
                                                     cut_out=cut_out_temp, modulation=True, mod_array=modulations,
                                                     bursting=True, sigmoid_range=30)
@@ -134,7 +132,8 @@ if plot_burst:
     idxs_st = np.where((spiketrain > time_interval[0]) & (spiketrain < time_interval[1]))
     idxs_rec = np.where((ts > time_interval[0]) & (ts < time_interval[1]))
 
-    ax31.plot(spiketrain[idxs_st], 1.5*np.ones(len(spiketrain[idxs_st])), 'k', marker='|', mew=3, markersize=10, ls='')
+    ax31.plot(spiketrain[idxs_st], 1.5 * np.ones(len(spiketrain[idxs_st])), 'k', marker='|', mew=3, markersize=10,
+              ls='')
     ax32.plot(spiketrain[idxs_st], modulations[idxs_st], colors[0], marker='o', mew=3, markersize=2, ls='')
     ax32.axhline(1, color='gray', ls='--', alpha=0.2)
     ax33.plot(ts[idxs_rec].rescale('s'), spike_trace[idxs_rec], lw=0.5, color='k')
@@ -160,7 +159,6 @@ if plot_burst:
 
         fig2.savefig('figure4/bursting_templates.png', dpi=600)
         fig3.savefig('figure4/bursting_signal.pdf')
-
 
 if plot_pca:
     # regenerate recording with bursting and shape-mod

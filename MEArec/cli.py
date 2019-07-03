@@ -41,7 +41,7 @@ def cli():
 @click.option('--probe', '-prb', default=None,
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
-              help='number of observations per cell type (default=1000)')
+              help='number of observations per cell type (default=50)')
 @click.option('--dt', '-dt', default=None, type=float,
               help='time period in ms (default=0.03125)')
 @click.option('--ncontacts', '-nc', default=None, type=int,

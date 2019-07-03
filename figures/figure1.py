@@ -39,9 +39,10 @@ ax_timeseries.axis('on')
 ax_timeseries.spines['top'].set_visible(False)
 ax_timeseries.spines['right'].set_visible(False)
 ax_timeseries.spines['bottom'].set_visible(False)
-ax_timeseries.plot([x_lim[0] + 0.02*(np.max(x_lim) - np.min(x_lim)), x_lim[0] + 0.12*(np.max(x_lim) - np.min(x_lim))],
-                   [np.min(y_lim), np.min(y_lim)], 'k', lw=2)
-ax_timeseries.text(x_lim[0] + 0.05*(np.max(x_lim) - np.min(x_lim)), np.min(y_lim) + 0.15*np.min(y_lim), '100 ms')
+ax_timeseries.plot(
+    [x_lim[0] + 0.02 * (np.max(x_lim) - np.min(x_lim)), x_lim[0] + 0.12 * (np.max(x_lim) - np.min(x_lim))],
+    [np.min(y_lim), np.min(y_lim)], 'k', lw=2)
+ax_timeseries.text(x_lim[0] + 0.05 * (np.max(x_lim) - np.min(x_lim)), np.min(y_lim) + 0.15 * np.min(y_lim), '100 ms')
 
 fig.subplots_adjust(bottom=0.02, top=0.98)
 

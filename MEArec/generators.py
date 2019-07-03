@@ -406,7 +406,8 @@ class SpikeTrainGenerator:
                     if t in times1:
                         t_diff = np.abs(t.rescale(pq.ms).magnitude - times2.rescale(pq.ms).magnitude)
                         if np.all(t_diff > self.params['ref_per']):
-                            t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
+                            t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
+                                unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
                             if t1_jitt < t_stop:
                                 times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
@@ -416,7 +417,8 @@ class SpikeTrainGenerator:
                     elif t in times2:
                         t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
                         if np.all(t_diff > self.params['ref_per']):
-                            t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(unit).magnitude - \
+                            t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
+                                unit).magnitude - \
                                       (time_jitt.rescale(unit) / 2).magnitude
                             if t2_jitt < t_stop:
                                 times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
@@ -441,8 +443,8 @@ class SpikeTrainGenerator:
                 perm = np.random.permutation(len(st1_ovrl_idx))[:remove_overlaps]
                 st1_ovrl_idx = st1_ovrl_idx[perm]
                 st2_ovrl_idx = st2_ovrl_idx[perm]
-                idx_rm_1 = st1_ovrl_idx[:remove_overlaps//2]
-                idx_rm_2 = st2_ovrl_idx[remove_overlaps//2:]
+                idx_rm_1 = st1_ovrl_idx[:remove_overlaps // 2]
+                idx_rm_2 = st2_ovrl_idx[remove_overlaps // 2:]
                 times1 = np.delete(st1.times, idx_rm_1)
                 times1 = times1 * unit
                 times2 = np.delete(st2.times, idx_rm_2)
@@ -458,7 +460,6 @@ class SpikeTrainGenerator:
         st2.annotations = self.all_spiketrains[idx2].annotations
         self.set_spiketrain(idx1, st1)
         self.set_spiketrain(idx2, st2)
-
 
         fr1 = len(st1.times) / st1.t_stop
         fr2 = len(st2.times) / st2.t_stop
@@ -1169,7 +1170,7 @@ class RecordingGenerator:
                 # reorder this
                 chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                                   cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
-                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0*pq.s, True, voltage_peaks)
+                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0 * pq.s, True, voltage_peaks)
                 recordings = output_dict[ch]['rec']
                 timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = output_dict[ch]['spike_traces']

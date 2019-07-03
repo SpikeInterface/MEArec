@@ -75,7 +75,7 @@ recordings:
   color_q: 0 # (color) quality factor of resonating filter
   color_noise_floor: 1 # (color) additional noise floor
   chunk_noise_duration: 0 # chunk duration for noise addition
-  seed: null # random seed for noise generation
+  seed: 0 # random seed for noise generation
 
   filter: False # if True it filters the recordings
   filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
