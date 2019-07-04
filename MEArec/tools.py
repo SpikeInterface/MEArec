@@ -251,7 +251,7 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
     return tempgen
 
 
-def load_recordings(recordings, return_h5_objects=False, verbose=False, load_waveforms=True):
+def load_recordings(recordings, return_h5_objects=False, verbose=False, load_waveforms=True, check_suffix=True):
     """
     Load generated recordings.
 
@@ -276,7 +276,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False, load_wav
 
     rec_dict = {}
     recordings = Path(recordings)
-    if recordings.suffix == '.h5' or recordings.suffix == '.hdf5':
+    if (recordings.suffix == '.h5' or recordings.suffix == '.hdf5') or (not check_suffix):
         F = h5py.File(str(recordings), 'r')
         info = load_dict_from_hdf5(F, 'info/')
         if F.get('voltage_peaks') is not None:
