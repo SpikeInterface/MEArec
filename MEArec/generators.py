@@ -1074,14 +1074,14 @@ class RecordingGenerator:
                 tmp_rec = h5py.File(tmp_rec_path)
                 recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
-                timestamps = tmp_rec.create_dataset("timestamps", data=np.arange(recordings.shape[1]) / fs)
+                # timestamps = tmp_rec.create_dataset("timestamps", data=np.arange(recordings.shape[1]) / fs)
             else:
                 tmp_rec = None
                 tmp_rec_path = None
                 temp_dir = None
                 recordings = np.zeros((n_elec, n_samples))
-                timestamps = np.arange(recordings.shape[1]) / fs
                 spike_traces = np.zeros((n_neurons, n_samples))
+            timestamps = np.arange(recordings.shape[1]) / fs
             self._tmp_rec = tmp_rec
             self._tmp_rec_path = tmp_rec_path
             self._temp_dir = temp_dir
