@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import numpy as np
 import neo
 import elephant.spike_train_generation as stg
-import elephant.conversion as conv
 import elephant.statistics as stat
 import scipy.signal as ss
 import time
@@ -16,8 +15,8 @@ import os
 from os.path import join
 from pprint import pprint
 import quantities as pq
-from quantities import Quantity
 from distutils.version import StrictVersion
+import tempfile
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -42,7 +41,7 @@ class TemplateGenerator:
 
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
                  params=None, intraonly=False, parallel=True, delete_tmp=True, verbose=False):
-        self.verbose = verbose
+        self._verbose = verbose
         if temp_dict is not None and info is not None:
             if 'templates' in temp_dict.keys():
                 self.templates = temp_dict['templates']
@@ -57,7 +56,7 @@ class TemplateGenerator:
             if cell_models_folder is None:
                 raise AttributeError("Specify cell folder!")
             if params is None:
-                if self.verbose:
+                if self._verbose:
                     print("Using default parameters")
                 self.params = {}
             else:
@@ -90,7 +89,7 @@ class TemplateGenerator:
 
         # Compile NEURON models (nrnivmodl)
         if not os.path.isdir(join(cell_models_folder, 'mods')):
-            if self.verbose:
+            if self._verbose:
                 print('Compiling NEURON models')
             os.system('python %s compile %s' % (simulate_script, cell_models_folder))
 
@@ -112,7 +111,7 @@ class TemplateGenerator:
         if 'probe' not in self.params.keys():
             available_mea = mu.return_mea_list()
             probe = available_mea[np.random.randint(len(available_mea))]
-            if self.verbose:
+            if self._verbose:
                 print("Probe randomly set to: %s" % probe)
             self.params['probe'] = probe
         if 'ncontacts' not in self.params.keys():
@@ -175,7 +174,7 @@ class TemplateGenerator:
                 p = multiprocessing.Process(target=simulate_cell_templates, args=(i, simulate_script, tot,
                                                                                   cell_model, cell_models_folder,
                                                                                   intraonly,
-                                                                                  tmp_params_path, self.verbose,))
+                                                                                  tmp_params_path, self._verbose,))
                 p.start()
                 threads.append(p)
             for p in threads:
@@ -184,11 +183,11 @@ class TemplateGenerator:
         else:
             start_time = time.time()
             for numb, cell_model in enumerate(cell_models):
-                if self.verbose:
+                if self._verbose:
                     print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
                 os.system('python %s %s %s %s %s' \
                           % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path,
-                             self.verbose))
+                             self._verbose))
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
         tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
@@ -214,14 +213,14 @@ class SpikeTrainGenerator:
     '''
 
     def __init__(self, params=None, spiketrains=None, verbose=False):
-        self.verbose = verbose
+        self._verbose = verbose
         if params is None:
-            if self.verbose:
+            if self._verbose:
                 print("Using default parameters")
             self.params = {}
         if spiketrains is None:
             self.params = deepcopy(params)
-            if self.verbose:
+            if self._verbose:
                 print('Spiketrains seed: ', self.params['seed'])
             np.random.seed(self.params['seed'])
 
@@ -473,8 +472,9 @@ class RecordingGenerator:
     The list of parameters is in default_params/recordings_params.yaml.
     '''
 
-    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
-        self.verbose = verbose
+    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, tmp_h5=True, verbose=True):
+        self._verbose = verbose
+        self._tmp_h5 = tmp_h5
         if rec_dict is not None and info is not None:
             if 'recordings' in rec_dict.keys():
                 self.recordings = rec_dict['recordings']
@@ -525,7 +525,7 @@ class RecordingGenerator:
             if spgen is None or tempgen is None:
                 raise AttributeError("Specify SpikeGenerator and TemplateGenerator objects!")
             if params is None:
-                if self.verbose:
+                if self._verbose:
                     print("Using default parameters")
                 params = {'spiketrains': {},
                           'celltypes': {},
@@ -571,7 +571,7 @@ class RecordingGenerator:
             duration = spiketrains[0].t_stop - spiketrains[0].t_start
             only_noise = False
         else:
-            if self.verbose:
+            if self._verbose:
                 print('No spike trains provided: only simulating noise')
             only_noise = True
             duration = st_params['duration'] * pq.s
@@ -588,7 +588,18 @@ class RecordingGenerator:
         else:
             # In the rec_params fs is in Hz
             fs = params['recordings']['fs'] * pq.Hz
-            spike_fs = (1. / temp_info['params']['dt'] * pq.kHz).rescale('Hz')
+            if temp_info is not None:
+                spike_fs = (1. / temp_info['params']['dt'] * pq.kHz).rescale('Hz')
+            else:
+                spike_fs = fs
+
+        if 'dtype' not in rec_params.keys():
+            params['recordings']['dtype'] = 'float32'
+        elif rec_params['dtype'] is None:
+            params['recordings']['dtype'] = 'float32'
+        else:
+            params['recordings']['dtype'] = rec_params['dtype']
+        dtype = params['recordings']['dtype']
 
         if 'noise_mode' not in rec_params.keys():
             params['recordings']['noise_mode'] = 'uncorrelated'
@@ -639,7 +650,7 @@ class RecordingGenerator:
         if 'noise_level' not in rec_params.keys():
             params['recordings']['noise_level'] = 10
         noise_level = params['recordings']['noise_level']
-        if self.verbose:
+        if self._verbose:
             print('Noise Level ', noise_level)
 
         if 'filter' not in rec_params.keys():
@@ -688,7 +699,7 @@ class RecordingGenerator:
                 if 'bursting_sigmoid' not in rec_params.keys():
                     params['recordings']['bursting_sigmoid'] = 30
                 bursting_sigmoid = params['recordings']['bursting_sigmoid']
-                if self.verbose:
+                if self._verbose:
                     print('Bursting with modulation sigmoid: ', bursting_sigmoid)
             else:
                 bursting_sigmoid = None
@@ -837,11 +848,10 @@ class RecordingGenerator:
 
         spike_duration = np.sum(cut_outs) * pq.ms
 
-        if self.verbose:
+        if self._verbose:
             print('Selecting cells')
 
         if not only_noise:
-            spike_traces = np.zeros((n_neurons, n_samples))
             if tempgen is not None:
                 if celltype_params is not None:
                     if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
@@ -856,7 +866,7 @@ class RecordingGenerator:
                 if 'type' in spiketrains[0].annotations.keys():
                     n_exc = [st.annotations['type'] for st in spiketrains].count('E')
                     n_inh = n_neurons - n_exc
-                if self.verbose:
+                if self._verbose:
                     print('Templates selection seed: ', temp_seed)
                 np.random.seed(temp_seed)
 
@@ -864,7 +874,7 @@ class RecordingGenerator:
                     drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
                     drift_velocity_ums = drift_velocity / 60.
                     velocity_vector = drift_velocity_ums * preferred_dir
-                    if self.verbose:
+                    if self._verbose:
                         print('Drift velocity vector: ', velocity_vector)
                     n_elec = eaps.shape[2]
                 else:
@@ -880,7 +890,7 @@ class RecordingGenerator:
                                                             preferred_dir=preferred_dir, angle_tol=angle_tol,
                                                             n_overlap_pairs=n_overlap_pairs,
                                                             overlap_threshold=overlap_threshold,
-                                                            verbose=self.verbose)
+                                                            verbose=self._verbose)
 
                 idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
                 template_celltypes = celltypes[idxs_cells]
@@ -904,12 +914,12 @@ class RecordingGenerator:
 
                 # pad templates
                 pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
-                if self.verbose:
+                if self._verbose:
                     print('Padding template edges')
                 t_pad = time.time()
-                templates_pad = pad_templates(templates, pad_samples, drifting, self.verbose,
+                templates_pad = pad_templates(templates, pad_samples, drifting, self._verbose,
                                               parallel=True)
-                if self.verbose:
+                if self._verbose:
                     print('Elapsed pad time:', time.time() - t_pad)
 
                 # resample spikes
@@ -920,19 +930,19 @@ class RecordingGenerator:
                 if up != down:
                     n_resample = int(spike_duration_pad * (up/down))
                     templates_rs = resample_templates(templates_pad, n_resample, up, down,
-                                                          drifting, self.verbose)
-                    if self.verbose:
+                                                          drifting, self._verbose)
+                    if self._verbose:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
                     templates_rs = templates
 
-                if self.verbose:
+                if self._verbose:
                     print('Creating time jittering')
                 jitter = 1. / fs
                 t_j = time.time()
                 templates = jitter_templates(templates_rs,  upsample, fs, n_jitters, jitter,
-                                             drifting, self.verbose, parallel=True)
-                if self.verbose:
+                                             drifting, self._verbose, parallel=True)
+                if self._verbose:
                     print('Elapsed jitter time:', time.time() - t_j)
 
                 # find cut out samples for convolution after padding and resampling
@@ -958,18 +968,18 @@ class RecordingGenerator:
                     drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in template_locs])
                     drift_velocity_ums = drift_velocity / 60.
                     velocity_vector = drift_velocity_ums * preferred_dir
-                    if self.verbose:
+                    if self._verbose:
                         print('Drift velocity vector: ', velocity_vector)
 
             if sync_rate is not None:
-                if self.verbose:
+                if self._verbose:
                     print('Modifying synchrony of spatially overlapping spikes')
-                if self.verbose:
+                if self._verbose:
                     print('Overlapping templates: ', overlapping)
                 for over in overlapping:
-                    if self.verbose:
+                    if self._verbose:
                         print('Overlapping pair: ', over)
-                    spgen.add_synchrony(over, rate=sync_rate, verbose=self.verbose, time_jitt=sync_jitt)
+                    spgen.add_synchrony(over, rate=sync_rate, verbose=self._verbose, time_jitt=sync_jitt)
                     # annotate new firing rates
                     fr1 = len(spgen.all_spiketrains[over[0]].times) / spgen.all_spiketrains[over[0]].t_stop
                     fr2 = len(spgen.all_spiketrains[over[1]].times) / spgen.all_spiketrains[over[1]].t_stop
@@ -978,14 +988,14 @@ class RecordingGenerator:
             self.overlapping = overlapping
 
             # find SNR and annotate
-            if self.verbose:
+            if self._verbose:
                 print('Computing spike train SNR')
             for t_i, temp in enumerate(templates):
                 min_peak = np.min(temp)
                 snr = np.abs(min_peak / float(noise_level))
                 spiketrains[t_i].annotate(snr=snr)
 
-            if self.verbose:
+            if self._verbose:
                 print('Adding spiketrain annotations')
             if tempgen is not None:
                 for i, st in enumerate(spiketrains):
@@ -1008,11 +1018,11 @@ class RecordingGenerator:
                 bursting_units = []
 
             if modulation == 'template':
-                if self.verbose:
+                if self._verbose:
                     print('Template modulation')
                 for i_s, st in enumerate(spiketrains):
                     if bursting and i_s in bursting_units:
-                        if self.verbose:
+                        if self._verbose:
                             print('Bursting unit: ', i_s)
                         amp, cons = compute_modulation(st, sdrand=sdrand,
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
@@ -1026,11 +1036,11 @@ class RecordingGenerator:
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
             elif modulation == 'electrode':
-                if self.verbose:
+                if self._verbose:
                     print('Electrode modulaton')
                 for i_s, st in enumerate(spiketrains):
                     if bursting and i_s in bursting_units:
-                        if self.verbose:
+                        if self._verbose:
                             print('Bursting unit: ', i_s)
                         amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
@@ -1048,7 +1058,7 @@ class RecordingGenerator:
             # divide in chunks
             chunks_rec = []
             if duration > chunk_conv_duration and chunk_conv_duration != 0:
-                if self.verbose:
+                if self._verbose:
                     print('Splitting in chunks of', chunk_conv_duration, 's')
                 start = 0 * pq.s
                 finished = False
@@ -1058,39 +1068,68 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
-            recordings = np.zeros((n_elec, n_samples))
-            timestamps = np.arange(recordings.shape[1]) / fs
+            if self._tmp_h5:
+                temp_dir = Path(tempfile.mkdtemp())
+                tmp_rec_path = temp_dir / "mearec_tmp_file.h5"
+                tmp_rec = h5py.File(tmp_rec_path)
+                recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+                timestamps = tmp_rec.create_dataset("timestamps", data=np.arange(recordings.shape[1]) / fs)
+            else:
+                tmp_rec = None
+                tmp_rec_path = None
+                temp_dir = None
+                recordings = np.zeros((n_elec, n_samples))
+                timestamps = np.arange(recordings.shape[1]) / fs
+                spike_traces = np.zeros((n_neurons, n_samples))
+            self._tmp_rec = tmp_rec
+            self._tmp_rec_path = tmp_rec_path
+            self._temp_dir = temp_dir
 
             if len(chunks_rec) > 0:
                 import multiprocessing
                 threads = []
                 manager = multiprocessing.Manager()
                 output_dict = manager.dict()
+                tempfiles = dict()
                 for ch, chunk in enumerate(chunks_rec):
-                    if self.verbose:
+                    if self._verbose:
                         print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+                    if self._tmp_h5:
+                        tempfiles[ch] = self._temp_dir / ('rec_' + str(ch))
+                    else:
+                        tempfiles[ch] = None
                     p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
                                                                                 output_dict, spike_matrix,
                                                                                 modulation, drifting,
                                                                                 drifting_units, templates,
                                                                                 cut_outs_samples,
                                                                                 template_locs, velocity_vector,
-                                                                                t_start_drift, fs, self.verbose,
+                                                                                t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
                                                                                 bursting_sigmoid, chunk[0], True,
-                                                                                voltage_peaks))
+                                                                                voltage_peaks, tempfiles[ch],))
                     p.start()
                     threads.append(p)
                 for p in threads:
                     p.join()
                 # retrieve annotated spiketrains
                 for ch, chunk in enumerate(chunks_rec):
-                    rec = output_dict[ch]['rec']
-                    spike_trace = output_dict[ch]['spike_traces']
-                    idxs = output_dict[ch]['idxs']
-                    recordings[:, idxs] += rec
-                    spike_traces[:, idxs] = spike_trace
+                    if self._verbose:
+                        print('Extracting data from chunk', ch + 1, 'out of', len(chunks_rec))
+                    if not self._tmp_h5:
+                        rec = output_dict[ch]['rec']
+                        spike_trace = output_dict[ch]['spike_traces']
+                        idxs = output_dict[ch]['idxs']
+                        recordings[:, idxs] += rec
+                        spike_traces[:, idxs] = spike_trace
+                    else:
+                        idxs = output_dict[ch]['idxs']
+                        tmp_ch_file = h5py.File(tempfiles[ch], 'r')
+                        recordings[:, idxs] = tmp_ch_file['recordings']
+                        spike_traces[:, idxs] = tmp_ch_file['spike_traces']
+                        os.remove(tempfiles[ch])
                     if ch == len(chunks_rec) - 1 and drifting:
                         for st in np.arange(n_neurons):
                             final_locs = output_dict[ch]['final_locs']
@@ -1107,11 +1146,12 @@ class RecordingGenerator:
                 ch = 0
                 # reorder this
                 chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
-                                  cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self.verbose,
-                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0 * pq.s, True, voltage_peaks)
-                recordings = output_dict[ch]['rec']
-                timestamps = np.arange(recordings.shape[1]) / fs
-                spike_traces = output_dict[ch]['spike_traces']
+                                  cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self._verbose,
+                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0 * pq.s, True, voltage_peaks,
+                                  tmp_mearec_file=tmp_rec)
+                if not self._tmp_h5:
+                    recordings = output_dict[ch]['rec']
+                    spike_traces = output_dict[ch]['spike_traces']
                 for st in np.arange(n_neurons):
                     if drifting and st in drifting_units:
                         final_locs = output_dict[ch]['final_locs']
@@ -1146,8 +1186,10 @@ class RecordingGenerator:
             template_rots = np.array([])
             template_celltypes = np.array([])
             overlapping = np.array([])
+            tmp_rec = None
+            self._tmp_rec = None
 
-        if self.verbose:
+        if self._verbose:
             print('Adding noise')
         # divide in chunks
         chunks_noise = []
@@ -1160,20 +1202,20 @@ class RecordingGenerator:
                 if start >= duration:
                     finished = True
 
-        if self.verbose:
+        if self._verbose:
             print('Noise seed: ', noise_seed)
         np.random.seed(noise_seed)
         if noise_level > 0:
             if noise_mode == 'uncorrelated':
                 if len(chunks_noise) > 0:
                     for ch, chunk in enumerate(chunks_noise):
-                        if self.verbose:
+                        if self._verbose:
                             print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         additive_noise = noise_level * np.random.randn(recordings.shape[0],
-                                                                       len(idxs))
+                                                                       len(idxs)).astype(dtype)
                         if noise_color:
-                            if self.verbose:
+                            if self._verbose:
                                 print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
                                       ' and random noise level: ', color_noise_floor)
                             # iir peak filter
@@ -1182,12 +1224,15 @@ class RecordingGenerator:
                             additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                                              np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                             additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-                        recordings[:, idxs] += additive_noise
+                        if tmp_rec is not None:
+                            recordings[...][:, idxs] += additive_noise
+                        else:
+                            recordings[:, idxs] += additive_noise
                 else:
                     additive_noise = noise_level * np.random.randn(recordings.shape[0],
-                                                                   recordings.shape[1])
+                                                                   recordings.shape[1]).astype(dtype)
                     if noise_color:
-                        if self.verbose:
+                        if self._verbose:
                             print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
                                   ' and random noise level: ', color_noise_floor)
                         # iir peak filter
@@ -1196,8 +1241,10 @@ class RecordingGenerator:
                         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) \
                                          * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-
-                    recordings += additive_noise
+                    if tmp_rec is not None:
+                        recordings[...] += additive_noise
+                    else:
+                        recordings += additive_noise
             elif noise_mode == 'distance-correlated':
                 cov_dist = np.zeros((n_elec, n_elec))
                 for i, el in enumerate(mea.positions):
@@ -1209,13 +1256,13 @@ class RecordingGenerator:
 
                 if len(chunks_noise) > 0:
                     for ch, chunk in enumerate(chunks_noise):
-                        if self.verbose:
+                        if self._verbose:
                             print('Generating noise in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                                     size=(len(idxs))).T
+                                                                                     size=(len(idxs))).astype(dtype).T
                         if noise_color:
-                            if self.verbose:
+                            if self._verbose:
                                 print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
                                       ' and random noise level: ', color_noise_floor)
                             # iir peak filter
@@ -1225,12 +1272,16 @@ class RecordingGenerator:
                                              np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                            size=(len(idxs))).T
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-                        recordings[:, idxs] += additive_noise
+                        if tmp_rec is not None:
+                            recordings[...][:, idxs] += additive_noise
+                        else:
+                            recordings[:, idxs] += additive_noise
                 else:
                     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                                 size=recordings.shape[1]).T
+                                                                                 size=recordings.shape[1]).\
+                        astype(dtype).T
                     if noise_color:
-                        if self.verbose:
+                        if self._verbose:
                             print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
                                   ' and random noise level: ', color_noise_floor)
                         # iir peak filter
@@ -1241,7 +1292,11 @@ class RecordingGenerator:
                                                                        size=recordings.shape[1]).T
                     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
-                    recordings += additive_noise
+                    if tmp_rec is not None:
+                        recordings[...] = recordings + additive_noise
+                    else:
+                        recordings += additive_noise
+
             elif noise_mode == 'far-neurons':
                 idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
                                                             x_lim=x_lim, y_lim=y_lim, z_lim=z_lim, min_amp=0,
@@ -1251,38 +1306,41 @@ class RecordingGenerator:
                 template_noise_locs = locs[np.array(idxs_cells)]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
+
+                # pad spikes
+                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                if self._verbose:
+                    print('Padding noisy template edges')
+                t_pad = time.time()
+                templates_noise_pad = pad_templates(templates_noise, pad_samples, drifting, self._verbose,
+                                                    parallel=True)
+                if self._verbose:
+                    print('Elapsed pad time:', time.time() - t_pad)
+
                 # resample spikes
+                t_rs = time.time()
                 up = fs
                 down = spike_fs
-                sampling_ratio = float(up / down)
-                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
-                n_resample = int((fs.rescale('kHz') * spike_duration).magnitude)
-                if templates_noise.shape[2] != n_resample:
-                    templates_noise_pol = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-                    if self.verbose:
-                        print('Resampling noisy spikes')
-                    for t, tem in enumerate(templates_noise):
-                        tem_pad = np.pad(tem, [(0, 0), pad_samples], 'edge')
-                        tem_poly = ss.resample_poly(tem_pad, up, down, axis=1)
-                        templates_noise_pol[t, :] = tem_poly[:,
-                                                    int(sampling_ratio * pad_samples[0]):int(
-                                                        sampling_ratio * pad_samples[0]) + n_resample]
+                spike_duration_pad = templates_noise_pad.shape[-1]
+                if up != down:
+                    n_resample = int(spike_duration_pad * (up / down))
+                    templates_noise = resample_templates(templates_noise_pad, n_resample, up, down,
+                                                         drifting, self._verbose)
+                    if self._verbose:
+                        print('Elapsed resample time:', time.time() - t_rs)
                 else:
-                    templates_noise_pol = templates_noise
+                    templates_noise = templates
 
-                templates_noise_pad = []
-                if self.verbose:
-                    print('Padding noisy templates edges')
-                for t, tem in enumerate(templates_noise_pol):
-                    tem = cubic_padding(tem, pad_len, fs)
-                    templates_noise_pad.append(tem)
-                templates_noise = np.array(templates_noise_pad)
+                # find cut out samples for convolution after padding and resampling
+                pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
+                samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
+                samples_post_peak = templates.shape[-1] - samples_pre_peak
+                cut_outs_samples = [samples_pre_peak, samples_post_peak]
 
-                cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
-                del templates_noise_pol, templates_noise_pad
+                del templates_noise_pad
 
                 # create noisy spiketrains
-                if self.verbose:
+                if self._verbose:
                     print('Generating noisy spike trains')
                 noisy_spiketrains_params = params['spiketrains']
                 noisy_spiketrains_params['n_exc'] = int(far_neurons_n * far_neurons_exc_inh_ratio)
@@ -1293,19 +1351,14 @@ class RecordingGenerator:
                 spiketrains_noise = spgen_noise.all_spiketrains
 
                 spike_matrix_noise = resample_spiketrains(spiketrains_noise, fs=fs)
-                additive_noise = np.zeros(recordings.shape)
-                if self.verbose:
+                if self._verbose:
                     print('Convolving noisy spike trains')
                 templates_noise = templates_noise.reshape((templates_noise.shape[0], 1, templates_noise.shape[1],
                                                            templates_noise.shape[2]))
 
-                # for st, spike_bin in enumerate(spike_matrix_noise):
-                #     additive_noise += convolve_templates_spiketrains(st, spike_bin, templates_noise[st],
-                #                                                      cut_out=cut_outs_samples, verbose=self.verbose)
-
                 chunks_rec = []
                 if duration > chunk_conv_duration and chunk_conv_duration != 0:
-                    if self.verbose:
+                    if self._verbose:
                         print('Splitting in chunks of', chunk_conv_duration, 's')
                     start = 0 * pq.s
                     finished = False
@@ -1323,7 +1376,7 @@ class RecordingGenerator:
                     manager = multiprocessing.Manager()
                     output_dict = manager.dict()
                     for ch, chunk in enumerate(chunks_rec):
-                        if self.verbose:
+                        if self._verbose:
                             print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
@@ -1332,7 +1385,7 @@ class RecordingGenerator:
                                                                                     None, templates_noise,
                                                                                     cut_outs_samples,
                                                                                     template_noise_locs, None,
-                                                                                    None, None, self.verbose,
+                                                                                    None, None, self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
                                                                                     voltage_peaks))
@@ -1341,10 +1394,11 @@ class RecordingGenerator:
                     for p in threads:
                         p.join()
                     # retrieve annotated spiketrains
-                    for ch, chunk in enumerate(chunks_rec):
-                        rec = output_dict[ch]['rec']
-                        idxs = output_dict[ch]['idxs']
-                        additive_noise[:, idxs] += rec
+                    if not self._tmp_h5:
+                        for ch, chunk in enumerate(chunks_rec):
+                            rec = output_dict[ch]['rec']
+                            idxs = output_dict[ch]['idxs']
+                            additive_noise[:, idxs] += rec 
                 else:
                     # convolve in single chunk
                     output_dict = dict()
@@ -1353,7 +1407,7 @@ class RecordingGenerator:
                     # reorder this
                     chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
                                       templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
-                                      self.verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks)
+                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks)
                     additive_noise = output_dict[ch]['rec']
 
                 # remove mean
@@ -1365,16 +1419,19 @@ class RecordingGenerator:
                                   np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
 
                 noise_scale = noise_level / np.std(additive_noise)
-                if self.verbose:
+                if self._verbose:
                     print('Scaling to reach desired level by: ', noise_scale)
                 additive_noise *= noise_scale
-                recordings += additive_noise
+                if tmp_rec is not None:
+                    recordings[...] = recordings + additive_noise
+                else:
+                    recordings += additive_noise
         else:
-            if self.verbose:
+            if self._verbose:
                 print('Noise level is set to 0')
 
         if filter:
-            if self.verbose:
+            if self._verbose:
                 print('Filtering')
                 if cutoff.size == 1:
                     print('High-pass cutoff', cutoff)
@@ -1391,35 +1448,59 @@ class RecordingGenerator:
                         finished = True
             if len(chunks_filter) > 0:
                 for ch, chunk in enumerate(chunks_filter):
-                    if self.verbose:
+                    if self._verbose:
                         print('Filtering in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+                    if not self._tmp_h5:
+                        if cutoff.size == 1:
+                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
+                                                                        filter_type='highpass', order=order)
+                        elif cutoff.size == 2:
+                            if fs / 2. < cutoff[1]:
+                                recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
+                                                                            filter_type='highpass', order=order)
+                            else:
+                                recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
+                    else:
+                        if cutoff.size == 1:
+                            recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
+                                                                             filter_type='highpass', order=order)
+                        elif cutoff.size == 2:
+                            if fs / 2. < cutoff[1]:
+                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], 
+                                                                                 fs=fs, filter_type='highpass', 
+                                                                                 order=order)
+                            else:
+                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
+            else:
+                if not self._tmp_h5:
                     if cutoff.size == 1:
-                        recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
-                                                                    filter_type='highpass', order=order)
+                        recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
+                                                           order=order)
                     elif cutoff.size == 2:
                         if fs / 2. < cutoff[1]:
-                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
-                                                                        filter_type='highpass', order=order)
+                            recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
+                                                               filter_type='highpass', order=order)
                         else:
-                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
-            else:
-                if cutoff.size == 1:
-                    recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
-                                                       order=order)
-                elif cutoff.size == 2:
-                    if fs / 2. < cutoff[1]:
-                        recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
-                                                           filter_type='highpass', order=order)
-                    else:
-                        recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
+                            recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
+                else:
+                    if cutoff.size == 1:
+                        recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
+                                                           order=order)
+                    elif cutoff.size == 2:
+                        if fs / 2. < cutoff[1]:
+                            recordings[...] = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
+                                                               filter_type='highpass', order=order)
+                        else:
+                            recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
 
         if not only_noise:
             if extract_waveforms:
-                if self.verbose:
+                if self._verbose:
                     print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, fs=fs, timestamps=timestamps)
-
+        
+        # TODO save to tmp_h5 all
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
         self.timestamps = timestamps
@@ -1441,7 +1522,7 @@ class RecordingGenerator:
             If True, spike trains are annotated in parallel
         '''
         if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
-            if self.verbose:
+            if self._verbose:
                 print('Finding overlapping spikes')
             if len(self.templates.shape) == 3:
                 templates = self.templates
@@ -1470,7 +1551,7 @@ class RecordingGenerator:
         extract_wf(self.spiketrains, self.recordings, fs=fs, cut_out=cut_out)
 
 
-def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
+def gen_recordings(params=None, templates=None, tempgen=None, verbose=True, tmp_h5=True):
     '''
     Generates recordings.
 
@@ -1484,6 +1565,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
         Template generator object
     verbose : bool
         If True output is verbose
+    tmp_h5 : bool
+        If True recordings are dumped onto h5 files as they are generated
 
     Returns
     -------
@@ -1549,7 +1632,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, verbose=True):
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
-    recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
+    recgen = RecordingGenerator(spgen, tempgen, params_dict, tmp_h5=tmp_h5, verbose=verbose)
     recgen.generate_recordings()
 
     print('Elapsed time: ', time.time() - t_start)

@@ -1218,8 +1218,18 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
             templates_rs = np.zeros(
                 (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
         for i, tem in enumerate(templates_rs):
-            templates_rs[i] = templates_dict[i]
-
+            if templates_dict[i].shape[-1] < templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i, :, :len(templates_dict[i])] = templates_dict[i]
+                else:
+                    templates_rs[i, :, :, :len(templates_dict[i])] = templates_dict[i]
+            elif templates_dict[i].shape[-1] < templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i] = templates_dict[i][:, :templates_rs.shape[-1]]
+                else:
+                    templates_rs[i] = templates_dict[i][:, :, :templates_rs.shape[-1]]
+            else:
+                templates_rs[i] = templates_dict[i]
     else:
         if not drifting:
             templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
@@ -1227,7 +1237,12 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
                 print('Resampling spikes')
             for t, tem in enumerate(templates):
                 tem_poly = ss.resample_poly(tem, up, down, axis=1)
-                templates_rs[t, :] = tem_poly
+                if tem_poly.shape[-1] < templates_rs.shape[-1]:
+                    templates_rs[t, :, :len(tem_poly)] = tem_poly
+                elif tem_poly.shape[-1] > templates_rs.shape[-1]:
+                    templates_rs[t] = tem_poly[:, :templates_rs.shape[-1]]
+                else:
+                    templates_rs[t] = tem_poly
         else:
             templates_rs = np.zeros(
                 (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
@@ -1235,8 +1250,12 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
                 print('Resampling spikes')
             for t, tem in enumerate(templates):
                 tem_poly = ss.resample_poly(tem, up, down, axis=2)
-                templates_rs[t, :] = tem_poly
-
+                if tem_poly.shape[-1] < templates_rs.shape[-1]:
+                    templates_rs[t, :, :, :len(tem_poly)] = tem_poly
+                elif tem_poly.shape[-1] > templates_rs.shape[-1]:
+                    templates_rs[t] = tem_poly[:, :, templates_rs.shape[-1]]
+                else:
+                    templates_rs[t] = tem_poly
     return templates_rs
 
 
@@ -2465,7 +2484,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
                       amp_mod, bursting_units, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces,
-                      voltage_peaks):
+                      voltage_peaks, tmp_mearec_file=None):
     '''
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -2531,9 +2550,9 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
             np.random.seed(seed)
 
             if drifting and st in drifting_units:
-                rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
-                                                                                    spike_bin[idxs],
-                                                                                    templates[st],
+                rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(spike_id=st,
+                                                                                    spike_bin=spike_bin[idxs],
+                                                                                    template=templates[st],
                                                                                     cut_out=
                                                                                     cut_outs_samples,
                                                                                     fs=fs,
@@ -2719,9 +2738,22 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         print('Done all convolutions')
 
     return_dict = dict()
-    return_dict['rec'] = recordings
-    return_dict['idxs'] = idxs
-    return_dict['spike_traces'] = spike_traces
+    if tmp_mearec_file is not None:
+        if isinstance(tmp_mearec_file, h5py.File):
+            print('Dumping on tmp file:', tmp_mearec_file.filename)
+            tmp_mearec_file['recordings'][:, :len(idxs)] = recordings
+            tmp_mearec_file['spike_traces'][:, :len(idxs)] = spike_traces
+        else:
+            assert isinstance(tmp_mearec_file, (str, Path))
+            with h5py.File(tmp_mearec_file) as f:
+                print('Dumping on tmp file:', f.filename)
+                f.create_dataset('recordings', data=recordings)
+                f.create_dataset('spike_traces', data=spike_traces)
+        return_dict['idxs'] = idxs
+    else:
+        return_dict['rec'] = recordings
+        return_dict['idxs'] = idxs
+        return_dict['spike_traces'] = spike_traces
     return_dict['final_locs'] = final_locs
     return_dict['final_idxs'] = final_idxs
     output_dict[ch] = return_dict
