@@ -72,19 +72,19 @@ y_lim = ax_timeseries.get_ylim()
 x_lim = ax_timeseries.get_xlim()
 
 ts_lim = (x_lim[1] - x_lim[0]) // 3
-ax_timeseries.plot([x_lim[0], x_lim[0] + 0.2*ts_lim],
-                   [np.min(y_lim) + 0.12*np.abs(np.min(y_lim)),
-                    np.min(y_lim) + 0.12*np.abs(np.min(y_lim))], 'k', lw=2)
-ax_timeseries.text(x_lim[0] + 0.02*ts_lim, np.min(y_lim) + 0.05*np.abs(np.min(y_lim)), '200 ms')
+ax_timeseries.plot([x_lim[0], x_lim[0] + 0.2 * ts_lim],
+                   [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+                    np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_timeseries.text(x_lim[0] + 0.02 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '200 ms')
 
 y_lim = ax_t.get_ylim()
 x_lim = ax_t.get_xlim()
 
 ts_lim = (x_lim[1] - x_lim[0]) // 3
-ax_t.plot([x_lim[0], x_lim[0] + 0.38*ts_lim],
-          [np.min(y_lim) + 0.12*np.abs(np.min(y_lim)),
-           np.min(y_lim) + 0.12*np.abs(np.min(y_lim))], 'k', lw=2)
-ax_t.text(x_lim[0] + 0.07*ts_lim, np.min(y_lim) + 0.05*np.abs(np.min(y_lim)), '5 ms')
+ax_t.plot([x_lim[0], x_lim[0] + 0.38 * ts_lim],
+          [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+           np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_t.text(x_lim[0] + 0.07 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '5 ms')
 
 if save_fig:
     if not os.path.isdir('figure5'):

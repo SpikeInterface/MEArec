@@ -317,7 +317,7 @@ def load_recordings(recordings, return_h5_objects=False, verbose=False, load_wav
             if return_h5_objects:
                 rec_dict['template_celltypes'] = F.get('template_celltypes')
             else:
-                celltypes =  np.array(([n.decode() for n in F.get('template_celltypes')]))
+                celltypes = np.array(([n.decode() for n in F.get('template_celltypes')]))
                 rec_dict['template_celltypes'] = np.array(celltypes)
         if F.get('timestamps') is not None:
             if return_h5_objects:
@@ -1347,7 +1347,7 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
         for i, st_i in enumerate(spiketrains):
             if verbose:
                 print('Annotating overlapping spike train ', i)
-            over = np.array(['NO'] * len(st_i))
+            over = np.array(['NONE'] * len(st_i))
             for i_sp, t_i in enumerate(st_i):
                 for j, st_j in enumerate(spiketrains):
                     if i != j:
@@ -1355,17 +1355,18 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
                         id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                         if not np.any(overlapping_pairs):
                             if len(id_over) != 0:
-                                over[i_sp] = 'O'
+                                over[i_sp] = 'TO'
                         else:
                             pair = [i, j]
                             pair_i = [j, i]
                             if np.any([np.all(pair == p) for p in overlapping_pairs]) or \
                                     np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                                 if len(id_over) != 0:
-                                    over[i_sp] = 'SO'
+                                    over[i_sp] = 'STO'
                             else:
                                 if len(id_over) != 0:
-                                    over[i_sp] = 'O'
+                                    over[i_sp] = 'TO'
+            over[over == 'NONE'] = 'NO'
             st_i.annotate(overlap=over)
 
 
@@ -1391,7 +1392,7 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, return_sp
     """
     if verbose:
         print('Annotating overlapping spike train ', i)
-    over = np.array(['NO'] * len(st_i))
+    over = np.array(['NONE'] * len(st_i))
     for i_sp, t_i in enumerate(st_i):
         for j, st_j in enumerate(spiketrains):
             if i != j:
@@ -1399,17 +1400,18 @@ def annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, return_sp
                 id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
                 if not np.any(overlapping_pairs):
                     if len(id_over) != 0:
-                        over[i_sp] = 'O'
+                        over[i_sp] = 'TO'
                 else:
                     pair = [i, j]
                     pair_i = [j, i]
                     if np.any([np.all(pair == p) for p in overlapping_pairs]) or \
                             np.any([np.all(pair_i == p) for p in overlapping_pairs]):
                         if len(id_over) != 0:
-                            over[i_sp] = 'SO'
+                            over[i_sp] = 'STO'
                     else:
                         if len(id_over) != 0:
-                            over[i_sp] = 'O'
+                            over[i_sp] = 'TO'
+    over[over == 'NONE'] = 'NO'
     st_i.annotate(overlap=over)
     return_spiketrains[i] = st_i
 
@@ -1546,7 +1548,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     last_burst_event = st[i + 1]
                 if consecutive >= 1:
                     if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
-                        last_burst_event = st[i + 1] - 0.001*pq.ms
+                        last_burst_event = st[i + 1] - 0.001 * pq.ms
                         consecutive = 0
 
                 if consecutive == 0:
@@ -2301,8 +2303,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                       templates[st, 0, :, max_electrode],
-                                                       cut_out=cut_outs_samples)
+                                                                templates[st, 0, :, max_electrode],
+                                                                cut_out=cut_outs_samples)
             else:
                 if drifting:
                     template = templates[st, 0]
@@ -2317,9 +2319,9 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                       template[:,
-                                                       max_electrode],
-                                                       cut_out=cut_outs_samples)
+                                                                template[:,
+                                                                max_electrode],
+                                                                cut_out=cut_outs_samples)
                 final_pos = locs[0]
                 final_idx = 0
         elif 'electrode' in modulation:
@@ -2390,7 +2392,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 sigmoid_range=bursting_sigmoid)
                 final_pos = locs[0]
                 final_idx = 0
-                
+
         elif 'template' in modulation:
             seed = np.random.randint(10000)
             np.random.seed(seed)
@@ -2641,9 +2643,9 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
                     ax.plot(t, i * np.ones_like(t), 'k', marker=marker, mew=mew, markersize=markersize, ls='')
             elif overlap:
                 for j, t_sp in enumerate(spiketrain):
-                    if spiketrain.annotations['overlap'][j] == 'SO':
+                    if spiketrain.annotations['overlap'][j] == 'STO':
                         ax.plot(t_sp, i, 'r', marker=marker, mew=mew, markersize=markersize, ls='')
-                    elif spiketrain.annotations['overlap'][j] == 'O':
+                    elif spiketrain.annotations['overlap'][j] == 'TO':
                         ax.plot(t_sp, i, 'g', marker=marker, mew=mew, markersize=markersize, ls='')
                     elif spiketrain.annotations['overlap'][j] == 'NO':
                         ax.plot(t_sp, i, 'k', marker=marker, mew=mew, markersize=markersize, ls='')
@@ -2747,7 +2749,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
     if single_axes:
         if cmap is not None:
             cm = plt.get_cmap(cmap)
-            colors = [cm(i/len(template_ids)) for i in np.arange(len(template_ids))]
+            colors = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
         else:
             colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -2756,7 +2758,8 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             if n in template_ids:
                 if len(t.shape) == 3:
                     if not drifting:
-                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
+                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t,
+                                              **kwargs)
                     else:
                         if cmap is not None:
                             cm = plt.get_cmap(cmap)
@@ -2850,7 +2853,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
         if cmap is not None:
             cm = plt.get_cmap(cmap)
-            colors = [cm(i/len(template_ids)) for i in np.arange(len(template_ids))]
+            colors = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
         else:
             colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         i_col = 0
@@ -2964,7 +2967,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
             if np.max(wf_mean) > max_wf:
                 max_wf = np.max(wf_mean)
 
-        ylim = [min_wf - 0.2*abs(min_wf), max_wf + 0.2*abs(min_wf)]
+        ylim = [min_wf - 0.2 * abs(min_wf), max_wf + 0.2 * abs(min_wf)]
 
         for i, wf in enumerate(waveforms):
             r = i // ncols
@@ -2977,10 +2980,10 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
             else:
                 electrode_idx = electrode
             if i == 0:
-                ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=12)
+                ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=15)
             ax_sel.plot(wf[:, electrode_idx].T, color=colors[np.mod(i, len(colors))], lw=0.1)
             ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
-            ax_sel.set_title('Unit ' +  str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
+            ax_sel.set_title('Unit ' + str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
             ax_sel.set_ylim(ylim)
             if c != 0:
                 ax_sel.spines['left'].set_visible(False)
@@ -3066,8 +3069,6 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
     else:
         elec_dims = np.arange(n_elec)
 
-    print(pc_dims, elec_dims)
-
     for i_w, wf in enumerate(waveforms):
         # wf_reshaped = wf.reshape((wf.shape[0] * wf.shape[1], wf.shape[2]))
         wf_reshaped = wf.reshape((wf.shape[0] * wf.shape[1], wf.shape[2]))
@@ -3141,7 +3142,7 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
                             if i1 == i2 and p1 == p2:
                                 h, b, _ = ax_sel.hist(pc[:, i1, p1], bins=50, alpha=0.6,
                                                       color=colors[i], density=True)
-                                ax_sel.set_ylabel('Ch.'+str(ch1+1)+':PC'+str(p1+1))
+                                ax_sel.set_ylabel('Ch.' + str(ch1 + 1) + ':PC' + str(p1 + 1))
                             else:
                                 ax_sel.plot(pc[:, i2, p2], pc[:, i1, p1], marker='o',
                                             ms=1, ls='', alpha=0.5, color=colors[i])

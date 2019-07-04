@@ -48,10 +48,10 @@ y_lim = ax_noise.get_ylim()
 x_lim = ax_noise.get_xlim()
 
 ts_lim = (x_lim[1] - x_lim[0]) // 3
-ax_noise.plot([x_lim[0], x_lim[0] + 0.2*ts_lim],
-                   [np.min(y_lim) + 0.12*np.abs(np.min(y_lim)),
-                    np.min(y_lim) + 0.12*np.abs(np.min(y_lim))], 'k', lw=2)
-ax_noise.text(x_lim[0] + 0.01*ts_lim, np.min(y_lim) + 0.05*np.abs(np.min(y_lim)), '200 ms')
+ax_noise.plot([x_lim[0], x_lim[0] + 0.2 * ts_lim],
+              [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+               np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_noise.text(x_lim[0] + 0.01 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '200 ms')
 
 # several drifting velocities
 drift_velocities = [60, 30, 10]
@@ -89,10 +89,10 @@ y_lim = ax_drift.get_ylim()
 x_lim = ax_drift.get_xlim()
 
 ts_lim = (x_lim[1] - x_lim[0]) // 3
-ax_drift.plot([x_lim[0], x_lim[0] + 0.16666*ts_lim],
-                   [np.min(y_lim) + 0.12*np.abs(np.min(y_lim)),
-                    np.min(y_lim) + 0.12*np.abs(np.min(y_lim))], 'k', lw=2)
-ax_drift.text(x_lim[0] + 0.02*ts_lim, np.min(y_lim) + 0.05*np.abs(np.min(y_lim)), '10 s')
+ax_drift.plot([x_lim[0], x_lim[0] + 0.16666 * ts_lim],
+              [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+               np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_drift.text(x_lim[0] + 0.02 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '10 s')
 
 if save_fig:
     if not os.path.isdir('figure8'):

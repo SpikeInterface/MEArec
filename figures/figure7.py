@@ -67,7 +67,6 @@ mr.plot_recordings(recgen_u_col, ax=ax_ucol, lw=0.1, vscale=vscale, start_time=s
 mr.plot_recordings(recgen_dc_col, ax=ax_dccol, lw=0.1, vscale=vscale, start_time=start_time, end_time=end_time)
 mr.plot_recordings(recgen_far, ax=ax_far, lw=0.1, vscale=vscale, start_time=start_time, end_time=end_time)
 
-
 ax_u_psd = fig1.add_subplot(gs[4:8, :3])
 ax_dc_psd = fig1.add_subplot(gs[4:8, 4:7])
 ax_ucol_psd = fig1.add_subplot(gs[4:8, 8:11])
@@ -127,4 +126,3 @@ if save_fig:
         os.mkdir('figure7')
 
     fig1.savefig('figure7/noise.png', dpi=600)
-
