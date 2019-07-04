@@ -6,6 +6,7 @@ import json
 import neo
 import elephant
 import time
+import scipy.signal as ss
 import shutil
 import os
 from os.path import join
@@ -1182,7 +1183,254 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     return selected_idxs, selected_cat
 
 
-def cubic_padding(template, pad_len, fs):
+def resample_templates(templates, n_resample, up, down, drifting, verbose, parallel=False):
+    """
+
+    Parameters
+    ----------
+    templates
+    n_resample
+    up
+    down
+    drifting
+    verbose
+    parallel
+
+    Returns
+    -------
+
+    """
+    if parallel:
+        import multiprocessing
+        threads = []
+        manager = multiprocessing.Manager()
+        templates_dict = manager.dict()
+        for i, tem in enumerate(templates):
+            p = multiprocessing.Process(target=resample_parallel, args=(i, tem, up, down, drifting, templates_dict,))
+            p.start()
+            threads.append(p)
+        for p in threads:
+            p.join()
+        # retrieve resampled templates
+        if not drifting:
+            templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+        else:
+            templates_rs = np.zeros(
+                (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
+        for i, tem in enumerate(templates_rs):
+            templates_rs[i] = templates_dict[i]
+
+    else:
+        if not drifting:
+            templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+            if verbose:
+                print('Resampling spikes')
+            for t, tem in enumerate(templates):
+                tem_poly = ss.resample_poly(tem, up, down, axis=1)
+                templates_rs[t, :] = tem_poly
+        else:
+            templates_rs = np.zeros(
+                (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
+            if verbose:
+                print('Resampling spikes')
+            for t, tem in enumerate(templates):
+                tem_poly = ss.resample_poly(tem, up, down, axis=2)
+                templates_rs[t, :] = tem_poly
+
+    return templates_rs
+
+
+def resample_parallel(i, template, up, down, drifting, templates_dict):
+    """
+
+    Parameters
+    ----------
+    i
+    template
+    up
+    down
+    drifting
+    templates_dict
+
+    Returns
+    -------
+
+    """
+    if not drifting:
+        tem_poly = ss.resample_poly(template, up, down, axis=1)
+    else:
+        tem_poly = ss.resample_poly(template, up, down, axis=2)
+    templates_dict[i] = tem_poly
+
+
+def pad_templates(templates, pad_samples, drifting, verbose, parallel=False):
+    padded_template_samples = templates.shape[-1] + np.sum(pad_samples)
+    if parallel:
+        import multiprocessing
+        threads = []
+        manager = multiprocessing.Manager()
+        templates_dict = manager.dict()
+        for i, tem in enumerate(templates):
+            p = multiprocessing.Process(target=pad_parallel, args=(i, tem, pad_samples, drifting, templates_dict,
+                                                                   verbose,))
+            p.start()
+            threads.append(p)
+        for p in threads:
+            p.join()
+        # retrieve resampled templates
+        if not drifting:
+            templates_pad = np.zeros((templates.shape[0], templates.shape[1], padded_template_samples))
+        else:
+            templates_pad = np.zeros(
+                (templates.shape[0], templates.shape[1], templates.shape[2], padded_template_samples))
+        for i, tem in enumerate(templates_pad):
+            templates_pad[i] = templates_dict[i]
+    else:
+        if not drifting:
+            templates_pad = np.zeros((templates.shape[0], templates.shape[1], padded_template_samples))
+            for t, tem in enumerate(templates):
+                tem_pad = cubic_padding(tem, pad_samples)
+                templates_pad[t] = tem_pad
+        else:
+            templates_pad = np.zeros((templates.shape[0], templates.shape[1], templates.shape[2],
+                                      padded_template_samples))
+            for t, tem in enumerate(templates):
+                if verbose:
+                    print('Padding edges: neuron ', t + 1, ' of ', len(templates))
+                for tp, tem_p in enumerate(tem):
+                    tem_pad = cubic_padding(tem_p, pad_samples)
+                    templates_pad[t, tp] = tem_pad
+    return templates_pad
+
+
+def pad_parallel(i, template, pad_samples, drifting, templates_dict, verbose):
+    """
+
+    Parameters
+    ----------
+    i
+    template
+    up
+    down
+    drifting
+    templates_dict
+
+    Returns
+    -------
+
+    """
+    if not drifting:
+        tem_pad = cubic_padding(template, pad_samples)
+    else:
+        if verbose:
+            print('Padding edges: neuron ', i)
+        padded_template_samples = template.shape[-1] + np.sum(pad_samples)
+        tem_pad = np.zeros((template.shape[0], template.shape[1], padded_template_samples))
+        for tp, tem_p in enumerate(template):
+            tem_p = cubic_padding(tem_p, pad_samples)
+            tem_pad[tp] = tem_p
+    templates_dict[i] = tem_pad
+
+
+def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, verbose, parallel=False):
+    if parallel:
+        import multiprocessing
+        threads = []
+        manager = multiprocessing.Manager()
+        templates_dict = manager.dict()
+        for i, tem in enumerate(templates):
+            p = multiprocessing.Process(target=jitter_parallel, args=(i, tem, upsample, fs, n_jitters, jitter,
+                                                                      drifting, templates_dict, verbose,))
+            p.start()
+            threads.append(p)
+        for p in threads:
+            p.join()
+        # retrieve resampled templates
+        if not drifting:
+            templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1], templates.shape[2]))
+        else:
+            templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
+                                         templates.shape[2], templates.shape[3]))
+        for i, tem in enumerate(templates_jitter):
+            templates_jitter[i] = templates_dict[i]
+    else:
+        if not drifting:
+            templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1], templates.shape[2]))
+            for t, temp in enumerate(templates):
+                temp_up = ss.resample_poly(temp, upsample, 1, axis=1)
+                nsamples_up = temp_up.shape[1]
+                for n in np.arange(n_jitters):
+                    # align waveform
+                    shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
+                    if shift > 0:
+                        t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                    elif shift < 0:
+                        t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                    else:
+                        t_jitt = temp_up
+                    temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                    templates_jitter[t, n] = temp_down
+        else:
+            templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
+                                         templates.shape[2], templates.shape[3]))
+            for t, temp in enumerate(templates):
+                if verbose:
+                    print('Jittering: neuron ', t + 1, ' of ', len(templates))
+                for tp, tem_p in enumerate(temp):
+                    temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
+                    nsamples_up = temp_up.shape[1]
+                    for n in np.arange(n_jitters):
+                        # align waveform
+                        shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                        if shift > 0:
+                            t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                        elif shift < 0:
+                            t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                        else:
+                            t_jitt = temp_up
+                        temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                        templates_jitter[t, tp, n] = temp_down
+    return templates_jitter
+
+
+def jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, templates_dict,  verbose):
+    if not drifting:
+        templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
+        temp_up = ss.resample_poly(template, upsample, 1, axis=1)
+        nsamples_up = temp_up.shape[1]
+        for n in np.arange(n_jitters):
+            # align waveform
+            shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
+            if shift > 0:
+                t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+            elif shift < 0:
+                t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+            else:
+                t_jitt = temp_up
+            temp_down = ss.decimate(t_jitt, upsample, axis=1)
+            templates_jitter[n] = temp_down
+    else:
+        if verbose:
+            print('Jittering: neuron ', i)
+        templates_jitter = np.zeros((template.shape[0], n_jitters, template.shape[1], template.shape[2]))
+        for tp, tem_p in enumerate(template):
+            temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
+            nsamples_up = temp_up.shape[1]
+            for n in np.arange(n_jitters):
+                # align waveform
+                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                if shift > 0:
+                    t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                elif shift < 0:
+                    t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                else:
+                    t_jitt = temp_up
+                temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                templates_jitter[tp, n] = temp_down
+    templates_dict[i] = templates_jitter
+
+
+def cubic_padding(template, pad_samples):
     """
     Cubic spline padding on left and right side to 0. The initial offset of the templates is also removed.
 
@@ -1190,10 +1438,8 @@ def cubic_padding(template, pad_len, fs):
     ----------
     template : np.array
         Templates to be padded (n_elec, n_samples)
-    pad_len : list
-        Padding in ms before and after the template
-    fs : quantity
-        Sampling frequency
+    pad_samples : list
+        Padding samples before and after the template
 
     Returns
     -------
@@ -1202,8 +1448,8 @@ def cubic_padding(template, pad_len, fs):
 
     """
     import scipy.interpolate as interp
-    n_pre = int(pad_len[0] * fs.rescale('kHz'))
-    n_post = int(pad_len[1] * fs.rescale('kHz'))
+    n_pre = pad_samples[0]
+    n_post = pad_samples[1]
 
     padded_template = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
     splines = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
