@@ -947,7 +947,7 @@ class RecordingGenerator:
                                                                                     None, None, self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
-                                                                                    voltage_peaks))
+                                                                                    voltage_peaks, dtype,))
                         p.start()
                         threads.append(p)
                     for p in threads:
@@ -966,7 +966,7 @@ class RecordingGenerator:
                     # reorder this
                     chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
                                       templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
-                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks)
+                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks, dtype)
                     additive_noise = output_dict[ch]['rec']
 
                 # remove mean
