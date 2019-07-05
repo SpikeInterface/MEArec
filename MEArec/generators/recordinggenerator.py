@@ -665,7 +665,7 @@ class RecordingGenerator:
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
                                                                                 bursting_sigmoid, chunk[0], True,
-                                                                                voltage_peaks, tempfiles[ch],))
+                                                                                voltage_peaks, dtype, tempfiles[ch],))
                     p.start()
                     threads.append(p)
                 for p in threads:
@@ -707,7 +707,7 @@ class RecordingGenerator:
                                   velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, bursting_sigmoid=bursting_sigmoid,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
-                                  tmp_mearec_file=tmp_rec, verbose=self._verbose)
+                                  dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
                 if not self._tmp_h5:
                     recordings = output_dict[ch]['rec']
                     spike_traces = output_dict[ch]['spike_traces']

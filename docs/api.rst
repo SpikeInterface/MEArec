@@ -25,7 +25,7 @@ Module :mod:`MEArec.generators`
 
 
 Module :mod:`MEArec.generation_tools`
-===============================
+=====================================
 .. automodule:: generation_tools
 
     function :class:`gen_templates`

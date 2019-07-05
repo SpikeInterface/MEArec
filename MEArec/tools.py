@@ -2589,7 +2589,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
                       amp_mod, bursting_units, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces,
-                      voltage_peaks, tmp_mearec_file=None):
+                      voltage_peaks, dtype, tmp_mearec_file=None):
     """
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -2640,12 +2640,12 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     """
     final_locs = []
     final_idxs = []
-    spike_traces = np.zeros((len(spike_matrix), len(idxs)))
+    spike_traces = np.zeros((len(spike_matrix), len(idxs)), dtype=dtype)
     if len(templates.shape) == 4:
         n_elec = templates.shape[2]
     elif len(templates.shape) == 5:
         n_elec = templates.shape[3]
-    recordings = np.zeros((n_elec, len(idxs)))
+    recordings = np.zeros((n_elec, len(idxs)), dtype=dtype)
     for st, spike_bin in enumerate(spike_matrix):
         if extract_spike_traces:
             max_electrode = np.argmax(voltage_peaks[st])
