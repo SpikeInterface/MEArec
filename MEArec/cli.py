@@ -1,16 +1,15 @@
 import os
-from os.path import join
+import pprint
 import time
+from distutils.version import StrictVersion
+from os.path import join
+
+import MEArec.generation_tools as gt
 import MEAutility as mu
 import click
 import numpy as np
 import yaml
-import shutil
-import MEArec.generators as generators
 from MEArec import save_template_generator, save_recording_generator, get_default_config
-import pprint
-import time
-from distutils.version import StrictVersion
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -169,12 +168,12 @@ def gen_templates(params, **kwargs):
 
     params_dict['templates_folder'] = templates_folder
 
-    tempgen = generators.gen_templates(cell_models_folder=model_folder,
-                                       params=params_dict,
-                                       templates_tmp_folder=templates_folder,
-                                       intraonly=intraonly,
-                                       parallel=parallel,
-                                       verbose=verbose)
+    tempgen = gt.gen_templates(cell_models_folder=model_folder,
+                               params=params_dict,
+                               templates_tmp_folder=templates_folder,
+                               intraonly=intraonly,
+                               parallel=parallel,
+                               verbose=verbose)
 
     # Merge simulated data and cleanup
     if not intraonly:
@@ -447,7 +446,7 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['t_start_drift'] = kwargs['t_start_drift']
     verbose = kwargs['verbose']
 
-    recgen = generators.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
+    recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
     info = recgen.info
 
     n_neurons = info['recordings']['n_neurons']

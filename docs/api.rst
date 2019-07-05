@@ -24,9 +24,18 @@ Module :mod:`MEArec.generators`
         :undoc-members:
 
 
+Module :mod:`MEArec.generation_tools`
+===============================
+.. automodule:: generation_tools
+
     function :class:`gen_templates`
     -----------------------------------
     .. autofunction:: gen_templates
+
+
+    function :class:`gen_spiketrains`
+    -----------------------------------
+    .. autofunction:: gen_spiketrains
 
 
     function :class:`gen_recordings`
