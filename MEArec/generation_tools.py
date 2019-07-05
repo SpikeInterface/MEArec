@@ -22,6 +22,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Dictionary containing recording parameters OR path to yaml file containing parameters
     tempgen : TemplateGenerator
         Template generator object
+    spgen : SpikeTrainGenerator
+        Spike train generator object. If None spike trains are created from params['spiketrains']
     verbose : bool
         If True output is verbose
     tmp_h5 : bool

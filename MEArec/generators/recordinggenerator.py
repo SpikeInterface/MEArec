@@ -119,7 +119,7 @@ class RecordingGenerator:
             temp_info = None
             cut_outs = self.params['templates']['cut_out']
 
-        spiketrains = spgen.all_spiketrains
+        spiketrains = spgen.spiketrains
 
         n_neurons = len(spiketrains)
         if len(spiketrains) > 0:
@@ -537,10 +537,10 @@ class RecordingGenerator:
                         print('Overlapping pair: ', over)
                     spgen.add_synchrony(over, rate=sync_rate, verbose=self._verbose, time_jitt=sync_jitt)
                     # annotate new firing rates
-                    fr1 = len(spgen.all_spiketrains[over[0]].times) / spgen.all_spiketrains[over[0]].t_stop
-                    fr2 = len(spgen.all_spiketrains[over[1]].times) / spgen.all_spiketrains[over[1]].t_stop
-                    spgen.all_spiketrains[over[0]].annotate(fr=fr1)
-                    spgen.all_spiketrains[over[1]].annotate(fr=fr2)
+                    fr1 = len(spgen.spiketrains[over[0]].times) / spgen.spiketrains[over[0]].t_stop
+                    fr2 = len(spgen.spiketrains[over[1]].times) / spgen.spiketrains[over[1]].t_stop
+                    spgen.spiketrains[over[0]].annotate(fr=fr1)
+                    spgen.spiketrains[over[1]].annotate(fr=fr2)
             self.overlapping = overlapping
 
             # find SNR and annotate
@@ -907,7 +907,7 @@ class RecordingGenerator:
                 noisy_spiketrains_params['seed'] = noise_seed
                 spgen_noise = SpikeTrainGenerator(params=noisy_spiketrains_params)
                 spgen_noise.generate_spikes()
-                spiketrains_noise = spgen_noise.all_spiketrains
+                spiketrains_noise = spgen_noise.spiketrains
 
                 spike_matrix_noise = resample_spiketrains(spiketrains_noise, fs=fs)
                 if self._verbose:

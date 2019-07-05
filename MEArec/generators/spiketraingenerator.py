@@ -92,7 +92,7 @@ class SpikeTrainGenerator:
             self.info = params
             self.spiketrains = False
         else:
-            self.all_spiketrains = spiketrains
+            self.spiketrains = spiketrains
             self.spiketrains = True
             if params is not None:
                 self.params = deepcopy(params)
@@ -109,16 +109,16 @@ class SpikeTrainGenerator:
             New spike train
 
         """
-        self.all_spiketrains[idx] = spiketrain
+        self.spiketrains[idx] = spiketrain
 
     def generate_spikes(self):
         """
         Generate spike trains based on default_params of the SpikeTrainGenerator class.
-        self.all_spiketrains contains the newly generated spike trains
+        self.spiketrains contains the newly generated spike trains
         """
 
         if not self.spiketrains:
-            self.all_spiketrains = []
+            self.spiketrains = []
             idx = 0
             for n in np.arange(self.n_neurons):
                 if not self.changing and not self.intermittent:
@@ -131,17 +131,17 @@ class SpikeTrainGenerator:
                                                            self.params['t_start'], self.params['t_stop'])
                 else:
                     raise NotImplementedError('Changing and intermittent spiketrains are not impleented yet')
-                self.all_spiketrains.append(st)
-                self.all_spiketrains[-1].annotate(fr=rate)
+                self.spiketrains.append(st)
+                self.spiketrains[-1].annotate(fr=rate)
                 if 'n_exc' in self.params.keys() and 'n_inh' in self.params.keys():
                     if idx < self.params['n_exc']:
-                        self.all_spiketrains[-1].annotate(type='E')
+                        self.spiketrains[-1].annotate(type='E')
                     else:
-                        self.all_spiketrains[-1].annotate(type='I')
+                        self.spiketrains[-1].annotate(type='I')
                 idx += 1
 
             # check consistency and remove spikes below refractory period
-            for idx, st in enumerate(self.all_spiketrains):
+            for idx, st in enumerate(self.spiketrains):
                 isi = stat.isi(st)
                 idx_remove = np.where(isi < self.params['ref_per'])[0]
                 spikes_to_remove = len(idx_remove)
@@ -154,7 +154,7 @@ class SpikeTrainGenerator:
                     idx_remove = np.where(isi < self.params['ref_per'])[0]
                     spikes_to_remove = len(idx_remove)
 
-                st.annotations = self.all_spiketrains[idx].annotations
+                st.annotations = self.spiketrains[idx].annotations
                 self.set_spiketrain(idx, st)
         else:
             print("SpikeTrainGenerator initialized with existing spike trains!")
@@ -186,8 +186,8 @@ class SpikeTrainGenerator:
         """
         idx1 = idxs[0]
         idx2 = idxs[1]
-        st1 = self.all_spiketrains[idx1]
-        st2 = self.all_spiketrains[idx2]
+        st1 = self.spiketrains[idx1]
+        st2 = self.spiketrains[idx2]
         times1 = st1.times
         times2 = st2.times
         t_start = st2.t_start
@@ -257,8 +257,8 @@ class SpikeTrainGenerator:
                     print("Removed", len(idx_rm_1), "spikes from spike train", idxs[0],
                           "and", len(idx_rm_2), "spikes from spike train", idxs[1], 'Sync rate:', sync_rate)
 
-        st1.annotations = self.all_spiketrains[idx1].annotations
-        st2.annotations = self.all_spiketrains[idx2].annotations
+        st1.annotations = self.spiketrains[idx1].annotations
+        st2.annotations = self.spiketrains[idx2].annotations
         self.set_spiketrain(idx1, st1)
         self.set_spiketrain(idx2, st2)
 

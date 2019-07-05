@@ -119,7 +119,7 @@ class TestGenerators(unittest.TestCase):
         spgen.generate_spikes()
 
         #check ref period
-        for st in spgen.all_spiketrains:
+        for st in spgen.spiketrains:
             isi = stat.isi(st).rescale('ms')
             assert np.all(isi.magnitude > sp_params['ref_per'])
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
@@ -127,10 +127,29 @@ class TestGenerators(unittest.TestCase):
         sp_params['process'] = 'gamma'
         spgen = mr.SpikeTrainGenerator(sp_params)
         spgen.generate_spikes()
-        for st in spgen.all_spiketrains:
+        for st in spgen.spiketrains:
             isi = stat.isi(st).rescale('ms')
             assert np.all(isi.magnitude > sp_params['ref_per'])
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
+
+        spgen = mr.gen_spiketrains(sp_params)
+        spiketrains = spgen.spiketrains
+        spgen_st = mr.gen_spiketrains(spiketrains=spiketrains)
+        for (st, st_) in zip(spgen.spiketrains, spgen_st.spiketrains):
+            assert np.allclose(st.times, st_.times)
+
+    def test_gen_recordings_with_spiketrains(self):
+        print('Test recording generation - from spiketrains')
+        rec_params = mr.get_default_recordings_params()
+        sp_params = rec_params['spiketrains']
+        sp_params['n_exc'] = 2
+        sp_params['n_inh'] = 1
+        sp_params['duration'] = 5
+        spgen = mr.gen_spiketrains(sp_params)
+        recgen = mr.gen_recordings(params=rec_params, spgen=spgen)
+
+        for (st, st_) in zip(spgen.spiketrains, recgen.spiketrains):
+            assert np.allclose(st.times, st_.times)
 
     def test_gen_recordings_modulations(self):
         print('Test recording generation - modulation')
