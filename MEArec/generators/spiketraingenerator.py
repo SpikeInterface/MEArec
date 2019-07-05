@@ -16,10 +16,11 @@ class SpikeTrainGenerator:
 
     def __init__(self, params=None, spiketrains=None, verbose=False):
         self._verbose = verbose
+        self._has_spiketrains = False
+        self.params = {}
         if params is None:
             if self._verbose:
                 print("Using default parameters")
-            self.params = {}
         if spiketrains is None:
             self.params = deepcopy(params)
             if self._verbose:
@@ -116,7 +117,6 @@ class SpikeTrainGenerator:
         Generate spike trains based on default_params of the SpikeTrainGenerator class.
         self.spiketrains contains the newly generated spike trains
         """
-
         if not self._has_spiketrains:
             self.spiketrains = []
             idx = 0
