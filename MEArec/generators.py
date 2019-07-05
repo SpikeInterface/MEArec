@@ -523,7 +523,7 @@ class RecordingGenerator:
             self.tempgen = None
         else:
             if spgen is None or tempgen is None:
-                raise AttributeError("Specify SpikeGenerator and TemplateGenerator objects!")
+                raise AttributeError("Specify SpikeTrainGenerator and TemplateGenerator objects!")
             if params is None:
                 if self._verbose:
                     print("Using default parameters")
@@ -543,7 +543,10 @@ class RecordingGenerator:
         temp_params = self.params['templates']
         rec_params = self.params['recordings']
         st_params = self.params['spiketrains']
-        celltype_params = self.params['cell_types']
+        if 'cell_types' in self.params.keys():
+            celltype_params = self.params['cell_types']
+        else:
+            celltype_params = {}
 
         if 'rates' in st_params.keys():
             assert st_params['types'] is not None, "If 'rates' are provided as spiketrains parameters, " \
@@ -846,11 +849,6 @@ class RecordingGenerator:
                                      'n_neurons': n_neurons})
         params['templates'].update({'cut_out': cut_outs})
 
-        spike_duration = np.sum(cut_outs) * pq.ms
-
-        if self._verbose:
-            print('Selecting cells')
-
         if not only_noise:
             if tempgen is not None:
                 if celltype_params is not None:
@@ -883,6 +881,8 @@ class RecordingGenerator:
                     velocity_vector = None
                     n_elec = eaps.shape[1]
 
+                if self._verbose:
+                    print('Selecting cells')
                 idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
                                                             z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
                                                             min_dist=min_dist, drifting=drifting,
@@ -899,6 +899,7 @@ class RecordingGenerator:
                 templates_bin = bin_cat[idxs_cells]
                 templates = eaps[idxs_cells]
 
+                # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
 
                 # peak images
@@ -919,6 +920,7 @@ class RecordingGenerator:
                 t_pad = time.time()
                 templates_pad = pad_templates(templates, pad_samples, drifting, self._verbose,
                                               parallel=True)
+
                 if self._verbose:
                     print('Elapsed pad time:', time.time() - t_pad)
 
@@ -934,7 +936,7 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
-                    templates_rs = templates
+                    templates_rs = templates_pad
 
                 if self._verbose:
                     print('Creating time jittering')
@@ -946,7 +948,7 @@ class RecordingGenerator:
                     print('Elapsed jitter time:', time.time() - t_j)
 
                 # find cut out samples for convolution after padding and resampling
-                pre_peak_fraction = (pad_len[0] + cut_outs[0])/ (np.sum(pad_len) + np.sum(cut_outs))
+                pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
                 samples_post_peak = templates.shape[-1] - samples_pre_peak
                 cut_outs_samples = [samples_pre_peak, samples_post_peak]
@@ -954,9 +956,11 @@ class RecordingGenerator:
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
             else:
-                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
-                cut_outs_samples = np.array(cut_outs * fs.rescale('kHz').magnitude, dtype=int) + pad_samples
                 templates = self.templates
+                pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
+                samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
+                samples_post_peak = templates.shape[-1] - samples_pre_peak
+                cut_outs_samples = [samples_pre_peak, samples_post_peak]
                 template_locs = self.template_locations
                 template_rots = self.template_rotations
                 template_celltypes = self.template_celltypes
@@ -1145,10 +1149,13 @@ class RecordingGenerator:
                 idxs = np.arange(spike_matrix.shape[1])
                 ch = 0
                 # reorder this
-                chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
-                                  cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, self._verbose,
-                                  amp_mod, bursting_units, shape_mod, bursting_sigmoid, 0 * pq.s, True, voltage_peaks,
-                                  tmp_mearec_file=tmp_rec)
+                chunk_convolution(ch=ch, idxs=idxs, output_dict=output_dict, spike_matrix=spike_matrix,
+                                  modulation=modulation, drifting=drifting, drifting_units=drifting_units,
+                                  templates=templates, cut_outs_samples=cut_outs_samples, template_locs=template_locs,
+                                  velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
+                                  bursting_units=bursting_units, shape_mod=shape_mod, bursting_sigmoid=bursting_sigmoid,
+                                  chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
+                                  tmp_mearec_file=tmp_rec, verbose=self._verbose)
                 if not self._tmp_h5:
                     recordings = output_dict[ch]['rec']
                     spike_traces = output_dict[ch]['spike_traces']
@@ -1329,12 +1336,12 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
-                    templates_noise = templates
+                    templates_noise = templates_noise_pad
 
                 # find cut out samples for convolution after padding and resampling
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
-                samples_post_peak = templates.shape[-1] - samples_pre_peak
+                samples_post_peak = templates_noise.shape[-1] - samples_pre_peak
                 cut_outs_samples = [samples_pre_peak, samples_post_peak]
 
                 del templates_noise_pad

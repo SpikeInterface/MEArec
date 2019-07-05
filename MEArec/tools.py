@@ -1253,7 +1253,7 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
                 if tem_poly.shape[-1] < templates_rs.shape[-1]:
                     templates_rs[t, :, :, :len(tem_poly)] = tem_poly
                 elif tem_poly.shape[-1] > templates_rs.shape[-1]:
-                    templates_rs[t] = tem_poly[:, :, templates_rs.shape[-1]]
+                    templates_rs[t] = tem_poly[:, :, :templates_rs.shape[-1]]
                 else:
                     templates_rs[t] = tem_poly
     return templates_rs
@@ -2740,13 +2740,15 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     return_dict = dict()
     if tmp_mearec_file is not None:
         if isinstance(tmp_mearec_file, h5py.File):
-            print('Dumping on tmp file:', tmp_mearec_file.filename)
+            if verbose:
+                print('Dumping on tmp file:', tmp_mearec_file.filename)
             tmp_mearec_file['recordings'][:, :len(idxs)] = recordings
             tmp_mearec_file['spike_traces'][:, :len(idxs)] = spike_traces
         else:
             assert isinstance(tmp_mearec_file, (str, Path))
             with h5py.File(tmp_mearec_file) as f:
-                print('Dumping on tmp file:', f.filename)
+                if verbose:
+                    print('Dumping on tmp file:', f.filename)
                 f.create_dataset('recordings', data=recordings)
                 f.create_dataset('spike_traces', data=spike_traces)
         return_dict['idxs'] = idxs

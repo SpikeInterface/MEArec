@@ -33,6 +33,7 @@ class TestGenerators(unittest.TestCase):
         rec_params = mr.get_default_recordings_params()
 
         self.test_dir = tempfile.mkdtemp()
+        # self.test_dir = './tmptmp'
 
         templates_params['n'] = self.n
         templates_params['ncontacts'] = 1
