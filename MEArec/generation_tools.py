@@ -120,11 +120,11 @@ def gen_spiketrains(params=None, spiketrains=None, verbose=False):
     SpikeTrainGenerator
         Generated spike train generator object
     """
-    t_start = time.time()
     if params is None:
         assert spiketrains is not None, "Pass either a 'params' or a 'spiketrains' argument"
         assert isinstance(spiketrains, list) and isinstance(spiketrains[0], neo.SpikeTrain), \
             "'spiketrains' should be a list of neo.SpikeTrain objects"
+        params_dict = {}
     else:
         if isinstance(params, str):
             if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):

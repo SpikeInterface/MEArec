@@ -93,7 +93,7 @@ class SpikeTrainGenerator:
             self.spiketrains = False
         else:
             self.spiketrains = spiketrains
-            self.spiketrains = True
+            self._has_spiketrains = True
             if params is not None:
                 self.params = deepcopy(params)
 
@@ -117,7 +117,7 @@ class SpikeTrainGenerator:
         self.spiketrains contains the newly generated spike trains
         """
 
-        if not self.spiketrains:
+        if not self._has_spiketrains:
             self.spiketrains = []
             idx = 0
             for n in np.arange(self.n_neurons):

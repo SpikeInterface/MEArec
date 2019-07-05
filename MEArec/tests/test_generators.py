@@ -146,7 +146,7 @@ class TestGenerators(unittest.TestCase):
         sp_params['n_inh'] = 1
         sp_params['duration'] = 5
         spgen = mr.gen_spiketrains(sp_params)
-        recgen = mr.gen_recordings(params=rec_params, spgen=spgen)
+        recgen = mr.gen_recordings(params=rec_params, spgen=spgen, tempgen=self.tempgen)
 
         for (st, st_) in zip(spgen.spiketrains, recgen.spiketrains):
             assert np.allclose(st.times, st_.times)
