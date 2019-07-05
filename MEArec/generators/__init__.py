@@ -1,3 +1,3 @@
-from .recordinggenerator import RecordingGenerator
-from .spiketraingenerator import SpikeTrainGenerator
 from .templategenerator import TemplateGenerator
+from .spiketraingenerator import SpikeTrainGenerator
+from .recordinggenerator import RecordingGenerator

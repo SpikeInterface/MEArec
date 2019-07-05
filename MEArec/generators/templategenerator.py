@@ -9,7 +9,7 @@ import os
 from os.path import join
 from pprint import pprint
 from distutils.version import StrictVersion
-from pahtlib import Path
+from pathlib import Path
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True

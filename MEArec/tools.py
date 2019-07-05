@@ -1185,20 +1185,31 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
 
 def resample_templates(templates, n_resample, up, down, drifting, verbose, parallel=False):
     """
+    Resamples the templates to a specified sampling frequency.
 
     Parameters
     ----------
-    templates
-    n_resample
-    up
-    down
-    drifting
-    verbose
-    parallel
+    templates : np.array
+        Array with templates (n_neurons, n_channels, n_samples)
+        or (n_neurons, n_drift, n_channels, n_samples) if drifting
+    n_resample : int
+        Samples for resampled templates
+    up : float
+        The original sampling frequency in Hz
+    down : float
+        The new sampling frequency in Hz
+    drifting : bool
+        If True templates are assumed to be drifting
+    verbose : bool
+        If True output is verbose
+    parallel : bool
+        If True each template is resampled in parellel
 
     Returns
     -------
-
+    template_rs : np.array
+        Array with resampled templates (n_neurons, n_channels, n_resample)
+        or (n_neurons, n_drift, n_channels, n_resample) if drifting
     """
     if parallel:
         import multiprocessing
@@ -1261,19 +1272,26 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
 
 def resample_parallel(i, template, up, down, drifting, templates_dict):
     """
+    Resamples a template to a specified sampling frequency.
 
     Parameters
     ----------
-    i
-    template
-    up
-    down
-    drifting
-    templates_dict
+    template : np.array
+        Array with one template (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
+    up : float
+        The original sampling frequency in Hz
+    down : float
+        The new sampling frequency in Hz
+    drifting : bool
+        If True templates are assumed to be drifting
+    templates_dict : manager.dict
+        Shared dictionary from multiprocessing.manager
 
     Returns
     -------
-
+    template_rs : np.array
+        Array with resampled template (n_channels, n_resample)
+        or (n_drift, n_channels, n_resample)
     """
     if not drifting:
         tem_poly = ss.resample_poly(template, up, down, axis=1)
@@ -1283,6 +1301,30 @@ def resample_parallel(i, template, up, down, drifting, templates_dict):
 
 
 def pad_templates(templates, pad_samples, drifting, verbose, parallel=False):
+    """
+    Pads the templates on both ends.
+
+    Parameters
+    ----------
+    templates : np.array
+        Array with templates (n_neurons, n_channels, n_samples)
+        or (n_neurons, n_drift, n_channels, n_samples) if drifting
+    pad_samples : list
+        List of 2 ints with number of samples for padding before and after
+    drifting : bool
+        If True templates are assumed to be drifting
+    verbose : bool
+        If True output is verbose
+    parallel : bool
+        If True each template is resampled in parellel
+
+    Returns
+    -------
+    template_pad : np.array
+        Array with padded templates (n_neurons, n_channels, n_padded_sample)
+        or (n_neurons, n_drift, n_channels, n_padded_sample) if drifting
+
+    """
     padded_template_samples = templates.shape[-1] + np.sum(pad_samples)
     if parallel:
         import multiprocessing
@@ -1324,18 +1366,26 @@ def pad_templates(templates, pad_samples, drifting, verbose, parallel=False):
 
 def pad_parallel(i, template, pad_samples, drifting, templates_dict, verbose):
     """
+    Pads one template on both ends.
 
     Parameters
     ----------
-    i
-    template
-    up
-    down
-    drifting
-    templates_dict
+    template : np.array
+        Array with templates (n_channels, n_samples) or (n_drift n_channels, n_samples) if drifting
+    pad_samples : list
+        List of 2 ints with number of samples for padding before and after
+    drifting : bool
+        If True templates are assumed to be drifting
+    templates_dict : manager.dict
+        Shared dictionary from multiprocessing.manager
+    verbose : bool
+        If True output is verbose
 
     Returns
     -------
+    template_pad : np.array
+        Array with padded template (n_channels, n_padded_sample)
+        or (n_drift, n_channels, n_padded_sample) if drifting
 
     """
     if not drifting:
@@ -1352,6 +1402,34 @@ def pad_parallel(i, template, pad_samples, drifting, templates_dict, verbose):
 
 
 def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, verbose, parallel=False):
+    """
+    Adds jittered replicas to the templates.
+
+    Parameters
+    ----------
+    templates : np.array
+        Array with templates (n_neurons, n_channels, n_samples)
+        or (n_neurons, n_drift, n_channels, n_samples) if drifting
+    upsample : int
+        Factor for upsampling the templates
+    n_jitters : int
+        Number of jittered copies for each template
+    jitter : quantity
+        Jitter in time for shifting the template
+    drifting : bool
+        If True templates are assumed to be drifting
+    verbose : bool
+        If True output is verbose
+    parallel : bool
+        If True each template is resampled in parellel
+
+    Returns
+    -------
+    template_jitt : np.array
+        Array with jittered templates (n_neurons, n_jitters, n_channels, n_samples)
+        or (n_neurons, n_drift, n_jitters, n_channels, n_samples) if drifting
+
+    """
     if parallel:
         import multiprocessing
         threads = []
@@ -1412,7 +1490,34 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, verbo
     return templates_jitter
 
 
-def jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, templates_dict,  verbose):
+def jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, templates_dict, verbose):
+    """
+    Adds jittered replicas to one template.
+
+    Parameters
+    ----------
+    template : np.array
+        Array with templates (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
+    upsample : int
+        Factor for upsampling the templates
+    n_jitters : int
+        Number of jittered copies for each template
+    jitter : quantity
+        Jitter in time for shifting the template
+    drifting : bool
+        If True templates are assumed to be drifting
+    templates_dict : manager.dict
+        Shared dictionary from multiprocessing.manager
+    verbose : bool
+        If True output is verbose
+
+    Returns
+    -------
+    template_jitt : np.array
+        Array with one jittered template (n_jitters, n_channels, n_samples)
+        or (n_drift, n_jitters, n_channels, n_samples) if drifting
+
+    """
     if not drifting:
         templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
         temp_up = ss.resample_poly(template, upsample, 1, axis=1)
