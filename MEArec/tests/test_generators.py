@@ -19,6 +19,8 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
+local_temp = False
+
 
 class TestGenerators(unittest.TestCase):
     @classmethod
@@ -32,8 +34,10 @@ class TestGenerators(unittest.TestCase):
         templates_params = mr.get_default_templates_params()
         rec_params = mr.get_default_recordings_params()
 
-        self.test_dir = tempfile.mkdtemp()
-        # self.test_dir = './tmptmp'
+        if not local_temp:
+            self.test_dir = tempfile.mkdtemp()
+        else:
+            self.test_dir = './tmp'
 
         templates_params['n'] = self.n
         templates_params['ncontacts'] = 1
@@ -79,7 +83,8 @@ class TestGenerators(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         # Remove the directory after the test
-        shutil.rmtree(self.test_dir)
+        if not local_temp:
+            shutil.rmtree(self.test_dir)
 
     def test_gen_templates(self):
         print('Test templates generation')
@@ -118,7 +123,7 @@ class TestGenerators(unittest.TestCase):
         spgen = mr.SpikeTrainGenerator(sp_params)
         spgen.generate_spikes()
 
-        #check ref period
+        # check ref period
         for st in spgen.spiketrains:
             isi = stat.isi(st).rescale('ms')
             assert np.all(isi.magnitude > sp_params['ref_per'])
@@ -136,7 +141,7 @@ class TestGenerators(unittest.TestCase):
         spiketrains = spgen.spiketrains
         spgen_st = mr.gen_spiketrains(spiketrains=spiketrains)
         for (st, st_) in zip(spgen.spiketrains, spgen_st.spiketrains):
-            assert np.allclose(st.times, st_.times)
+            assert np.allclose(st.times.magnitude, st_.times.magnitude)
 
     def test_gen_recordings_with_spiketrains(self):
         print('Test recording generation - from spiketrains')
@@ -149,7 +154,7 @@ class TestGenerators(unittest.TestCase):
         recgen = mr.gen_recordings(params=rec_params, spgen=spgen, tempgen=self.tempgen)
 
         for (st, st_) in zip(spgen.spiketrains, recgen.spiketrains):
-            assert np.allclose(st.times, st_.times)
+            assert np.allclose(st.times.magnitude, st_.times.magnitude)
 
     def test_gen_recordings_modulations(self):
         print('Test recording generation - modulation')
@@ -446,7 +451,7 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_rasters(self.recgen.spiketrains, overlap=True)
         _ = mr.plot_rasters(self.recgen.spiketrains, bintype=True)
         _ = mr.plot_rasters(self.recgen.spiketrains, color='g')
-        _ = mr.plot_rasters(self.recgen.spiketrains, color=['g']*len(self.recgen.spiketrains))
+        _ = mr.plot_rasters(self.recgen.spiketrains, color=['g'] * len(self.recgen.spiketrains))
         _ = mr.plot_recordings(self.recgen)
         _ = mr.plot_templates(self.recgen)
         _ = mr.plot_templates(self.recgen, single_axes=True)
@@ -487,7 +492,7 @@ class TestGenerators(unittest.TestCase):
         result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
-                                     '--fs', '32000',  '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
+                                     '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
                                      '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
                                      '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
                                      '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
