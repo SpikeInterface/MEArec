@@ -16,7 +16,7 @@ The following sections will guide you through definitions and handling of MEA mo
 and plotting functions.
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    overview
    installation

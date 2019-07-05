@@ -1,22 +1,16 @@
-from __future__ import print_function, division
-
 import numpy as np
-import neo
-import elephant.spike_train_generation as stg
-import elephant.statistics as stat
 import scipy.signal as ss
 import time
 from copy import copy, deepcopy
 from MEArec.tools import *
 import MEAutility as mu
-import shutil
 import yaml
 import os
-from os.path import join
 from pprint import pprint
 import quantities as pq
 from distutils.version import StrictVersion
 import tempfile
+from MEArec.generators import SpikeTrainGenerator
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -24,453 +18,11 @@ else:
     use_loader = False
 
 
-def simulate_cell_templates(i, simulate_script, tot, cell_model,
-                            model_folder, intraonly, params, verbose):
-    print("Starting ", i + 1)
-    print('\n\n', cell_model, i + 1, '/', tot, '\n\n')
-    os.system('python %s %s %s %s %s' \
-              % (simulate_script, join(model_folder, cell_model), intraonly, params, verbose))
-    print("Exiting ", i + 1)
-
-
-class TemplateGenerator:
-    '''
-    Class for generation of templates called by the gen_templates function.
-    The list of parameters is in default_params/templates_params.yaml.
-    '''
-
-    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
-                 params=None, intraonly=False, parallel=True, delete_tmp=True, verbose=False):
-        self._verbose = verbose
-        if temp_dict is not None and info is not None:
-            if 'templates' in temp_dict.keys():
-                self.templates = temp_dict['templates']
-            if 'locations' in temp_dict.keys():
-                self.locations = temp_dict['locations']
-            if 'rotations' in temp_dict.keys():
-                self.rotations = temp_dict['rotations']
-            if 'celltypes' in temp_dict.keys():
-                self.celltypes = temp_dict['celltypes']
-            self.info = info
-        else:
-            if cell_models_folder is None:
-                raise AttributeError("Specify cell folder!")
-            if params is None:
-                if self._verbose:
-                    print("Using default parameters")
-                self.params = {}
-            else:
-                self.params = deepcopy(params)
-            self.cell_model_folder = cell_models_folder
-            self.templates_folder = templates_folder
-            self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp}
-
-    def generate_templates(self):
-        '''
-        Generate templates.
-        '''
-        cell_models_folder = self.cell_model_folder
-        templates_folder = self.templates_folder
-        intraonly = self.simulation_params['intraonly']
-        parallel = self.simulation_params['parallel']
-        delete_tmp = self.simulation_params['delete_tmp']
-
-        if os.path.isdir(cell_models_folder):
-            cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
-            if len(cell_models) == 0:
-                raise AttributeError(cell_models_folder, ' contains no cell models!')
-        else:
-            raise NotADirectoryError('Cell models folder: does not exist!')
-
-        this_dir, this_filename = os.path.split(__file__)
-        simulate_script = join(this_dir, 'simulate_cells.py')
-        self.params['cell_models_folder'] = cell_models_folder
-        self.params['templates_folder'] = templates_folder
-
-        # Compile NEURON models (nrnivmodl)
-        if not os.path.isdir(join(cell_models_folder, 'mods')):
-            if self._verbose:
-                print('Compiling NEURON models')
-            os.system('python %s compile %s' % (simulate_script, cell_models_folder))
-
-        if 'sim_time' not in self.params.keys():
-            self.params['sim_time'] = 1
-        if 'target_spikes' not in self.params.keys():
-            self.params['target_spikes'] = [3, 50]
-        if 'cut_out' not in self.params.keys():
-            self.params['cut_out'] = [2, 5]
-        if 'dt' not in self.params.keys():
-            self.params['dt'] = 2 ** -5
-        if 'delay' not in self.params.keys():
-            self.params['delay'] = 10
-        if 'weights' not in self.params.keys():
-            self.params['weights'] = [0.25, 1.75]
-
-        if 'rot' not in self.params.keys():
-            self.params['rot'] = 'physrot'
-        if 'probe' not in self.params.keys():
-            available_mea = mu.return_mea_list()
-            probe = available_mea[np.random.randint(len(available_mea))]
-            if self._verbose:
-                print("Probe randomly set to: %s" % probe)
-            self.params['probe'] = probe
-        if 'ncontacts' not in self.params.keys():
-            self.params['ncontacts'] = 1
-        if 'overhang' not in self.params.keys():
-            self.params['overhang'] = 1
-        if 'xlim' not in self.params.keys():
-            self.params['xlim'] = [10, 80]
-        if 'ylim' not in self.params.keys():
-            self.params['ylim'] = None
-        if 'zlim' not in self.params.keys():
-            self.params['zlim'] = None
-        if 'offset' not in self.params.keys():
-            self.params['offset'] = 0
-        if 'det_thresh' not in self.params.keys():
-            self.params['det_thresh'] = 30
-        if 'n' not in self.params.keys():
-            self.params['n'] = 50
-        if 'min_amp' not in self.params.keys():
-            self.params['min_amp'] = 30
-        if 'seed' not in self.params.keys():
-            self.params['seed'] = np.random.randint(1, 10000)
-        elif self.params['seed'] is None:
-            self.params['seed'] = np.random.randint(1, 10000)
-        if templates_folder is None:
-            self.params['templates_folder'] = os.getcwd()
-            templates_folder = self.params['templates_folder']
-        else:
-            self.params['templates_folder'] = templates_folder
-        if 'drifting' not in self.params.keys():
-            self.params['drifting'] = False
-        if 'max_drift' not in self.params.keys():
-            self.params['max_drift'] = 100
-        if 'min_drift' not in self.params.keys():
-            self.params['min_drift'] = 30
-        if 'drift_steps' not in self.params.keys():
-            self.params['drift_steps'] = 10
-        if 'drift_xlim' not in self.params.keys():
-            self.params['drift_xlim'] = [-10, 10]
-        if 'drift_ylim' not in self.params.keys():
-            self.params['drift_ylim'] = [-10, 10]
-        if 'drift_zlim' not in self.params.keys():
-            self.params['drift_zlim'] = [20, 80]
-
-        rot = self.params['rot']
-        n = self.params['n']
-        probe = self.params['probe']
-
-        tmp_params_path = 'tmp_params_path'
-        with open(tmp_params_path, 'w') as f:
-            yaml.dump(self.params, f)
-
-        # Simulate neurons and EAP for different cell models sparately
-        if parallel:
-            start_time = time.time()
-            import multiprocessing
-            threads = []
-            tot = len(cell_models)
-            for i, cell_model in enumerate(cell_models):
-                p = multiprocessing.Process(target=simulate_cell_templates, args=(i, simulate_script, tot,
-                                                                                  cell_model, cell_models_folder,
-                                                                                  intraonly,
-                                                                                  tmp_params_path, self._verbose,))
-                p.start()
-                threads.append(p)
-            for p in threads:
-                p.join()
-            print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
-        else:
-            start_time = time.time()
-            for numb, cell_model in enumerate(cell_models):
-                if self._verbose:
-                    print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-                os.system('python %s %s %s %s %s' \
-                          % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path,
-                             self._verbose))
-            print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
-
-        tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
-        templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
-        if delete_tmp:
-            shutil.rmtree(tmp_folder)
-            os.remove(tmp_params_path)
-
-        self.info = {}
-
-        self.templates = templates
-        self.locations = locations
-        self.rotations = rotations
-        self.celltypes = celltypes
-        self.info['params'] = self.params
-        self.info['electrodes'] = mu.return_mea_info(probe)
-
-
-class SpikeTrainGenerator:
-    '''
-    Class for generation of spike trains called by the gen_recordings function.
-    The list of parameters is in default_params/recordings_params.yaml (spiketrains field).
-    '''
-
-    def __init__(self, params=None, spiketrains=None, verbose=False):
-        self._verbose = verbose
-        if params is None:
-            if self._verbose:
-                print("Using default parameters")
-            self.params = {}
-        if spiketrains is None:
-            self.params = deepcopy(params)
-            if self._verbose:
-                print('Spiketrains seed: ', self.params['seed'])
-            np.random.seed(self.params['seed'])
-
-            if 't_start' not in self.params.keys():
-                params['t_start'] = 0
-            self.params['t_start'] = params['t_start'] * pq.s
-            if 'duration' not in self.params.keys():
-                params['duration'] = 10
-            self.params['t_stop'] = self.params['t_start'] + params['duration'] * pq.s
-            if 'min_rate' not in self.params.keys():
-                params['min_rate'] = 0.1
-            self.params['min_rate'] = params['min_rate'] * pq.Hz
-            if 'ref_per' not in self.params.keys():
-                params['ref_per'] = 2
-            self.params['ref_per'] = params['ref_per'] * pq.ms
-            if 'process' not in self.params.keys():
-                params['process'] = 'poisson'
-            self.params['process'] = params['process']
-            if 'gamma_shape' not in self.params.keys() and params['process'] == 'gamma':
-                params['gamma_shape'] = 2
-                self.params['gamma_shape'] = params['gamma_shape']
-
-            if 'rates' in self.params.keys():  # all firing rates are provided
-                self.params['rates'] = self.params['rates'] * pq.Hz
-                self.n_neurons = len(self.params['rates'])
-            else:
-                rates = []
-                types = []
-                if 'f_exc' not in self.params.keys():
-                    params['f_exc'] = 5
-                self.params['f_exc'] = params['f_exc'] * pq.Hz
-                if 'f_inh' not in self.params.keys():
-                    params['f_inh'] = 15
-                self.params['f_inh'] = params['f_inh'] * pq.Hz
-                if 'st_exc' not in self.params.keys():
-                    params['st_exc'] = 1
-                self.params['st_exc'] = params['st_exc'] * pq.Hz
-                if 'st_inh' not in self.params.keys():
-                    params['st_inh'] = 3
-                self.params['st_inh'] = params['st_inh'] * pq.Hz
-                if 'n_exc' not in self.params.keys():
-                    params['n_exc'] = 2
-                self.params['n_exc'] = params['n_exc']
-                if 'n_inh' not in self.params.keys():
-                    params['n_inh'] = 1
-                self.params['n_inh'] = params['n_inh']
-
-                for exc in np.arange(self.params['n_exc']):
-                    rate = self.params['st_exc'] * np.random.randn() + self.params['f_exc']
-                    if rate < self.params['min_rate']:
-                        rate = self.params['min_rate']
-                    rates.append(rate)
-                    types.append('e')
-                for inh in np.arange(self.params['n_inh']):
-                    rate = self.params['st_inh'] * np.random.randn() + self.params['f_inh']
-                    if rate < self.params['min_rate']:
-                        rate = self.params['min_rate']
-                    rates.append(rate)
-                    types.append('i')
-                self.params['rates'] = rates
-                self.params['types'] = types
-                self.n_neurons = len(self.params['rates'])
-
-            self.changing = False
-            self.intermittent = False
-
-            self.info = params
-            self.spiketrains = False
-        else:
-            self.all_spiketrains = spiketrains
-            self.spiketrains = True
-            if params is not None:
-                self.params = deepcopy(params)
-
-    def set_spiketrain(self, idx, spiketrain):
-        '''
-        Sets spike train idx to new spiketrain.
-
-        Parameters
-        ----------
-        idx : int
-            Index of spike train to set
-        spiketrain : neo.SpikeTrain
-            New spike train
-
-        '''
-        self.all_spiketrains[idx] = spiketrain
-
-    def generate_spikes(self):
-        '''
-        Generate spike trains based on default_params of the SpikeTrainGenerator class.
-        self.all_spiketrains contains the newly generated spike trains
-        '''
-
-        if not self.spiketrains:
-            self.all_spiketrains = []
-            idx = 0
-            for n in np.arange(self.n_neurons):
-                if not self.changing and not self.intermittent:
-                    rate = self.params['rates'][n]
-                    if self.params['process'] == 'poisson':
-                        st = stg.homogeneous_poisson_process(rate,
-                                                             self.params['t_start'], self.params['t_stop'])
-                    elif self.params['process'] == 'gamma':
-                        st = stg.homogeneous_gamma_process(self.params['gamma_shape'], rate,
-                                                           self.params['t_start'], self.params['t_stop'])
-                else:
-                    raise NotImplementedError('Changing and intermittent spiketrains are not impleented yet')
-                self.all_spiketrains.append(st)
-                self.all_spiketrains[-1].annotate(fr=rate)
-                if 'n_exc' in self.params.keys() and 'n_inh' in self.params.keys():
-                    if idx < self.params['n_exc']:
-                        self.all_spiketrains[-1].annotate(type='E')
-                    else:
-                        self.all_spiketrains[-1].annotate(type='I')
-                idx += 1
-
-            # check consistency and remove spikes below refractory period
-            for idx, st in enumerate(self.all_spiketrains):
-                isi = stat.isi(st)
-                idx_remove = np.where(isi < self.params['ref_per'])[0]
-                spikes_to_remove = len(idx_remove)
-                unit = st.times.units
-
-                while spikes_to_remove > 0:
-                    new_times = np.delete(st.times, idx_remove[0]) * unit
-                    st = neo.SpikeTrain(new_times, t_start=self.params['t_start'], t_stop=self.params['t_stop'])
-                    isi = stat.isi(st)
-                    idx_remove = np.where(isi < self.params['ref_per'])[0]
-                    spikes_to_remove = len(idx_remove)
-
-                st.annotations = self.all_spiketrains[idx].annotations
-                self.set_spiketrain(idx, st)
-        else:
-            print("SpikeTrainGenerator initialized with existing spike trains!")
-
-    def add_synchrony(self, idxs, rate=0.05, time_jitt=1 * pq.ms, verbose=False):
-        '''
-        Adds synchronous spikes between pairs of spike trains at a certain rate.
-
-        Parameters
-        ----------
-        idxs : list or array
-            Spike train indexes to add synchrony to
-        rate : float
-            Rate of added synchrony spike to spike train idxs[1] for each spike of idxs[0]
-        time_jitt : quantity
-            Maximum time jittering between added spikes
-        verbose : bool
-            If True output is verbose
-
-        Returns
-        -------
-        sync_rate : float
-            New synchrony rate
-        fr1 : quantity
-            Firing rate spike train 1
-        fr2 : quantity
-            Firing rate spike train 2
-
-        '''
-        idx1 = idxs[0]
-        idx2 = idxs[1]
-        st1 = self.all_spiketrains[idx1]
-        st2 = self.all_spiketrains[idx2]
-        times1 = st1.times
-        times2 = st2.times
-        t_start = st2.t_start
-        t_stop = st2.t_stop
-        unit = times2.units
-        added_spikes_t1 = 0
-        added_spikes_t2 = 0
-
-        all_times_shuffle = np.concatenate((times1, times2))
-        all_times_shuffle = all_times_shuffle[np.random.permutation(len(all_times_shuffle))] * unit
-
-        sync_rate = compute_sync_rate(st1, st2, time_jitt)
-        if sync_rate < rate:
-            for t in all_times_shuffle:
-                if sync_rate <= rate:
-                    # check time difference
-                    if t in times1:
-                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times2.rescale(pq.ms).magnitude)
-                        if np.all(t_diff > self.params['ref_per']):
-                            t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
-                                unit).magnitude - \
-                                      (time_jitt.rescale(unit) / 2).magnitude
-                            if t1_jitt < t_stop:
-                                times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
-                                times2 = times2 * unit
-                                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                                added_spikes_t1 += 1
-                    elif t in times2:
-                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
-                        if np.all(t_diff > self.params['ref_per']):
-                            t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
-                                unit).magnitude - \
-                                      (time_jitt.rescale(unit) / 2).magnitude
-                            if t2_jitt < t_stop:
-                                times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
-                                times1 = times1 * unit
-                                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                                added_spikes_t2 += 1
-                    sync_rate = compute_sync_rate(st1, st2, time_jitt)
-                else:
-                    break
-            if verbose:
-                print("Added", added_spikes_t1, "spikes to spike train", idxs[0],
-                      "and", added_spikes_t2, "spikes to spike train", idxs[1], 'Sync rate:', sync_rate)
-        else:
-            spiketrains = [st1, st2]
-            annotate_overlapping_spikes(spiketrains)
-            max_overlaps = np.floor(rate * (len(times1) + len(times2)))
-            curr_overlaps = np.floor(sync_rate * (len(times1) + len(times2)))
-            remove_overlaps = int(curr_overlaps - max_overlaps)
-            if curr_overlaps > max_overlaps:
-                st1_ovrl_idx = np.where(spiketrains[0].annotations['overlap'] == 'O')[0]
-                st2_ovrl_idx = np.where(spiketrains[1].annotations['overlap'] == 'O')[0]
-                perm = np.random.permutation(len(st1_ovrl_idx))[:remove_overlaps]
-                st1_ovrl_idx = st1_ovrl_idx[perm]
-                st2_ovrl_idx = st2_ovrl_idx[perm]
-                idx_rm_1 = st1_ovrl_idx[:remove_overlaps // 2]
-                idx_rm_2 = st2_ovrl_idx[remove_overlaps // 2:]
-                times1 = np.delete(st1.times, idx_rm_1)
-                times1 = times1 * unit
-                times2 = np.delete(st2.times, idx_rm_2)
-                times2 = times2 * unit
-                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                sync_rate = compute_sync_rate(st1, st2, time_jitt)
-                if verbose:
-                    print("Removed", len(idx_rm_1), "spikes from spike train", idxs[0],
-                          "and", len(idx_rm_2), "spikes from spike train", idxs[1], 'Sync rate:', sync_rate)
-
-        st1.annotations = self.all_spiketrains[idx1].annotations
-        st2.annotations = self.all_spiketrains[idx2].annotations
-        self.set_spiketrain(idx1, st1)
-        self.set_spiketrain(idx2, st2)
-
-        fr1 = len(st1.times) / st1.t_stop
-        fr2 = len(st2.times) / st2.t_stop
-
-        return sync_rate, fr1, fr2
-
-
 class RecordingGenerator:
-    '''
+    """
     Class for generation of recordings called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml.
-    '''
+    """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, tmp_h5=True, verbose=True):
         self._verbose = verbose
@@ -536,9 +88,9 @@ class RecordingGenerator:
             self.tempgen = tempgen
 
     def generate_recordings(self):
-        '''
+        """
         Generate recordings.
-        '''
+        """
         params = deepcopy(self.params)
         temp_params = self.params['templates']
         rec_params = self.params['recordings']
@@ -930,9 +482,9 @@ class RecordingGenerator:
                 down = spike_fs
                 spike_duration_pad = templates_pad.shape[-1]
                 if up != down:
-                    n_resample = int(spike_duration_pad * (up/down))
+                    n_resample = int(spike_duration_pad * (up / down))
                     templates_rs = resample_templates(templates_pad, n_resample, up, down,
-                                                          drifting, self._verbose)
+                                                      drifting, self._verbose)
                     if self._verbose:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
@@ -942,7 +494,7 @@ class RecordingGenerator:
                     print('Creating time jittering')
                 jitter = 1. / fs
                 t_j = time.time()
-                templates = jitter_templates(templates_rs,  upsample, fs, n_jitters, jitter,
+                templates = jitter_templates(templates_rs, upsample, fs, n_jitters, jitter,
                                              drifting, self._verbose, parallel=True)
                 if self._verbose:
                     print('Elapsed jitter time:', time.time() - t_j)
@@ -1285,7 +837,7 @@ class RecordingGenerator:
                             recordings[:, idxs] += additive_noise
                 else:
                     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                                 size=recordings.shape[1]).\
+                                                                                 size=recordings.shape[1]). \
                         astype(dtype).T
                     if noise_color:
                         if self._verbose:
@@ -1405,7 +957,7 @@ class RecordingGenerator:
                         for ch, chunk in enumerate(chunks_rec):
                             rec = output_dict[ch]['rec']
                             idxs = output_dict[ch]['idxs']
-                            additive_noise[:, idxs] += rec 
+                            additive_noise[:, idxs] += rec
                 else:
                     # convolve in single chunk
                     output_dict = dict()
@@ -1474,11 +1026,12 @@ class RecordingGenerator:
                                                                              filter_type='highpass', order=order)
                         elif cutoff.size == 2:
                             if fs / 2. < cutoff[1]:
-                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], 
-                                                                                 fs=fs, filter_type='highpass', 
+                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0],
+                                                                                 fs=fs, filter_type='highpass',
                                                                                  order=order)
                             else:
-                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
+                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff,
+                                                                                 fs=fs)
             else:
                 if not self._tmp_h5:
                     if cutoff.size == 1:
@@ -1493,11 +1046,11 @@ class RecordingGenerator:
                 else:
                     if cutoff.size == 1:
                         recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
-                                                           order=order)
+                                                                order=order)
                     elif cutoff.size == 2:
                         if fs / 2. < cutoff[1]:
                             recordings[...] = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
-                                                               filter_type='highpass', order=order)
+                                                                    filter_type='highpass', order=order)
                         else:
                             recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
 
@@ -1506,7 +1059,7 @@ class RecordingGenerator:
                 if self._verbose:
                     print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, fs=fs, timestamps=timestamps)
-        
+
         # TODO save to tmp_h5 all
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
@@ -1522,12 +1075,12 @@ class RecordingGenerator:
         self.info = params
 
     def annotate_overlapping_spikes(self, parallel=True):
-        '''
+        """
         Annnotate spike trains with overlapping information.
 
         parallel : bool
             If True, spike trains are annotated in parallel
-        '''
+        """
         if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
             if self._verbose:
                 print('Finding overlapping spikes')
@@ -1546,157 +1099,13 @@ class RecordingGenerator:
         annotate_overlapping_spikes(self.spiketrains, overlapping_pairs=self.overlapping, parallel=parallel)
 
     def extract_waveforms(self, cut_out=[0.5, 2]):
-        '''
+        """
         Extract waveforms from spike trains.
 
         Parameters
         ----------
         cut_out : float or list
             Ms before and after peak to cut out. If float the cut is symmetric.
-        '''
+        """
         fs = self.info['recordings']['fs'] * pq.Hz
         extract_wf(self.spiketrains, self.recordings, fs=fs, cut_out=cut_out)
-
-
-def gen_recordings(params=None, templates=None, tempgen=None, verbose=True, tmp_h5=True):
-    '''
-    Generates recordings.
-
-    Parameters
-    ----------
-    templates : str
-        Path to generated templates
-    params : dict OR str
-        Dictionary containing recording parameters OR path to yaml file containing parameters
-    tempgen : TemplateGenerator
-        Template generator object
-    verbose : bool
-        If True output is verbose
-    tmp_h5 : bool
-        If True recordings are dumped onto h5 files as they are generated
-
-    Returns
-    -------
-    RecordingGenerator
-        Generated recording generator object
-
-    '''
-    t_start = time.time()
-    if isinstance(params, str):
-        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
-            with open(params, 'r') as pf:
-                if use_loader:
-                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-                else:
-                    params_dict = yaml.load(pf)
-    elif isinstance(params, dict):
-        params_dict = params
-    else:
-        params_dict = {}
-
-    if 'spiketrains' not in params_dict:
-        params_dict['spiketrains'] = {}
-    if 'templates' not in params_dict:
-        params_dict['templates'] = {}
-    if 'recordings' not in params_dict:
-        params_dict['recordings'] = {}
-    if 'cell_types' not in params_dict:
-        params_dict['cell_types'] = {}
-
-    if tempgen is None and templates is None:
-        raise AttributeError("Provide either 'templates' or 'tempgen' TemplateGenerator object")
-
-    if tempgen is None:
-        if os.path.isdir(templates):
-            tempgen = load_templates(templates, verbose=False)
-        elif templates.endswith('h5') or templates.endswith('hdf5'):
-            tempgen = load_templates(templates, verbose=False)
-        else:
-            raise AttributeError("'templates' is not a folder or an hdf5 file")
-
-    if 'seed' in params_dict['spiketrains']:
-        if params_dict['spiketrains']['seed'] is None:
-            params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
-    else:
-        params_dict['spiketrains'].update({'seed': np.random.randint(1, 10000)})
-
-    if 'seed' in params_dict['templates']:
-        if params_dict['templates']['seed'] is None:
-            params_dict['templates']['seed'] = np.random.randint(1, 10000)
-    else:
-        params_dict['templates'].update({'seed': np.random.randint(1, 10000)})
-
-    if 'seed' in params_dict['recordings']:
-        if params_dict['recordings']['seed'] is None:
-            params_dict['recordings']['seed'] = np.random.randint(1, 10000)
-    else:
-        params_dict['recordings'].update({'recordings': np.random.randint(1, 10000)})
-
-    # Generate spike trains
-    spgen = SpikeTrainGenerator(params_dict['spiketrains'], verbose=verbose)
-    spgen.generate_spikes()
-    spiketrains = spgen.all_spiketrains
-
-    params_dict['spiketrains'] = spgen.info
-    # Generate recordings
-    recgen = RecordingGenerator(spgen, tempgen, params_dict, tmp_h5=tmp_h5, verbose=verbose)
-    recgen.generate_recordings()
-
-    print('Elapsed time: ', time.time() - t_start)
-
-    return recgen
-
-
-def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
-                  intraonly=False, parallel=True, delete_tmp=True, verbose=True):
-    '''
-
-    Parameters
-    ----------
-    cell_models_folder : str
-        path to folder containing cell models
-    params : str or dict
-        Path to parameters yaml file or parameters dictionary
-    templates_tmp_folder: str
-        Path to temporary folder where templates are temporarily saved
-    intraonly : bool
-        if True only intracellular simulation is run
-    parallel : bool
-        if True multi-threading is used
-    delete_tmp :
-        if True the temporary files are deleted
-    verbose : bool
-        If True output is verbose
-
-    Returns
-    -------
-    TemplateGenerator
-        Generated template generator object
-
-    '''
-    if isinstance(params, str):
-        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
-            with open(params, 'r') as pf:
-                if use_loader:
-                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-                else:
-                    params_dict = yaml.load(pf)
-    elif isinstance(params, dict):
-        params_dict = params
-    else:
-        params_dict = None
-
-    if templates_tmp_folder is not None:
-        if not os.path.isdir(templates_tmp_folder):
-            os.makedirs(templates_tmp_folder)
-
-    tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
-                                params=params_dict,
-                                templates_folder=templates_tmp_folder,
-                                intraonly=intraonly,
-                                parallel=parallel,
-                                delete_tmp=delete_tmp,
-                                verbose=verbose)
-    tempgen.generate_templates()
-
-    return tempgen

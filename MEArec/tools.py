@@ -1541,7 +1541,7 @@ def find_overlapping_templates(templates, thresh=0.8):
 
 
 def are_templates_overlapping(templates, thresh):
-    '''
+    """
     Returns true if templates are spatially overlapping
 
     Parameters
@@ -1555,7 +1555,7 @@ def are_templates_overlapping(templates, thresh):
     -------
     overlab : bool
         Whether the templates are spatially overlapping or not
-    '''
+    """
     assert len(templates) == 2
     temp_1 = templates[0]
     temp_2 = templates[1]
@@ -1932,7 +1932,7 @@ def compute_bursting_template(template, mod, wc_mod, filtfilt=False):
 
 
 def sigmoid(x, b=1):
-    '''
+    """
     Compute sigmoid function
 
     Parameters
@@ -1946,7 +1946,7 @@ def sigmoid(x, b=1):
     -------
     x_sig: np.array
         Output sigmoid array
-    '''
+    """
     return 1 / (1 + np.exp(-b * x)) - 0.5
 
 
@@ -2485,7 +2485,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
                       amp_mod, bursting_units, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces,
                       voltage_peaks, tmp_mearec_file=None):
-    '''
+    """
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
     Parameters
@@ -2532,7 +2532,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         If True (default), spike traces are extracted
     voltage_peaks: np.array
         Array containing the voltage values at the peak
-    '''
+    """
     final_locs = []
     final_idxs = []
     spike_traces = np.zeros((len(spike_matrix), len(idxs)))
@@ -3277,7 +3277,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
 
 def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_units=None, ax=None,
                  whiten=False, pc_comp=None):
-    '''
+    """
     Plots a PCA map of the waveforms.
 
     Parameters
@@ -3308,7 +3308,7 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
     pca_component : np.array
         PCA components matrix (n_pc, n_waveform_timepoints)
 
-    '''
+    """
     try:
         from sklearn.decomposition import PCA
     except:

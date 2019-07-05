@@ -1,10 +1,10 @@
-'''
+"""
 Test implementation using cell models of the Blue Brain Project with LFPy.
 The example assumes that cell models available from
 https://bbpnmc.epfl.ch/nmc-portal/downloads are unzipped in the folder 'cell_models'
 
 The function compile_all_mechanisms must be run once before any cell simulation
-'''
+"""
 
 import os
 from os.path import join
@@ -23,7 +23,7 @@ else:
 
 
 def get_templatename(f):
-    '''
+    """
     Assess from hoc file the templatename being specified within
 
     Arguments
@@ -34,7 +34,7 @@ def get_templatename(f):
     -------
     templatename : str
 
-    '''
+    """
     templatename = None
     f = open("template.hoc", 'r')
     for line in f.readlines():
@@ -669,7 +669,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
 
 
 def check_espike(espikes, min_amp):
-    '''
+    """
     Check extracellular spike amplitude and shape (neg peak > pos peak)
 
     Parameters
@@ -684,7 +684,7 @@ def check_espike(espikes, min_amp):
     valid: bool
         If True EAP is valid
 
-    '''
+    """
     valid = True
     if np.max(np.abs(np.min(espikes))) < min_amp:
         valid = False
@@ -769,7 +769,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
     import LFPy
 
     def get_xyz_angles(R):
-        ''' Get rotation angles for each axis from rotation matrix
+        """ Get rotation angles for each axis from rotation matrix
         
         Parameters;
         -----------
@@ -782,7 +782,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
         R_y : float
         R_x : float
             Three angles for rotations around axis, defined by R = R_z.R_y.R_x
-        '''
+        """
         rot_x = np.arctan2(R[2, 1], R[2, 2])
         rot_y = np.arcsin(-R[2, 0])
         rot_z = np.arctan2(R[1, 0], R[0, 0])
@@ -841,7 +841,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
 
     electrodes = LFPy.RecExtElectrode(cell, **electrode_parameters)
 
-    '''Rotate neuron'''
+    """Rotate neuron"""
     if rotation == 'norot':
         if model_type == 'bbp':
             # orientate cells in z direction
@@ -915,7 +915,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
         z_rot = 0
 
     if pos is None:
-        '''Move neuron randomly'''
+        """Move neuron randomly"""
         x_rand = np.random.uniform(limits[0][0], limits[0][1])
         y_rand = np.random.uniform(limits[1][0], limits[1][1])
         z_rand = np.random.uniform(limits[2][0], limits[2][1])
