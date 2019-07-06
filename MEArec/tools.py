@@ -2218,7 +2218,7 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
 
 
 def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False, bursting=False, sigmoid_range=None):
+                                   verbose=False, bursting=False, sigmoid_range=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -2242,6 +2242,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         If True templates are modulated in shape
     sigmoid_range : float
         Range of sigmoid transform for bursting shape stretch
+    recordings :  np.arrays
+        Array to use for recordings. If None it is created
 
     Returns
     -------
@@ -2256,10 +2258,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
         n_elec = template.shape[1]
         len_spike = template.shape[2]
     n_samples = len(spike_bin)
-    recordings = np.zeros((n_elec, n_samples))
 
-    # if nan_init:
-    #     recordings *= np.nan
+    if recordings is None:
+        recordings = np.zeros((n_elec, n_samples))
+    else:
+        assert recordings.shape == (n_elec, n_samples), "'recordings' has the wrong shape"
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
@@ -2350,7 +2353,8 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, v_drift, t_start_drift,
                                             cut_out=None, modulation=False, mod_array=None, n_step_sec=1,
-                                            verbose=False, bursting=False, sigmoid_range=None, chunk_start=None):
+                                            verbose=False, bursting=False, sigmoid_range=None, chunk_start=None,
+                                            recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -2386,6 +2390,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         Range of sigmoid transform for bursting shape stretch
     chunk_start : quantity
         Chunk start time used to compute drifting position
+    recordings :  np.arrays
+        Array to use for recordings. If None it is created
 
     Returns
     -------
@@ -2415,8 +2421,11 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     t_steps = np.arange(chunk_start.magnitude, chunk_start.magnitude + dur, n_step_sec)
 
     peaks = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
-    recordings = np.zeros((n_elec, n_samples))
-    # recordings_test = np.zeros((n_elec, n_samples))
+    if recordings is None:
+        recordings = np.zeros((n_elec, n_samples))
+    else:
+        assert recordings.shape == (n_elec, n_samples), "'recordings' has the wrong shape"
+
     if not modulation:
         # No modulation
         spike_pos = np.where(spike_bin == 1)[0]
@@ -2655,21 +2664,23 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
             np.random.seed(seed)
 
             if drifting and st in drifting_units:
-                rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(spike_id=st,
-                                                                                    spike_bin=spike_bin[idxs],
-                                                                                    template=templates[st],
-                                                                                    cut_out=
-                                                                                    cut_outs_samples,
-                                                                                    fs=fs,
-                                                                                    loc=
-                                                                                    template_locs[
-                                                                                        st],
-                                                                                    v_drift=
-                                                                                    velocity_vector,
-                                                                                    t_start_drift=
-                                                                                    t_start_drift,
-                                                                                    chunk_start=chunk_start,
-                                                                                    verbose=verbose)
+                recordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(spike_id=st,
+                                                                                           spike_bin=spike_bin[idxs],
+                                                                                           template=templates[st],
+                                                                                           cut_out=
+                                                                                           cut_outs_samples,
+                                                                                           fs=fs,
+                                                                                           loc=
+                                                                                           template_locs[
+                                                                                               st],
+                                                                                           v_drift=
+                                                                                           velocity_vector,
+                                                                                           t_start_drift=
+                                                                                           t_start_drift,
+                                                                                           chunk_start=chunk_start,
+                                                                                           verbose=verbose,
+                                                                                           recordings=
+                                                                                           recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2682,10 +2693,11 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 else:
                     template = templates[st]
                     locs = template_locs[st]
-                rec = convolve_templates_spiketrains(st, spike_bin[idxs],
-                                                     template,
-                                                     cut_out=cut_outs_samples,
-                                                     verbose=verbose)
+                recordings = convolve_templates_spiketrains(st, spike_bin[idxs],
+                                                            template,
+                                                            cut_out=cut_outs_samples,
+                                                            verbose=verbose,
+                                                            recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2707,26 +2719,27 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 unit_burst = False
 
             if drifting and st in drifting_units:
-                rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
-                                                                                    spike_bin[idxs],
-                                                                                    templates[st],
-                                                                                    cut_out=
-                                                                                    cut_outs_samples,
-                                                                                    modulation=True,
-                                                                                    mod_array=
-                                                                                    amp_mod[st],
-                                                                                    fs=fs,
-                                                                                    loc=
-                                                                                    template_locs[
-                                                                                        st],
-                                                                                    v_drift=
-                                                                                    velocity_vector,
-                                                                                    t_start_drift=
-                                                                                    t_start_drift,
-                                                                                    chunk_start=chunk_start,
-                                                                                    bursting=unit_burst,
-                                                                                    sigmoid_range=bursting_sigmoid,
-                                                                                    verbose=verbose)
+                rececordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
+                                                                                             spike_bin[idxs],
+                                                                                             templates[st],
+                                                                                             cut_out=
+                                                                                             cut_outs_samples,
+                                                                                             modulation=True,
+                                                                                             mod_array=
+                                                                                             amp_mod[st],
+                                                                                             fs=fs,
+                                                                                             loc=
+                                                                                             template_locs[
+                                                                                                 st],
+                                                                                             v_drift=
+                                                                                             velocity_vector,
+                                                                                             t_start_drift=
+                                                                                             t_start_drift,
+                                                                                             chunk_start=chunk_start,
+                                                                                             bursting=unit_burst,
+                                                                                             sigmoid_range=bursting_sigmoid,
+                                                                                             verbose=verbose,
+                                                                                             recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2744,12 +2757,13 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 else:
                     template = templates[st]
                     locs = template_locs[st]
-                rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
-                                                     cut_out=cut_outs_samples,
-                                                     modulation=True,
-                                                     mod_array=amp_mod[st],
-                                                     bursting=unit_burst,
-                                                     sigmoid_range=bursting_sigmoid, verbose=verbose)
+                recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+                                                            cut_out=cut_outs_samples,
+                                                            modulation=True,
+                                                            mod_array=amp_mod[st],
+                                                            bursting=unit_burst,
+                                                            sigmoid_range=bursting_sigmoid, verbose=verbose,
+                                                            recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2776,26 +2790,27 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 unit_burst = False
 
             if drifting and st in drifting_units:
-                rec, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
-                                                                                    spike_bin[idxs],
-                                                                                    templates[st],
-                                                                                    cut_out=
-                                                                                    cut_outs_samples,
-                                                                                    modulation=True,
-                                                                                    mod_array=
-                                                                                    amp_mod[st],
-                                                                                    fs=fs,
-                                                                                    loc=
-                                                                                    template_locs[
-                                                                                        st],
-                                                                                    v_drift=
-                                                                                    velocity_vector,
-                                                                                    t_start_drift=
-                                                                                    t_start_drift,
-                                                                                    chunk_start=chunk_start,
-                                                                                    bursting=unit_burst,
-                                                                                    sigmoid_range=bursting_sigmoid,
-                                                                                    verbose=verbose)
+                recordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
+                                                                                           spike_bin[idxs],
+                                                                                           templates[st],
+                                                                                           cut_out=
+                                                                                           cut_outs_samples,
+                                                                                           modulation=True,
+                                                                                           mod_array=
+                                                                                           amp_mod[st],
+                                                                                           fs=fs,
+                                                                                           loc=
+                                                                                           template_locs[
+                                                                                               st],
+                                                                                           v_drift=
+                                                                                           velocity_vector,
+                                                                                           t_start_drift=
+                                                                                           t_start_drift,
+                                                                                           chunk_start=chunk_start,
+                                                                                           bursting=unit_burst,
+                                                                                           sigmoid_range=bursting_sigmoid,
+                                                                                           verbose=verbose,
+                                                                                           recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2813,13 +2828,14 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 else:
                     template = templates[st]
                     locs = template_locs[st]
-                rec = convolve_templates_spiketrains(st, spike_bin[idxs], template,
-                                                     cut_out=cut_outs_samples,
-                                                     modulation=True,
-                                                     mod_array=amp_mod[st],
-                                                     bursting=unit_burst,
-                                                     sigmoid_range=bursting_sigmoid,
-                                                     verbose=verbose)
+                recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+                                                            cut_out=cut_outs_samples,
+                                                            modulation=True,
+                                                            mod_array=amp_mod[st],
+                                                            bursting=unit_burst,
+                                                            sigmoid_range=bursting_sigmoid,
+                                                            verbose=verbose,
+                                                            recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
@@ -2837,7 +2853,6 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
 
         final_idxs.append(final_idx)
         final_locs.append(final_pos)
-        recordings += rec
 
     if verbose:
         print('Done all convolutions')
