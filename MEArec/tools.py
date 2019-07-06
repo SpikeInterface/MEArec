@@ -202,7 +202,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     return np.array(eap_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
-def load_templates(templates, return_h5_objects=False, verbose=False):
+def load_templates(templates, return_h5_objects=True, verbose=False):
     """
     Load generated eap templates.
 
@@ -251,7 +251,7 @@ def load_templates(templates, return_h5_objects=False, verbose=False):
     return tempgen
 
 
-def load_recordings(recordings, return_h5_objects=False, verbose=False, load_waveforms=True, check_suffix=True):
+def load_recordings(recordings, return_h5_objects=True, verbose=False, load_waveforms=True, check_suffix=True):
     """
     Load generated recordings.
 
