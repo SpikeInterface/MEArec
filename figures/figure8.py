@@ -14,7 +14,7 @@ plt.show()
 noise_levels = [30, 20, 10, 5]
 
 template_file = 'data/templates/templates_100_Neuronexus-32.h5'
-tempgen = mr.load_templates(template_file)
+tempgen = mr.load_templates(template_file, return_h5_objects=False)
 
 with open('figure8_params.yaml', 'r') as f:
     params = yaml.load(f)
@@ -57,7 +57,7 @@ ax_noise.text(x_lim[0] + 0.01 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_l
 drift_velocities = [60, 30, 10]
 
 template_drift_file = 'data/templates/templates_30_Neuronexus-32_drift.h5'
-tempgen_drift = mr.load_templates(template_drift_file)
+tempgen_drift = mr.load_templates(template_drift_file, return_h5_objects=False)
 
 params['recordings']['noise_level'] = 10
 params['spiketrains']['duration'] = 60

@@ -1,7 +1,7 @@
 import MEArec as mr
 import matplotlib.pylab as plt
 import matplotlib.gridspec as gridspec
-from copy import deepcopy
+from copy import deepcopy, copy
 import scipy.signal as ss
 import scipy.stats as stat
 from plotting_conventions import *
@@ -14,9 +14,8 @@ plt.ion()
 plt.show()
 
 template_file = 'data/templates/templates_300_tetrode_minamp0.h5'
-tempgen = mr.load_templates(template_file)
-
-recgen_u = mr.gen_recordings(tempgen=tempgen, params='figure7_params.yaml')
+tempgen = mr.load_templates(template_file, return_h5_objects=False)
+recgen_u = mr.gen_recordings(tempgen=tempgen, params='figure7_params.yaml', tmp_h5=False)
 
 recgen_dc = deepcopy(recgen_u)
 recgen_dc.params['recordings']['noise_mode'] = 'distance-correlated'

@@ -11,7 +11,7 @@ plt.ion()
 plt.show()
 
 template_file = 'data/templates/templates_30_Neuronexus-32_drift.h5'
-tempgen = mr.load_templates(template_file)
+tempgen = mr.load_templates(template_file, return_h5_objects=False)
 
 # select one drifting template
 template_id = 341

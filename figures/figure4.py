@@ -68,7 +68,7 @@ if plot_mod:
 
 # Load recordings data
 tetrode_rec = 'data/recordings/recordings_6cells_tetrode_30.0_10.0uV.h5'
-recgen_noburst = mr.load_recordings(tetrode_rec)
+recgen_noburst = mr.load_recordings(tetrode_rec, return_h5_objects=False)
 
 if plot_burst:
     templates = recgen_noburst.templates
@@ -116,7 +116,7 @@ if plot_burst:
     ax32 = fig3.add_subplot(gs[1:3, :])
     ax33 = fig3.add_subplot(gs[3:, :])
 
-    ts = recgen_noburst.timestamps * pq.ms
+    ts = recgen_noburst.timestamps
     spiketrain = recgen_noburst.spiketrains[template_id].times
     modulations = mod_array[template_id]
     cut_out_temp = recgen_noburst.info['templates']['cut_out']

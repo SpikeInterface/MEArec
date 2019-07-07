@@ -24,9 +24,9 @@ class RecordingGenerator:
     The list of parameters is in default_params/recordings_params.yaml.
     """
 
-    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, tmp_h5=True, verbose=True):
+    def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
         self._verbose = verbose
-        self._tmp_h5 = tmp_h5
+
         if rec_dict is not None and info is not None:
             if 'recordings' in rec_dict.keys():
                 self.recordings = rec_dict['recordings']
@@ -73,6 +73,12 @@ class RecordingGenerator:
             if len(self.spiketrains) > 0:
                 self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
             self.tempgen = None
+            if isinstance(self.recordings, h5py.Dataset):
+                self._h5file = self.recordings.file
+                self._is_h5 = True
+            else:
+                self._h5file = None
+                self._is_h5 = False
         else:
             if spgen is None or tempgen is None:
                 raise AttributeError("Specify SpikeTrainGenerator and TemplateGenerator objects!")
@@ -86,11 +92,26 @@ class RecordingGenerator:
             self.params = deepcopy(params)
             self.spgen = spgen
             self.tempgen = tempgen
+            self._h5file = None
+            self._is_h5 = None
 
-    def generate_recordings(self):
+    def __del__(self):
+        if self._is_h5 and self._h5file is not None:
+            self._h5file.close()
+
+    def generate_recordings(self, tmp_h5=True):
         """
-        Generate recordings.
+        Generates recordings
+        Parameters
+        ----------
+        tmp_h5 : bool
+            If True, temporary h5 files are used to store the data
         """
+        if tmp_h5:
+            self._is_h5 = True
+        else:
+            self._is_h5 = False
+
         params = deepcopy(self.params)
         temp_params = self.params['templates']
         rec_params = self.params['recordings']
@@ -444,7 +465,7 @@ class RecordingGenerator:
                                                             overlap_threshold=overlap_threshold,
                                                             verbose=self._verbose)
 
-                idxs_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                idxs_cells = sorted(idxs_cells) #[np.argsort(selected_cat)]
                 template_celltypes = celltypes[idxs_cells]
                 template_locs = locs[idxs_cells]
                 template_rots = rots[idxs_cells]
@@ -624,13 +645,12 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
-            if self._tmp_h5:
+            if tmp_h5:
                 temp_dir = Path(tempfile.mkdtemp())
                 tmp_rec_path = temp_dir / "mearec_tmp_file.h5"
                 tmp_rec = h5py.File(tmp_rec_path)
                 recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
-                # timestamps = tmp_rec.create_dataset("timestamps", data=np.arange(recordings.shape[1]) / fs)
             else:
                 tmp_rec = None
                 tmp_rec_path = None
@@ -638,7 +658,7 @@ class RecordingGenerator:
                 recordings = np.zeros((n_elec, n_samples))
                 spike_traces = np.zeros((n_neurons, n_samples))
             timestamps = np.arange(recordings.shape[1]) / fs
-            self._tmp_rec = tmp_rec
+            self._h5file = tmp_rec
             self._tmp_rec_path = tmp_rec_path
             self._temp_dir = temp_dir
 
@@ -652,7 +672,7 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                    if self._tmp_h5:
+                    if tmp_h5:
                         tempfiles[ch] = self._temp_dir / ('rec_' + str(ch))
                     else:
                         tempfiles[ch] = None
@@ -674,7 +694,7 @@ class RecordingGenerator:
                 for ch, chunk in enumerate(chunks_rec):
                     if self._verbose:
                         print('Extracting data from chunk', ch + 1, 'out of', len(chunks_rec))
-                    if not self._tmp_h5:
+                    if not tmp_h5:
                         rec = output_dict[ch]['rec']
                         spike_trace = output_dict[ch]['spike_traces']
                         idxs = output_dict[ch]['idxs']
@@ -708,7 +728,7 @@ class RecordingGenerator:
                                   bursting_units=bursting_units, shape_mod=shape_mod, bursting_sigmoid=bursting_sigmoid,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
                                   dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
-                if not self._tmp_h5:
+                if not tmp_h5:
                     recordings = output_dict[ch]['rec']
                     spike_traces = output_dict[ch]['spike_traces']
                 for st in np.arange(n_neurons):
@@ -735,8 +755,22 @@ class RecordingGenerator:
                         templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
                 templates = templates_drift
         else:
-            recordings = np.zeros((n_elec, n_samples))
+            if tmp_h5:
+                temp_dir = Path(tempfile.mkdtemp())
+                tmp_rec_path = temp_dir / "mearec_tmp_file.h5"
+                tmp_rec = h5py.File(tmp_rec_path)
+                recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+            else:
+                tmp_rec = None
+                tmp_rec_path = None
+                temp_dir = None
+                recordings = np.zeros((n_elec, n_samples))
+                spike_traces = np.zeros((n_neurons, n_samples))
             timestamps = np.arange(recordings.shape[1]) / fs
+            self._h5file = tmp_rec
+            self._tmp_rec_path = tmp_rec_path
+            self._temp_dir = temp_dir
             spiketrains = np.array([])
             voltage_peaks = np.array([])
             spike_traces = np.array([])
@@ -745,8 +779,6 @@ class RecordingGenerator:
             template_rots = np.array([])
             template_celltypes = np.array([])
             overlapping = np.array([])
-            tmp_rec = None
-            self._tmp_rec = None
 
         if self._verbose:
             print('Adding noise')
@@ -784,12 +816,13 @@ class RecordingGenerator:
                                              np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                             additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                         if tmp_rec is not None:
-                            recordings[...][:, idxs] += additive_noise
+                            recordings[..., idxs] = recordings[:, idxs] + additive_noise
                         else:
                             recordings[:, idxs] += additive_noise
                 else:
                     additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                    recordings.shape[1]).astype(dtype)
+
                     if noise_color:
                         if self._verbose:
                             print('Coloring noise with peak: ', color_peak, ' quality factor: ', color_q,
@@ -799,7 +832,7 @@ class RecordingGenerator:
                         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
                         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) \
                                          * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
-                        additive_noise = additive_noise * (noise_level / np.std(additive_noise))
+                    additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                     if tmp_rec is not None:
                         recordings[...] += additive_noise
                     else:
@@ -832,7 +865,7 @@ class RecordingGenerator:
                                                                            size=(len(idxs))).T
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
                         if tmp_rec is not None:
-                            recordings[...][:, idxs] += additive_noise
+                            recordings[..., idxs] = recordings[:, idxs] + additive_noise
                         else:
                             recordings[:, idxs] += additive_noise
                 else:
@@ -861,8 +894,9 @@ class RecordingGenerator:
                                                             x_lim=x_lim, y_lim=y_lim, z_lim=z_lim, min_amp=0,
                                                             max_amp=far_neurons_max_amp, min_dist=1,
                                                             verbose=False)
-                templates_noise = eaps[np.array(idxs_cells)]
-                template_noise_locs = locs[np.array(idxs_cells)]
+                idxs_cells = sorted(idxs_cells)
+                templates_noise = eaps[idxs_cells]
+                template_noise_locs = locs[idxs_cells]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
 
@@ -927,17 +961,28 @@ class RecordingGenerator:
                         if start >= duration:
                             finished = True
 
-                additive_noise = np.zeros((n_elec, n_samples))
-                # for st, spike_bin in enumerate(spike_matrix):
+                if tmp_h5:
+                    if self._temp_dir is None:
+                        self._temp_dir = Path(tempfile.mkdtemp())
+                    tmp_rec_noise_path = self._temp_dir / "mearec_tmp_noise_file.h5"
+                    tmp_noise_rec = h5py.File(tmp_rec_noise_path)
+                    additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                else:
+                    additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
                 if len(chunks_rec) > 0:
                     import multiprocessing
                     threads = []
                     manager = multiprocessing.Manager()
                     output_dict = manager.dict()
+                    tempfilesnoise = dict()
                     for ch, chunk in enumerate(chunks_rec):
                         if self._verbose:
                             print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+                        if tmp_h5:
+                            tempfilesnoise[ch] = self._temp_dir / ('recnoise_' + str(ch))
+                        else:
+                            tempfilesnoise[ch] = None
                         p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
                                                                                     output_dict, spike_matrix_noise,
                                                                                     'none', False,
@@ -947,17 +992,25 @@ class RecordingGenerator:
                                                                                     None, None, self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
-                                                                                    voltage_peaks, dtype,))
+                                                                                    voltage_peaks, dtype,
+                                                                                    tempfilesnoise[ch],))
                         p.start()
                         threads.append(p)
                     for p in threads:
                         p.join()
-                    # retrieve annotated spiketrains
-                    if not self._tmp_h5:
-                        for ch, chunk in enumerate(chunks_rec):
+
+                    for ch, chunk in enumerate(chunks_rec):
+                        if self._verbose:
+                            print('Extracting data from chunk', ch + 1, 'out of', len(chunks_rec))
+                        if not tmp_h5:
                             rec = output_dict[ch]['rec']
                             idxs = output_dict[ch]['idxs']
                             additive_noise[:, idxs] += rec
+                        else:
+                            idxs = output_dict[ch]['idxs']
+                            tmp_ch_file = h5py.File(tempfilesnoise[ch], 'r')
+                            additive_noise[:, idxs] = tmp_ch_file['recordings']
+                            os.remove(tempfilesnoise[ch])
                 else:
                     # convolve in single chunk
                     output_dict = dict()
@@ -966,23 +1019,41 @@ class RecordingGenerator:
                     # reorder this
                     chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
                                       templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
-                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks, dtype)
-                    additive_noise = output_dict[ch]['rec']
+                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks, dtype,
+                                      tmp_mearec_file=tmp_noise_rec)
+                    # additive_noise = np.array(tmp_noise_rec['recordings'])
+                    additive_noise = tmp_noise_rec['recordings']
 
-                # remove mean
+                # removing mean
+                print(np.mean(additive_noise, axis=1))
                 for i, m in enumerate(np.mean(additive_noise, axis=1)):
-                    additive_noise[i] -= m
+                    if not tmp_h5:
+                        additive_noise[i] -= m
+                    else:
+                        additive_noise[i, ...] -= m
+                print(np.mean(additive_noise, axis=1))
 
                 # adding noise floor
-                additive_noise += far_neurons_noise_floor * np.std(additive_noise) * \
-                                  np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
-
-                noise_scale = noise_level / np.std(additive_noise)
+                for i, s in enumerate(np.std(additive_noise, axis=1)):
+                    if not tmp_h5:
+                        additive_noise[i] += far_neurons_noise_floor * s * \
+                                             np.random.randn(additive_noise.shape[1])
+                    else:
+                        additive_noise[i, ...] += far_neurons_noise_floor * s * \
+                                                  np.random.randn(additive_noise.shape[1])
+                # scaling noise
+                noise_scale = noise_level / np.std(additive_noise, axis=1)
                 if self._verbose:
-                    print('Scaling to reach desired level by: ', noise_scale)
-                additive_noise *= noise_scale
+                    print('Scaling to reach desired level')
+
+                for i, n in enumerate(noise_scale):
+                    if not tmp_h5:
+                        additive_noise[i] *= n
+                    else:
+                        additive_noise[i, ...] *= n
+
                 if tmp_rec is not None:
-                    recordings[...] = recordings + additive_noise
+                    recordings[...] += additive_noise
                 else:
                     recordings += additive_noise
         else:
@@ -1010,7 +1081,7 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Filtering in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                    if not self._tmp_h5:
+                    if not tmp_h5:
                         if cutoff.size == 1:
                             recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
                                                                         filter_type='highpass', order=order)
@@ -1022,18 +1093,18 @@ class RecordingGenerator:
                                 recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
                     else:
                         if cutoff.size == 1:
-                            recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
+                            recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
                                                                              filter_type='highpass', order=order)
                         elif cutoff.size == 2:
                             if fs / 2. < cutoff[1]:
-                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0],
+                                recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0],
                                                                                  fs=fs, filter_type='highpass',
                                                                                  order=order)
                             else:
-                                recordings[...][:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff,
+                                recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff,
                                                                                  fs=fs)
             else:
-                if not self._tmp_h5:
+                if not tmp_h5:
                     if cutoff.size == 1:
                         recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
                                                            order=order)
@@ -1060,7 +1131,6 @@ class RecordingGenerator:
                     print('Extracting spike waveforms')
                 extract_wf(spiketrains, recordings, fs=fs, timestamps=timestamps)
 
-        # TODO save to tmp_h5 all
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
         self.timestamps = timestamps

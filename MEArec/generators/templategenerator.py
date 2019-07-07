@@ -45,6 +45,7 @@ class TemplateGenerator:
             if 'celltypes' in temp_dict.keys():
                 self.celltypes = temp_dict['celltypes']
             self.info = info
+            self.params = deepcopy(info)
         else:
             if cell_models_folder is None:
                 raise AttributeError("Specify cell folder!")
