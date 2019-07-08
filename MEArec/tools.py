@@ -231,22 +231,22 @@ def load_templates(templates, return_h5_objects=True, verbose=False, check_suffi
     temp_dict = {}
     templates = Path(templates)
     if (templates.suffix == '.h5' or templates.suffix == '.hdf5') or (not check_suffix):
-        with h5py.File(str(templates), 'r') as F:
-            info = load_dict_from_hdf5(F, 'info/')
-            celltypes = np.array(F.get('celltypes'))
-            temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
-            if return_h5_objects:
-                temp_dict['locations'] = F.get('locations')
-            else:
-                temp_dict['locations'] = np.array(F.get('locations'))
-            if return_h5_objects:
-                temp_dict['rotations'] = F.get('rotations')
-            else:
-                temp_dict['rotations'] = np.array(F.get('rotations'))
-            if return_h5_objects:
-                temp_dict['templates'] = F.get('templates')
-            else:
-                temp_dict['templates'] = np.array(F.get('templates'))
+        F = h5py.File(str(templates), 'r')
+        info = load_dict_from_hdf5(F, 'info/')
+        celltypes = np.array(F.get('celltypes'))
+        temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
+        if return_h5_objects:
+            temp_dict['locations'] = F.get('locations')
+        else:
+            temp_dict['locations'] = np.array(F.get('locations'))
+        if return_h5_objects:
+            temp_dict['rotations'] = F.get('rotations')
+        else:
+            temp_dict['rotations'] = np.array(F.get('rotations'))
+        if return_h5_objects:
+            temp_dict['templates'] = F.get('templates')
+        else:
+            temp_dict['templates'] = np.array(F.get('templates'))
     else:
         raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 

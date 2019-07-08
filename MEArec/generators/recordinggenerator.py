@@ -99,7 +99,7 @@ class RecordingGenerator:
         if self._is_h5 and self._h5file is not None:
             self._h5file.close()
 
-    def generate_recordings(self, tmp_h5=True):
+    def generate_recordings(self, tmp_h5=True, verbose=None):
         """
         Generates recordings
         Parameters
@@ -111,6 +111,9 @@ class RecordingGenerator:
             self._is_h5 = True
         else:
             self._is_h5 = False
+
+        if verbose is not None and isinstance(verbose, bool):
+            self._verbose = verbose
 
         params = deepcopy(self.params)
         temp_params = self.params['templates']
@@ -542,7 +545,6 @@ class RecordingGenerator:
                 if not drifting:
                     velocity_vector = None
                 else:
-                    drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in template_locs])
                     drift_velocity_ums = drift_velocity / 60.
                     velocity_vector = drift_velocity_ums * preferred_dir
                     if self._verbose:
@@ -579,7 +581,7 @@ class RecordingGenerator:
                     st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
 
             if overlap:
-                annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=True)
+                annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=self._verbose)
 
             amp_mod = []
             cons_spikes = []
@@ -1025,13 +1027,11 @@ class RecordingGenerator:
                     additive_noise = tmp_noise_rec['recordings']
 
                 # removing mean
-                print(np.mean(additive_noise, axis=1))
                 for i, m in enumerate(np.mean(additive_noise, axis=1)):
                     if not tmp_h5:
                         additive_noise[i] -= m
                     else:
                         additive_noise[i, ...] -= m
-                print(np.mean(additive_noise, axis=1))
 
                 # adding noise floor
                 for i, s in enumerate(np.std(additive_noise, axis=1)):
