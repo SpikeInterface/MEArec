@@ -58,9 +58,9 @@ if plot_templates:
     npix_templates = 'data/templates/templates_100_Neuropixels-128.h5'
     sqmea_templates = 'data/templates/templates_100_SqMEA-10-15.h5'
 
-    tempgen_t = mr.load_templates(nexus_templates)
-    tempgen_np = mr.load_templates(npix_templates)
-    tempgen_sq = mr.load_templates(sqmea_templates)
+    tempgen_t = mr.load_templates(nexus_templates, return_h5_objects=False)
+    tempgen_np = mr.load_templates(npix_templates, return_h5_objects=False)
+    tempgen_sq = mr.load_templates(sqmea_templates, return_h5_objects=False)
 
     templates_t = tempgen_t.templates[1000]
     templates_np = tempgen_np.templates[1000]
@@ -100,9 +100,9 @@ if plot_recs:
     npix_rec = 'data/recordings/recordings_60cells_Neuropixels-128_30.0_10.0uV.h5'
     sqmea_rec = 'data/recordings/recordings_50cells_SqMEA-10-15_30.0_10.0uV.h5'
 
-    recgen_t = mr.load_recordings(nexus_rec)
-    recgen_np = mr.load_recordings(npix_rec)
-    recgen_sq = mr.load_recordings(sqmea_rec)
+    recgen_t = mr.load_recordings(nexus_rec, return_h5_objects=False)
+    recgen_np = mr.load_recordings(npix_rec, return_h5_objects=False)
+    recgen_sq = mr.load_recordings(sqmea_rec, return_h5_objects=False)
 
     mr.plot_recordings(recgen_t, ax=ax31, start_time=0, end_time=seconds, lw=0.2)
     mr.plot_recordings(recgen_np, ax=ax32, start_time=0, end_time=seconds, lw=0.2, vscale=150)

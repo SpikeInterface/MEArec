@@ -11,7 +11,7 @@ plt.show()
 
 template_file = 'data/templates/templates_100_Neuronexus-32.h5'
 
-tempgen = mr.load_templates(template_file)
+tempgen = mr.load_templates(template_file, return_h5_objects=False)
 
 recgen_random = mr.gen_recordings(tempgen=tempgen, params='figure5_params.yaml')
 params = recgen_random.params
