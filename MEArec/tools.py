@@ -39,7 +39,7 @@ def get_default_config():
     home = Path(os.path.expanduser("~"))
     mearec_home = home / '.config' / 'mearec'
     if not (mearec_home / 'mearec.conf').is_file():
-        mearec_home.mkdir(exist_ok=True)
+        mearec_home.mkdir(exist_ok=True, parents=True)
         shutil.copytree(str(this_dir / 'default_params'), str(mearec_home / 'default_params'))
         shutil.copytree(str(this_dir / 'cell_models'), str(mearec_home / 'cell_models'))
         default_info = {'templates_params': str(mearec_home / 'default_params' / 'templates_params.yaml'),
@@ -903,10 +903,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                         possible_selected = deepcopy(selected_idxs)
                                         possible_selected.append(id_cell)
                                         possible_overlapping_pairs = len(find_overlapping_templates(
-                                            templates[np.array(possible_selected)],
+                                            templates[sorted(possible_selected)],
                                             overlap_threshold))
                                         current_overlapping_pairs = len(find_overlapping_templates(
-                                            templates[np.array(selected_idxs)],
+                                            templates[sorted(selected_idxs)],
                                             overlap_threshold))
                                         if current_overlapping_pairs < n_overlap_pairs and \
                                                 possible_overlapping_pairs <= n_overlap_pairs:
@@ -954,10 +954,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                             possible_selected = deepcopy(selected_idxs)
                                             possible_selected.append(id_cell)
                                             possible_overlapping_pairs = len(find_overlapping_templates(
-                                                templates[np.array(possible_selected), 0],
+                                                templates[sorted(possible_selected), 0],
                                                 overlap_threshold))
                                             current_overlapping_pairs = len(find_overlapping_templates(
-                                                templates[np.array(selected_idxs), 0],
+                                                templates[sorted(selected_idxs), 0],
                                                 overlap_threshold))
                                             if current_overlapping_pairs < n_overlap_pairs and \
                                                     possible_overlapping_pairs <= n_overlap_pairs:
@@ -1018,10 +1018,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                         possible_selected = deepcopy(selected_idxs)
                                         possible_selected.append(id_cell)
                                         possible_overlapping_pairs = len(find_overlapping_templates(
-                                            templates[np.array(possible_selected)],
+                                            templates[sorted(possible_selected)],
                                             overlap_threshold))
                                         current_overlapping_pairs = len(find_overlapping_templates(
-                                            templates[np.array(selected_idxs)],
+                                            templates[sorted(selected_idxs)],
                                             overlap_threshold))
                                         if current_overlapping_pairs < n_overlap_pairs and \
                                                 possible_overlapping_pairs <= n_overlap_pairs:
@@ -1068,10 +1068,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                             possible_selected = deepcopy(selected_idxs)
                                             possible_selected.append(id_cell)
                                             possible_overlapping_pairs = len(find_overlapping_templates(
-                                                templates[np.array(possible_selected), 0],
+                                                templates[sorted(possible_selected), 0],
                                                 overlap_threshold))
                                             current_overlapping_pairs = len(find_overlapping_templates(
-                                                templates[np.array(selected_idxs), 0],
+                                                templates[sorted(selected_idxs), 0],
                                                 overlap_threshold))
                                             if current_overlapping_pairs < n_overlap_pairs and \
                                                     possible_overlapping_pairs <= n_overlap_pairs:
