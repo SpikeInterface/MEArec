@@ -166,7 +166,7 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T, verbose=
     return cell
 
 
-def return_cell_morphology(cell_name, cell_folder):
+def return_cell_morphology(cell_name, cell_folder, pt3d=False):
     """ Function to load cell models
 
     Parameters:
@@ -175,6 +175,8 @@ def return_cell_morphology(cell_name, cell_folder):
         Name of the cell type.
     cell_folder : string
         Folder containing cell models.
+    pt3d : bool
+        If True detailed 3d morphology is used
 
     Returns:
     --------
@@ -191,7 +193,7 @@ def return_cell_morphology(cell_name, cell_folder):
     morphologyfile = os.listdir(join(cell_folder, cell_name, 'morphology'))[0]
     morphology = join(cell_folder, cell_name, 'morphology', morphologyfile)
 
-    cell = LFPy.Cell(morphology=morphology, pt3d=True)
+    cell = LFPy.Cell(morphology=morphology, pt3d=pt3d)
     return cell
 
 
@@ -416,6 +418,85 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
             return cell, v_spikes, i_spikes
 
 
+def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, rotation=None):
+    '''
+    Calculates extracellular signal in uV on MEA object.
+
+    Parameters
+    ----------
+    cell : LFPy Cell
+        The simulated cell
+    mea : MEA, str, or dict
+        Mea object from MEAutility, string with probe name, or dict with probe info
+
+    Returns
+    -------
+    v_ext : np.array
+        Extracellular potential computed on the electrodes (n_elec, n_timestamps)
+    '''
+    import LFPy
+
+    if isinstance(mea, str):
+        mea_obj = mu.return_mea(mea)
+    elif isinstance(mea, dict):
+        mea_obj = mu.return_mea(info=mea)
+    elif isinstance(mea, mu.core.MEA):
+        mea_obj = mea
+    else:
+        raise Exception("")
+
+    pos = mea_obj.positions
+    elinfo = mea_obj.info
+
+    elec_x = pos[:, 0]
+    elec_y = pos[:, 1]
+    elec_z = pos[:, 2]
+
+    N = np.empty((pos.shape[0], 3))
+    for i in np.arange(N.shape[0]):
+        N[i] = [1, 0, 0]  # normal vec. of contacts
+
+    # Add square electrodes (instead of circles)
+    if ncontacts > 1:
+        electrode_parameters = {
+            'sigma': 0.3,  # extracellular conductivity
+            'x': elec_x,  # x,y,z-coordinates of contact points
+            'y': elec_y,
+            'z': elec_z,
+            'n': ncontacts,
+            'r': elinfo['size'],
+            'N': N,
+            'contact_shape': elinfo['shape']
+        }
+    else:
+        electrode_parameters = {
+            'sigma': 0.3,  # extracellular conductivity
+            'x': elec_x,  # x,y,z-coordinates of contact points
+            'y': elec_y,
+            'z': elec_z
+        }
+
+    electrodes = LFPy.RecExtElectrode(cell, **electrode_parameters)
+
+    if position is not None:
+        assert len(position) == 3, "'position' should be a 3d array"
+        cell.set_pos(position[0], position[1], position[2])
+
+    if rotation is not None:
+        assert len(rotation) == 3, "'rotation' should be a 3d array"
+        cell.set_rotation(x=rotation[0], y=rotation[1], z=rotation[2])
+
+    electrodes.calc_lfp()
+
+    # Reverse rotation to bring cell back into initial rotation state
+    if rotation is not None:
+        rev_rot = [-r for r in rotation]
+        cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
+
+    return 1000 * electrodes.LFP
+
+
+
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
          arbitrary number of spikes above a certain noise level.
@@ -502,7 +583,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
 
     N = np.empty((pos.shape[0], 3))
     for i in np.arange(N.shape[0]):
-        N[i,] = [1, 0, 0]  # normal vec. of contacts
+        N[i] = [1, 0, 0]  # normal vec. of contacts
 
     # Add square electrodes (instead of circles)
     if ncontacts > 1:
