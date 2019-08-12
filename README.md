@@ -24,3 +24,20 @@ python setup.py develop
 ## Documentation
 
 The MEArec detailed documentation is here: https://mearec.readthedocs.io/en/latest/
+
+### Reference
+
+For further information please refer to the biorXiv preprint: https://www.biorxiv.org/content/10.1101/691642v1
+
+If you use the software, please cite:
+
+```
+@article{buccino2019mearec,
+  title={MEArec: a fast and customizable testbench simulator for ground-truth extracellular spiking activity},
+  author={Buccino, Alessio P and Einevoll, Gaute T},
+  journal={bioRxiv},
+  pages={691642},
+  year={2019},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
