@@ -33,7 +33,7 @@ class RecordingGenerator:
             else:
                 self.recordings = np.array([])
             if 'spiketrains' in rec_dict.keys():
-                self.spiketrains = rec_dict['spiketrains']
+                self.spiketrains = deepcopy(rec_dict['spiketrains'])
             else:
                 self.spiketrains = np.array([])
             if 'templates' in rec_dict.keys():
@@ -68,7 +68,7 @@ class RecordingGenerator:
                 self.spike_traces = rec_dict['spike_traces']
             else:
                 self.spike_traces = np.array([])
-            self.info = info
+            self.info = deepcopy(info)
             self.params = deepcopy(info)
             if len(self.spiketrains) > 0:
                 self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
@@ -1170,7 +1170,7 @@ class RecordingGenerator:
 
     def extract_waveforms(self, cut_out=[0.5, 2]):
         """
-        Extract waveforms from spike trains.
+        Extract waveforms from spike trains and recordings.
 
         Parameters
         ----------
@@ -1179,3 +1179,32 @@ class RecordingGenerator:
         """
         fs = self.info['recordings']['fs'] * pq.Hz
         extract_wf(self.spiketrains, self.recordings, fs=fs, cut_out=cut_out)
+
+    def extract_templates(self, cut_out=[0.5, 2], recompute=False):
+        """
+        Extract templates from spike trains.
+
+        Parameters
+        ----------
+        cut_out : float or list
+            Ms before and after peak to cut out. If float the cut is symmetric.
+        recompute :  bool
+            If True, templates are recomputed from extracted waveforms
+        """
+        fs = self.info['recordings']['fs'] * pq.Hz
+
+        if not len(self.spiketrains) == 0:
+            if self.spiketrains[0].waveforms is None:
+                extract_wf(self.spiketrains, self.recordings, fs=fs, cut_out=cut_out)
+
+        if self.tempgen is None or len(self.templates) == 0 or not recompute:
+            wfs = [st.waveforms for st in self.spiketrains]
+            templates = np.array([np.mean(wf, axis=0) for wf in wfs])
+            if np.array(cut_out).size == 1:
+                cut_out = [cut_out, cut_out]
+            self.info['templates']['cut_out'] = cut_out
+            self.info['templates']['pad_len'] = [0, 0]
+            self.templates = templates[:, np.newaxis]
+        else:
+            raise Exception("templates are already computed. Use the 'recompute' argument to compute them from "
+                            "extracted waveforms")

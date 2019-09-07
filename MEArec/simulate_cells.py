@@ -312,7 +312,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
             weight = weights[0]
             target_spikes = kwargs['target_spikes']
             cuts = kwargs['cut_out']
-            cut_out = [cuts[0] / dt, cuts[1] / dt]
+            cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
             num_spikes = 0
 
@@ -326,7 +326,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
                 t = t
                 v = v
 
-                spikes = find_spike_idxs(v[int(cut_out[0]):-int(cut_out[1])])
+                spikes = find_spike_idxs(v[cut_out[0]:-cut_out[1]])
                 spikes = list(np.array(spikes) + cut_out[0])
                 num_spikes = len(spikes)
 
@@ -341,15 +341,15 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
                 if i >= 10:
                     sys.exit()
 
-            t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
+            t = t[0:(cut_out[0] + cut_out[1])] - t[cut_out[0]]
             # discard first spike
             i_spikes = np.zeros((num_spikes - 1, cell.totnsegs, len(t)))
             v_spikes = np.zeros((num_spikes - 1, len(t)))
 
             for idx, spike_idx in enumerate(spikes[1:]):
                 spike_idx = int(spike_idx)
-                v_spike = v[spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
-                i_spike = cell.imem[:, spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
+                v_spike = v[spike_idx - cut_out[0]:spike_idx + cut_out[1]]
+                i_spike = cell.imem[:, spike_idx - cut_out[0]:spike_idx + cut_out[1]]
                 i_spikes[idx, :, :] = i_spike
                 v_spikes[idx, :] = v_spike
 
@@ -373,7 +373,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
         weight = weights[0]
         target_spikes = kwargs['target_spikes']
         cuts = kwargs['cut_out']
-        cut_out = [cuts[0] / dt, cuts[1] / dt]
+        cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
         num_spikes = 0
 
@@ -387,7 +387,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
             t = t
             v = v
 
-            spikes = find_spike_idxs(v[int(cut_out[0]):-int(cut_out[1])])
+            spikes = find_spike_idxs(v[cut_out[0]:-cut_out[1]])
             spikes = list(np.array(spikes) + cut_out[0])
             num_spikes = len(spikes)
 
@@ -402,15 +402,15 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
             if i >= 10:
                 sys.exit()
 
-        t = t[0:(int(cut_out[0]) + int(cut_out[1]))] - t[int(cut_out[0])]
+        t = t[0:(cut_out[0] + cut_out[1])] - t[cut_out[0]]
         # discard first spike
         i_spikes = np.zeros((num_spikes - 1, cell.totnsegs, len(t)))
         v_spikes = np.zeros((num_spikes - 1, len(t)))
 
         for idx, spike_idx in enumerate(spikes[1:]):
             spike_idx = int(spike_idx)
-            v_spike = v[spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
-            i_spike = cell.imem[:, spike_idx - int(cut_out[0]):spike_idx + int(cut_out[1])]
+            v_spike = v[spike_idx - cut_out[0]:spike_idx + cut_out[1]]
+            i_spike = cell.imem[:, spike_idx - cut_out[0]:spike_idx + cut_out[1]]
             i_spikes[idx, :, :] = i_spike
             v_spikes[idx, :] = v_spike
 
@@ -496,7 +496,6 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     return 1000 * electrodes.LFP
 
 
-
 def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
          arbitrary number of spikes above a certain noise level.
@@ -545,6 +544,9 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
         drift_x_lim = kwargs['drift_xlim']
         drift_y_lim = kwargs['drift_ylim']
         drift_z_lim = kwargs['drift_zlim']
+
+    cuts = kwargs['cut_out']
+    cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
     sim_folder = join(save_sim_folder, rotation)
     cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
@@ -638,6 +640,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
                 espikes = espikes * 2
 
             if check_espike(espikes, min_amp):
+                espikes = center_espike(espikes, cut_out)
                 save_spikes.append(espikes)
                 save_pos.append(pos)
                 save_rot.append(rot)
@@ -709,6 +712,7 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
                                                                                 [x_lim, y_lim, z_lim],
                                                                                 rotation=None,
                                                                                 pos=pos_drift)
+                            espikes = center_espike(espikes, cut_out)
                             drift_spikes.append(espikes)
                             drift_pos.append(pos)
                             drift_rot.append(rot)
@@ -772,6 +776,47 @@ def check_espike(espikes, min_amp):
     if np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
         valid = False
     return valid
+
+
+def center_espike(espike, cut_out_samples, tol=3):
+    """
+    Centers extracellular spike if the peak is not aligned.
+
+    Parameters
+    ----------
+    espike : np.array
+        EAP (n_elec, n_samples)
+    cut_out_samples : list
+        Samples before and after the peak
+    tol : int
+        Tolerance in number of samples
+
+    Returns
+    -------
+    espike_centered: np.array
+        Centered EAP (n_elec, n_samples)
+    """
+    expexted_peak = cut_out_samples[0]
+    peak_idx = np.unravel_index(np.argmin(espike), espike.shape)[1]
+
+    if np.abs(expexted_peak - peak_idx) >= tol:
+        if expexted_peak - peak_idx < 0:
+            diff = peak_idx - expexted_peak
+            cent_espike = np.zeros_like(espike)
+            cent_espike[:, :-diff] = espike[:, diff:]
+            cent_espike[:, -diff:] = np.tile(espike[:, -1, np.newaxis], [1, diff])
+        elif expexted_peak - peak_idx > 0:
+            diff = expexted_peak - peak_idx
+            cent_espike = np.zeros_like(espike)
+            cent_espike[:, diff:] = espike[:, :-diff]
+            cent_espike[:, :diff] = np.tile(espike[:, 0, np.newaxis], [1, diff])
+    else:
+        cent_espike = espike
+
+    cent_peak_idx = np.unravel_index(np.argmin(cent_espike), cent_espike.shape)[1]
+    assert np.abs(expexted_peak - cent_peak_idx) < tol, "Something went wrong in centering the spike"
+
+    return cent_espike
 
 
 def get_physrot_specs(cell_name, model):
