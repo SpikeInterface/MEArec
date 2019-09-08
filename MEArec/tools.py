@@ -3276,25 +3276,28 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
         if cmap is not None:
             cm = plt.get_cmap(cmap)
-            colors = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
+            colors_t = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
         else:
-            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            colors_t = plt.rcParams['axes.prop_cycle'].by_key()['color']
         i_col = 0
-        if 'lw' in kwargs.keys():
+        if 'lw' not in kwargs.keys():
             kwargs['lw'] = 1
+        if 'colors' in kwargs.keys():
+            del kwargs['colors']
+
         for i, (sp, t) in enumerate(zip(spike_matrix, recgen.templates)):
             if i in template_ids:
                 rec_t = convolve_templates_spiketrains(i, sp, t,
                                                        cut_out=cut_out_samples)
                 rec_t[np.abs(rec_t) < 1e-4] = np.nan
                 mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,
-                                      colors=colors[np.mod(i_col, len(colors))], **kwargs)
+                                      colors=colors_t[np.mod(i_col, len(colors_t))], **kwargs)
                 i_col += 1
                 del rec_t
     return ax
 
 
-def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, electrode=None,
+def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, electrode=None,
                    max_waveforms=None, ncols=6, cut_out=2):
     """
     Plot waveforms of a spike train.
@@ -3350,13 +3353,16 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
                 waveforms[i] = wf[np.random.permutation(len(wf))][:max_waveforms]
 
     if n_units > 1:
-        if cmap is not None:
-            cm = plt.get_cmap(cmap)
-            colors = [cm(i / n_units) for i in np.arange(n_units)]
+        if color is None:
+            if cmap is not None:
+                cm = plt.get_cmap(cmap)
+                colors = [cm(i / n_units) for i in np.arange(n_units)]
+            else:
+                colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         else:
-            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            colors = [color] * n_units
     else:
-        colors = color
+        colors = 'k'
 
     if ax is None:
         fig = plt.figure()
@@ -3365,10 +3371,22 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color='k', cmap=None, el
         fig = ax.get_figure()
 
     if electrode is None:
+        if n_units > ncols:
+            nrows = int(np.ceil(n_units / ncols))
+        else:
+            nrows = 1
+            ncols = n_units
+
+        gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
+
         for i, wf in enumerate(waveforms):
+            r = i // ncols
+            c = np.mod(i, ncols)
+            gs_sel = gs[r, c]
+            ax_t = fig.add_subplot(gs_sel)
             vscale = 1.5 * np.max(np.abs(wf))
-            ax = mu.plot_mea_recording(wf, mea, colors=colors[i], ax=ax, lw=0.1, vscale=vscale)
-            ax = mu.plot_mea_recording(wf.mean(axis=0), mea, colors=colors[i], ax=ax, lw=2, vscale=vscale)
+            ax_t = mu.plot_mea_recording(wf, mea, colors=colors[i], ax=ax_t, lw=0.1, vscale=vscale)
+            ax_t = mu.plot_mea_recording(wf.mean(axis=0), mea, colors=colors[i], ax=ax_t, lw=2, vscale=vscale)
     else:
         assert isinstance(electrode, (int, np.integer)) or electrode == 'max', "electrode must be int or 'max'"
         if len(spiketrain_id) > ncols:
