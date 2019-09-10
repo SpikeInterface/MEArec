@@ -778,7 +778,7 @@ def check_espike(espikes, min_amp):
     return valid
 
 
-def center_espike(espike, cut_out_samples, tol=3):
+def center_espike(espike, cut_out_samples, tol=1):
     """
     Centers extracellular spike if the peak is not aligned.
 
