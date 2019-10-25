@@ -16,11 +16,11 @@ The following sections will guide you through definitions and handling of MEA mo
 and plotting functions.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    overview
    installation
-   setting_config
+   cli
    generate_templates
    generate_recordings
    plotting
