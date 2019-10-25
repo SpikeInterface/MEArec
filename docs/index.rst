@@ -23,7 +23,7 @@ and plotting functions.
    cli
    generate_templates
    generate_recordings
-   plotting
+   usage
    api
 
 Contact

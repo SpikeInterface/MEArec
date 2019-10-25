@@ -64,8 +64,8 @@ Intergation with SpikeInterface
 -------------------------------
 
 MEArec is designed to help validating spike sorting algorithms. Hence, its integration
-with `SpikeInterface <https://github.com/SpikeInterface>`_, a Python framework for spike sorting analysis, comparison,
-and validation, is extremely straightforward.
+with the `SpikeInterface project <https://github.com/SpikeInterface>`_, a Python framework for spike sorting analysis,
+comparison, and validation, is extremely straightforward.
 
 After installing the `spikeinterface <https://github.com/SpikeInterface/spikeinterface>`_ package,
 one can easily load a MEArec generated recording, run several spike sorting algorithms, and compare/validate their output:
