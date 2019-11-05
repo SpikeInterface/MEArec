@@ -3200,6 +3200,12 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             nrows = 1
             ncols = n_sources
 
+        if cmap is not None:
+            cm = plt.get_cmap(cmap)
+            colors = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
+        else:
+            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
         gs = gridspec.GridSpecFromSubplotSpec(nrows, ncols, subplot_spec=ax)
 
         for i_n, n in enumerate(template_ids):
@@ -3207,7 +3213,7 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             c = np.mod(i_n, ncols)
             gs_sel = gs[r, c]
             ax_t = fig.add_subplot(gs_sel)
-            mu.plot_mea_recording(templates[n], mea, ax=ax_t, **kwargs)
+            mu.plot_mea_recording(templates[n], mea, ax=ax_t, colors=colors[i_n], **kwargs)
         ax.axis('off')
 
     return ax
