@@ -3145,13 +3145,18 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
                 if len(templates.shape) == 4:
                     templates = templates[:, 0]
 
+    if drifting:
+        assert isinstance(template_ids, (int, np.integer)), "When plotting drifting templates, 'template_ids' should " \
+                                                            "be a single index (int)"
+        single_axes = True
+
     if template_ids is not None:
         if isinstance(template_ids, (int, np.integer)):
-            template_ids = np.array([template_ids])
+            template_ids = list(np.array([template_ids]))
         elif isinstance(template_ids, list):
-            template_ids = np.array(template_ids)
+            template_ids = list(np.array(template_ids))
     else:
-        template_ids = np.arange(templates.shape[0])
+        template_ids = list(np.arange(templates.shape[0]))
 
     if max_templates is not None:
         if max_templates < len(templates):
@@ -3184,11 +3189,10 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
                         mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t,
                                               **kwargs)
                     else:
-                        if cmap is not None:
-                            cm = plt.get_cmap(cmap)
-                            colors = [cm(i / t.shape[0]) for i in np.arange(t.shape[0])]
-                        else:
-                            colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+                        if cmap is None:
+                            cmap = 'Reds'
+                        cm = plt.get_cmap(cmap)
+                        colors = [cm(i / t.shape[0]) for i in np.arange(t.shape[0])]
                         mu.plot_mea_recording(t, mea, colors=colors, ax=ax_t,
                                               **kwargs)
                 else:

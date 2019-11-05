@@ -66,9 +66,13 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     for nrn in neurons:
         for nmodl in glob(join(nrn, 'mechanisms', '*.mod')):
             while not os.path.isfile(join(cell_folder, 'mods', os.path.split(nmodl)[-1])):
+                if sys.platform == 'win32':
+                    _command = 'copy'
+                else:
+                    _command = 'cp'
                 if verbose:
-                    print('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
-                os.system('cp {} {}'.format(nmodl, join(cell_folder, 'mods')))
+                    print('{} {} {}'.format(_command, nmodl, join(cell_folder, 'mods')))
+                os.system('{} {} {}'.format(_command, nmodl, join(cell_folder, 'mods')))
     starting_dir = os.getcwd()
     os.chdir(join(cell_folder, 'mods'))
     os.system('nrnivmodl')
@@ -778,7 +782,7 @@ def check_espike(espikes, min_amp):
     return valid
 
 
-def center_espike(espike, cut_out_samples, tol=3):
+def center_espike(espike, cut_out_samples, tol=1):
     """
     Centers extracellular spike if the peak is not aligned.
 

@@ -1,5 +1,8 @@
+API reference
+==============
+
 Module :mod:`MEArec.generators`
-===============================
+-------------------------------
 .. automodule:: generators
 
     class :class:`TemplateGenerator`
@@ -25,7 +28,7 @@ Module :mod:`MEArec.generators`
 
 
 Module :mod:`MEArec.generation_tools`
-=====================================
+-------------------------------------
 .. automodule:: generation_tools
 
     function :class:`gen_templates`
@@ -44,7 +47,7 @@ Module :mod:`MEArec.generation_tools`
 
 
 Module :mod:`MEArec.tools`
-===============================
+--------------------------
 .. automodule:: tools
 
     function :class:`load_templates`
