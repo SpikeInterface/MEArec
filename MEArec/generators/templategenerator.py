@@ -158,7 +158,7 @@ class TemplateGenerator:
         with open(tmp_params_path, 'w') as f:
             yaml.dump(self.params, f)
 
-        # Simulate neurons and EAP for different cell models sparately
+        # Simulate neurons and EAP for different cell models separately
         if parallel:
             start_time = time.time()
             import multiprocessing
@@ -185,6 +185,10 @@ class TemplateGenerator:
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
 
         tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+
+        if not Path(tmp_folder).is_dir():
+            raise FileNotFoundError(f'{tmp_folder} not found. Something went wrong in the template generation phase.')
+
         templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
         if delete_tmp:
             shutil.rmtree(tmp_folder)
