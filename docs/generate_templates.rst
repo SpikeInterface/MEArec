@@ -145,12 +145,13 @@ Templates can also be generated using a Python script, or a jupyter notebook.
 .. code-block:: python
 
     import MEArec as mr
-    tempgen = mr.gen_templates(cell_models_folder, params=None, templates_folder=None, intraonly=False, parallel=True,
+    tempgen = mr.gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, intraonly=False, parallel=True,
                                delete_tmp=True)
 
 The :code:`cell_models_folder` has to be passed as an argument. The :code:`params` argument can be the path to a .yaml
-file or a dictionary containing the parameters (if None default parameters are used). The :code:`templates_folder`
-points to the output folder and if not specified it will use the current directory. If :code:`intraonly` is True, only
+file or a dictionary containing the parameters (if None default parameters are used). The :code:`templates_tmp_folder`
+points to the output temporary folder used to save generated templates. If not specified it will use the current directory.
+If :code:`intraonly` is True, only
 the intracellular simulation is run. Simulations are run in parallel if :code:`parallel` is True and the temporary
 processing folder is deleted if :code:`delete_tmp` is True.
 
