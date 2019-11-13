@@ -704,9 +704,9 @@ class RecordingGenerator:
                         spike_traces[:, idxs] = spike_trace
                     else:
                         idxs = output_dict[ch]['idxs']
-                        tmp_ch_file = h5py.File(tempfiles[ch], 'r')
-                        recordings[:, idxs] = tmp_ch_file['recordings']
-                        spike_traces[:, idxs] = tmp_ch_file['spike_traces']
+                        with h5py.File(tempfiles[ch], 'r') as tmp_ch_file:
+                            recordings[:, idxs] = tmp_ch_file['recordings']
+                            spike_traces[:, idxs] = tmp_ch_file['spike_traces']
                         os.remove(tempfiles[ch])
                     if ch == len(chunks_rec) - 1 and drifting:
                         for st in np.arange(n_neurons):
@@ -1010,8 +1010,8 @@ class RecordingGenerator:
                             additive_noise[:, idxs] += rec
                         else:
                             idxs = output_dict[ch]['idxs']
-                            tmp_ch_file = h5py.File(tempfilesnoise[ch], 'r')
-                            additive_noise[:, idxs] = tmp_ch_file['recordings']
+                            with h5py.File(tempfilesnoise[ch], 'r') as tmp_ch_file:
+                                additive_noise[:, idxs] = tmp_ch_file['recordings']
                             os.remove(tempfilesnoise[ch])
                 else:
                     # convolve in single chunk
