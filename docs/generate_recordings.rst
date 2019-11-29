@@ -302,6 +302,15 @@ former pointing to a generated templates file, the latter instead is a :code:`Te
 
 The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGenerator` object (:code:`recgen`).
 
+**WINDOWS** users must place the Python code in the :code:`__main__` function due to a different behavior of the
+multiprocessing package:
+
+.. code-block:: python
+
+    import MEArec as mr
+
+    if __name__ == '__main__':
+        recgen = mr.gen_recordings(params=None, templates=None, tempgen=None)
 
 The RecordingGenerator object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
