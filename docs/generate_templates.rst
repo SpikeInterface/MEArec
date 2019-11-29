@@ -157,6 +157,16 @@ processing folder is deleted if :code:`delete_tmp` is True.
 
 The :code:`gen_templates()` function returns a gen_templates :code:`TemplateGenerator` object (:code:`temogen`).
 
+**WINDOWS** users must place the Python code in the :code:`__main__` function due to a different behavior of the
+multiprocessing package:
+
+.. code-block:: python
+
+    import MEArec as mr
+
+    if __name__ == '__main__':
+        tempgen = mr.gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, intraonly=False, parallel=True,
+                                   delete_tmp=True)
 
 The TemplateGenerator object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
