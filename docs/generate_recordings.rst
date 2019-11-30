@@ -67,7 +67,7 @@ Spike trains parameters section summary
 Recordings Generation
 ---------------------
 
-Specyfying excitatory and inhibitory cell-types
+Specifying excitatory and inhibitory cell-types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In order to select the proper cell type (excitatory - inhibitory) the :code:`cell-types` section of the parameters
