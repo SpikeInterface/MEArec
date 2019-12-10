@@ -3217,7 +3217,10 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
             c = np.mod(i_n, ncols)
             gs_sel = gs[r, c]
             ax_t = fig.add_subplot(gs_sel)
-            mu.plot_mea_recording(templates[n], mea, ax=ax_t, colors=colors[i_n], **kwargs)
+            if cmap is not None:
+                mu.plot_mea_recording(templates[n], mea, ax=ax_t, colors=colors[i_n], **kwargs)
+            else:
+                mu.plot_mea_recording(templates[n], mea, ax=ax_t, colors=colors[np.mod(i_n, len(colors))], **kwargs)
         ax.axis('off')
 
     return ax
