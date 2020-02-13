@@ -275,18 +275,18 @@ class RecordingGenerator:
                 n_bursting = rec_params['n_bursting']
 
             if shape_mod:
-                if 'bursting_sigmoid' not in rec_params.keys():
-                    params['recordings']['bursting_sigmoid'] = 30
-                bursting_sigmoid = params['recordings']['bursting_sigmoid']
+                if 'shape_stretch' not in rec_params.keys():
+                    params['recordings']['shape_stretch'] = 30
+                shape_stretch = params['recordings']['shape_stretch']
                 if self._verbose:
-                    print('Bursting with modulation sigmoid: ', bursting_sigmoid)
+                    print('Bursting with modulation sigmoid: ', shape_stretch)
             else:
-                bursting_sigmoid = None
+                shape_stretch = None
         else:
             exp_decay = None
             n_burst_spikes = None
             max_burst_duration = None
-            bursting_sigmoid = None
+            shape_stretch = None
             n_bursting = None
 
         if 'chunk_noise_duration' not in rec_params.keys():
@@ -686,7 +686,7 @@ class RecordingGenerator:
                                                                                 template_locs, velocity_vector,
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
-                                                                                bursting_sigmoid, chunk[0], True,
+                                                                                shape_stretch, chunk[0], True,
                                                                                 voltage_peaks, dtype, tempfiles[ch],))
                     p.start()
                     threads.append(p)
@@ -727,7 +727,7 @@ class RecordingGenerator:
                                   modulation=modulation, drifting=drifting, drifting_units=drifting_units,
                                   templates=templates, cut_outs_samples=cut_outs_samples, template_locs=template_locs,
                                   velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
-                                  bursting_units=bursting_units, shape_mod=shape_mod, bursting_sigmoid=bursting_sigmoid,
+                                  bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
                                   dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
                 if not tmp_h5:

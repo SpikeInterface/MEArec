@@ -2616,7 +2616,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drifting_units, templates,
                       cut_outs_samples, template_locs, velocity_vector, t_start_drift, fs, verbose,
-                      amp_mod, bursting_units, shape_mod, bursting_sigmoid, chunk_start, extract_spike_traces,
+                      amp_mod, bursting_units, shape_mod, shape_stretch, chunk_start, extract_spike_traces,
                       voltage_peaks, dtype, tmp_mearec_file=None):
     """
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
@@ -2657,7 +2657,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         List of bursting units
     shape_mod: bool
         If True waveforms are modulated in shape
-    bursting_sigmoid: float
+    shape_stretch: float
         Low and high frequency for bursting
     chunk_start: quantity
         Start time for current chunk
@@ -2757,7 +2757,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                              t_start_drift,
                                                                                              chunk_start=chunk_start,
                                                                                              bursting=unit_burst,
-                                                                                             sigmoid_range=bursting_sigmoid,
+                                                                                             sigmoid_range=shape_stretch,
                                                                                              verbose=verbose,
                                                                                              recordings=recordings)
                 np.random.seed(seed)
@@ -2769,7 +2769,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st][:, max_electrode],
                                                                 bursting=unit_burst,
-                                                                sigmoid_range=bursting_sigmoid)
+                                                                sigmoid_range=shape_stretch)
             else:
                 if drifting:
                     template = templates[st, 0]
@@ -2782,7 +2782,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                             modulation=True,
                                                             mod_array=amp_mod[st],
                                                             bursting=unit_burst,
-                                                            sigmoid_range=bursting_sigmoid, verbose=verbose,
+                                                            sigmoid_range=shape_stretch, verbose=verbose,
                                                             recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
@@ -2793,7 +2793,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st][:, max_electrode],
                                                                 bursting=unit_burst,
-                                                                sigmoid_range=bursting_sigmoid)
+                                                                sigmoid_range=shape_stretch)
                 final_pos = locs[0]
                 final_idx = 0
 
@@ -2828,7 +2828,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                                            t_start_drift,
                                                                                            chunk_start=chunk_start,
                                                                                            bursting=unit_burst,
-                                                                                           sigmoid_range=bursting_sigmoid,
+                                                                                           sigmoid_range=shape_stretch,
                                                                                            verbose=verbose,
                                                                                            recordings=recordings)
                 np.random.seed(seed)
@@ -2840,7 +2840,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st],
                                                                 bursting=unit_burst,
-                                                                sigmoid_range=bursting_sigmoid)
+                                                                sigmoid_range=shape_stretch)
             else:
                 if drifting:
                     template = templates[st, 0]
@@ -2853,7 +2853,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                             modulation=True,
                                                             mod_array=amp_mod[st],
                                                             bursting=unit_burst,
-                                                            sigmoid_range=bursting_sigmoid,
+                                                            sigmoid_range=shape_stretch,
                                                             verbose=verbose,
                                                             recordings=recordings)
                 np.random.seed(seed)
@@ -2865,7 +2865,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                                                                 modulation=True,
                                                                 mod_array=amp_mod[st],
                                                                 bursting=unit_burst,
-                                                                sigmoid_range=bursting_sigmoid)
+                                                                sigmoid_range=shape_stretch)
                 final_pos = locs[0]
                 final_idx = 0
         else:
