@@ -14,6 +14,7 @@ import numpy as np
 import MEAutility as mu
 import yaml
 import time
+from pathlib import Path
 from distutils.version import StrictVersion
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
@@ -79,17 +80,13 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     os.chdir(starting_dir)
 
 
-def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T, verbose=False):
+def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     """ Function to load cell models
     
     Parameters:
     -----------
     cell_folder : string
-        Path to folder where cell model is saved.
-    model_type : string
-        Cell model type (e.g. 'bbp' for Human Brain Project)    
-    cell_name : string
-        Name of the cell
+        Path to folder with the BBP cell model
     end_T : float
         Simulation length [ms]
     dt: float
@@ -111,66 +108,61 @@ def return_cell(cell_folder, model_type, cell_name, end_T, dt, start_T, verbose=
     cwd = os.getcwd()
     os.chdir(cell_folder)
     if verbose:
-        print("Simulating ", cell_name)
+        print("Simulating ", cell_folder)
 
-    if model_type == 'bbp':
-        neuron.load_mechanisms('../mods')
+    neuron.load_mechanisms('../mods')
 
-        f = open("template.hoc", 'r')
-        templatename = get_templatename(f)
-        f.close()
+    f = open("template.hoc", 'r')
+    templatename = get_templatename(f)
+    f.close()
 
-        f = open("biophysics.hoc", 'r')
-        biophysics = get_templatename(f)
-        f.close()
+    f = open("biophysics.hoc", 'r')
+    biophysics = get_templatename(f)
+    f.close()
 
-        f = open("morphology.hoc", 'r')
-        morphology = get_templatename(f)
-        f.close()
+    f = open("morphology.hoc", 'r')
+    morphology = get_templatename(f)
+    f.close()
 
-        # get synapses template name
-        f = open(join("synapses", "synapses.hoc"), 'r')
-        synapses = get_templatename(f)
-        f.close()
+    # get synapses template name
+    f = open(join("synapses", "synapses.hoc"), 'r')
+    synapses = get_templatename(f)
+    f.close()
 
-        neuron.h.load_file('constants.hoc')
-        if not hasattr(neuron.h, morphology):
-            neuron.h.load_file(1, "morphology.hoc")
+    neuron.h.load_file('constants.hoc')
+    if not hasattr(neuron.h, morphology):
+        neuron.h.load_file(1, "morphology.hoc")
 
-        if not hasattr(neuron.h, biophysics):
-            neuron.h.load_file(1, "biophysics.hoc")
+    if not hasattr(neuron.h, biophysics):
+        neuron.h.load_file(1, "biophysics.hoc")
 
-        if not hasattr(neuron.h, synapses):
-            # load synapses
-            neuron.h.load_file(1, join('synapses', 'synapses.hoc'))
+    if not hasattr(neuron.h, synapses):
+        # load synapses
+        neuron.h.load_file(1, join('synapses', 'synapses.hoc'))
 
-        if not hasattr(neuron.h, templatename):
-            neuron.h.load_file(1, "template.hoc")
+    if not hasattr(neuron.h, templatename):
+        neuron.h.load_file(1, "template.hoc")
 
-        morphologyfile = os.listdir('morphology')[0]  # glob('morphology\\*')[0]
+    morphologyfile = os.listdir('morphology')[0]  # glob('morphology\\*')[0]
 
-        # Instantiate the cell(s) using LFPy
-        cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
-                                 templatefile=join('template.hoc'),
-                                 templatename=templatename,
-                                 templateargs=0,
-                                 tstop=end_T,
-                                 tstart=start_T,
-                                 dt=dt,
-                                 v_init=-70,
-                                 pt3d=True,
-                                 delete_sections=True,
-                                 verbose=True)
-
-    else:
-        raise NotImplementedError('Cell model %s is not implemented' \
-                                  % model_type)
+    # Instantiate the cell(s) using LFPy
+    cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
+                             templatefile=join('template.hoc'),
+                             templatename=templatename,
+                             templateargs=0,
+                             tstop=end_T,
+                             tstart=start_T,
+                             dt=dt,
+                             v_init=-70,
+                             pt3d=True,
+                             delete_sections=True,
+                             verbose=True)
 
     os.chdir(cwd)
     return cell
 
 
-def return_cell_morphology(cell_name, cell_folder, pt3d=False):
+def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
     """ Function to load cell models
 
     Parameters:
@@ -271,29 +263,46 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=False, **kwargs):
+def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, return_vi=False,
+                   custom_return_cell_function=None, **kwargs):
     """ Run simulation and adjust input strength to have a certain number of 
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
         where target_spikes=[10,30] by default)
 
     Parameters:
     -----------
-    cell_model : string
+    cell_model_folder : string
         Path to folder where cell model is saved.
-    model_type : string
-        Cell model type (e.g. 'bbp')    
     sim_folder : string
-        Data directory for transmembrane currents and membrane potential
-        of the neuron.
-    cell_model_id: int
-        Arbitrary cell id, used to set the numpy.random seed.
-
+        Data directory for transmembrane currents and membrane potential of the neuron.
+    seed : int
+        Random seed
+    verbose : bool
+        If True, output is verbose
+    save : bool
+        If True, currents and membrane potentials are saved in 'sim_folder'
+    return_vi : bool
+        If True, currents and membrane potentials are returned
+    custom_return_cell_function : function
+        Python function to to return an LFPy cell from the cell_model_folder
+    **kwargs : keyword arguments
+        Kwargs must include: 'sim_time', 'dt', 'delay', 'weights', 'target_spikes', 'cut_out'
     Returns:
     --------
     cell : object
-        LFPy cell object
+        LFPy cell object (if return_vi is True)
+    v : np.array
+        Array (N_spikes x t) with soma membrane potential (if return_vi is True)
+    i : np.array
+        Array (N_spikes x N_compartments x t) with transmembrane currents (if return_vi is True)
+
     """
-    cell_name = os.path.split(cell_model)[-1]
+    cell_name = Path(cell_model_folder).parts[-1]
+
+    if custom_return_cell_function is None:
+        return_function = return_bbp_cell
+    else:
+        return_function = custom_return_cell_function
 
     if save:
         if not os.path.isdir(sim_folder):
@@ -308,7 +317,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
             np.random.seed(seed)
             T = kwargs['sim_time'] * 1000
             dt = kwargs['dt']
-            cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
+            cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
 
             delay = kwargs['delay']
             stim_length = T - delay
@@ -369,7 +378,7 @@ def run_cell_model(cell_model, sim_folder, seed, verbose, save=True, return_vi=F
         np.random.seed(seed)
         T = kwargs['sim_time'] * 1000
         dt = kwargs['dt']
-        cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
+        cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
 
         delay = kwargs['delay']
         stim_length = T - delay
@@ -500,38 +509,40 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     return 1000 * electrodes.LFP
 
 
-def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbose=False, position=None, **kwargs):
+def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed=0, verbose=False, position=None,
+                       custom_return_cell_function=None, **kwargs):
     """  Loads data from previous cell simulation, and use results to generate
          arbitrary number of spikes above a certain noise level.
 
     Parameters:
     -----------
-    cell_model : string
+    cell_model_folder : string
         Path to folder where cell model is saved.
     model_type : string
         Cell model type (e.g. 'bbp')    
     save_sim_folder : string
         Path to folder where to save EAP data
     load_sim_folder : string
-        Path to folder from which  NEURON simulation results (currents, 
-        membrane potential) are loaded
-    rotation: string
-        Type of rotation to apply to neuron morphologies 
-        ('Norot','physrot','3drot')
-    cell_model_id: int
-        Arbitrary cell id, used to set the numpy.random seed.
+        Path to folder from which NEURON simulation results (currents, membrane potential) are loaded
+    position : array
+        3D position of the soma (optional, default is None and the cell is randomly located within specified limits)
+    custom_return_cell_function : function
+        Python function to to return an LFPy cell from the cell_model_folder
+    **kwargs: keyword arguments
+        Template generation parameters (use mr.get_default_template_parameters() to retrieve the arguments)
 
     Returns:
     --------
         nothing, but saves the result
     """
-    cell_name = os.path.split(cell_model)[-1]
+    cell_name = os.path.split(cell_model_folder)[-1]
     cell_save_name = cell_name
     np.random.seed(seed)
 
     T = kwargs['sim_time'] * 1000
     dt = kwargs['dt']
     rotation = kwargs['rot']
+    print(rotation)
     nobs = kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
@@ -549,11 +560,16 @@ def calc_extracellular(cell_model, save_sim_folder, load_sim_folder, seed, verbo
         drift_y_lim = kwargs['drift_ylim']
         drift_z_lim = kwargs['drift_zlim']
 
+    if custom_return_cell_function is None:
+        return_function = return_bbp_cell
+    else:
+        return_function = custom_return_cell_function
+
     cuts = kwargs['cut_out']
     cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
     sim_folder = join(save_sim_folder, rotation)
-    cell = return_cell(cell_model, 'bbp', cell_name, T, dt, 0)
+    cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
 
     # Load data from previous cell simulation
     imem_file = [f for f in os.listdir(load_sim_folder) if cell_name in f and 'imem' in f][0]

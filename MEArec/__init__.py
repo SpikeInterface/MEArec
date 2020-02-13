@@ -3,7 +3,7 @@ from MEArec.tools import load_templates, load_recordings, save_recording_generat
     plot_pca_map, get_default_recordings_params, get_default_templates_params, get_default_cell_models_folder
 from MEArec.generation_tools import gen_recordings, gen_templates, gen_spiketrains
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
-from MEArec.simulate_cells import return_cell, run_cell_model, return_cell_morphology, \
-    calculate_extracellular_potential
+from MEArec.simulate_cells import return_bbp_cell, run_cell_model, return_bbp_cell_morphology, \
+    calculate_extracellular_potential, calc_extracellular
 
 from .version import version as __version__

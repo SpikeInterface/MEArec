@@ -622,7 +622,7 @@ class TestGenerators(unittest.TestCase):
 
         cell, v, i = mr.run_cell_model(cell_model=cell_path, sim_folder=None, verbose=True, save=False, return_vi=True,
                                        **params)
-        c = mr.return_cell_morphology(cell_name, cell_folder)
+        c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
         assert len(v) >= target_spikes[0] and len(v) <= target_spikes[1]
         assert len(i) >= target_spikes[0] and len(i) <= target_spikes[1]
         assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
