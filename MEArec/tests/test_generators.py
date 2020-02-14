@@ -481,11 +481,11 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_waveforms(self.recgen, electrode='max')
 
     def test_extract_features(self):
-        feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['na', 'rep', 'amp', 'width', 'fwhm',
+        feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['neg', 'pos', 'amp', 'width', 'fwhm',
                                                                                'ratio', 'speed'],
                                             dt=self.tempgen.info['params']['dt'])
-        assert feat_t0['na'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
-        assert feat_t0['rep'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['neg'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['pos'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['amp'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['width'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['fwhm'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])

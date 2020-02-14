@@ -414,7 +414,9 @@ class RecordingGenerator:
             preferred_dir = np.array(rec_params['preferred_dir'])
             preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
             angle_tol = rec_params['angle_tol']
-            drift_velocity = rec_params['drift_velocity']
+            drift_velocity = rec_params['slow_drift_velocity']
+            fast_drift_period = rec_params['fast_drift_period'] * pq.s
+            drift_mode = rec_params['drift_mode']
             t_start_drift = rec_params['t_start_drift'] * pq.s
             if rec_params['n_drifting'] is None:
                 n_drifting = n_neurons
@@ -434,6 +436,7 @@ class RecordingGenerator:
             drift_velocity = None
             t_start_drift = None
             n_drifting = None
+            drift_mode = None
 
         # load MEA info
         if temp_info is not None:
@@ -494,7 +497,7 @@ class RecordingGenerator:
                                                             overlap_threshold=overlap_threshold,
                                                             verbose=self._verbose)
 
-                idxs_cells = sorted(idxs_cells) #[np.argsort(selected_cat)]
+                idxs_cells = sorted(idxs_cells)  # [np.argsort(selected_cat)]
                 template_celltypes = celltypes[idxs_cells]
                 template_locs = locs[idxs_cells]
                 template_rots = rots[idxs_cells]
@@ -509,10 +512,10 @@ class RecordingGenerator:
                 for tem in templates:
                     dt = 1. / fs.magnitude
                     if not drifting:
-                        feat = get_templates_features(tem, ['na'], dt=dt)
+                        feat = get_templates_features(tem, ['neg'], dt=dt)
                     else:
-                        feat = get_templates_features(tem[0], ['na'], dt=dt)
-                    voltage_peaks.append(-np.squeeze(feat['na']))
+                        feat = get_templates_features(tem[0], ['neg'], dt=dt)
+                    voltage_peaks.append(-np.squeeze(feat['neg']))
                 voltage_peaks = np.array(voltage_peaks)
 
                 # pad templates
@@ -706,10 +709,11 @@ class RecordingGenerator:
                         tempfiles[ch] = None
                     p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
                                                                                 output_dict, spike_matrix,
-                                                                                modulation, drifting,
+                                                                                modulation, drifting, drift_mode,
                                                                                 drifting_units, templates,
                                                                                 cut_outs_samples,
                                                                                 template_locs, velocity_vector,
+                                                                                fast_drift_period,
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
                                                                                 shape_stretch, chunk[0], True,
@@ -750,9 +754,11 @@ class RecordingGenerator:
                 ch = 0
                 # reorder this
                 chunk_convolution(ch=ch, idxs=idxs, output_dict=output_dict, spike_matrix=spike_matrix,
-                                  modulation=modulation, drifting=drifting, drifting_units=drifting_units,
-                                  templates=templates, cut_outs_samples=cut_outs_samples, template_locs=template_locs,
-                                  velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
+                                  modulation=modulation, drifting=drifting, drift_mode=drift_mode,
+                                  drifting_units=drifting_units, templates=templates, cut_outs_samples=cut_outs_samples,
+                                  template_locs=template_locs,
+                                  velocity_vector=velocity_vector, fast_drift_period=fast_drift_period,
+                                  t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
                                   dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
@@ -1013,11 +1019,11 @@ class RecordingGenerator:
                             tempfilesnoise[ch] = None
                         p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
                                                                                     output_dict, spike_matrix_noise,
-                                                                                    'none', False,
+                                                                                    'none', False, None,
                                                                                     None, templates_noise,
                                                                                     cut_outs_samples,
                                                                                     template_noise_locs, None,
-                                                                                    None, None, self._verbose,
+                                                                                    None, None, None, self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
                                                                                     voltage_peaks, dtype,
@@ -1045,8 +1051,8 @@ class RecordingGenerator:
                     idxs = np.arange(spike_matrix_noise.shape[1])
                     ch = 0
                     # reorder this
-                    chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None,
-                                      templates_noise, cut_outs_samples, template_noise_locs, None, None, None,
+                    chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None, None,
+                                      templates_noise, cut_outs_samples, template_noise_locs, None, None, None, None,
                                       self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks, dtype,
                                       tmp_mearec_file=tmp_noise_rec)
                     # additive_noise = np.array(tmp_noise_rec['recordings'])
@@ -1120,15 +1126,15 @@ class RecordingGenerator:
                     else:
                         if cutoff.size == 1:
                             recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
-                                                                             filter_type='highpass', order=order)
+                                                                          filter_type='highpass', order=order)
                         elif cutoff.size == 2:
                             if fs / 2. < cutoff[1]:
                                 recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0],
-                                                                                 fs=fs, filter_type='highpass',
-                                                                                 order=order)
+                                                                              fs=fs, filter_type='highpass',
+                                                                              order=order)
                             else:
                                 recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff,
-                                                                                 fs=fs)
+                                                                              fs=fs)
             else:
                 if not tmp_h5:
                     if cutoff.size == 1:
