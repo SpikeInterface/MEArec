@@ -175,6 +175,7 @@ class TemplateGenerator:
                 p.join()
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
         else:
+            # TODO try without subprocess
             start_time = time.time()
             for numb, cell_model in enumerate(cell_models):
                 if self._verbose:

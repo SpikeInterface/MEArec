@@ -263,7 +263,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, return_vi=False,
+def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True, return_vi=False,
                    custom_return_cell_function=None, **kwargs):
     """ Run simulation and adjust input strength to have a certain number of 
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
@@ -273,28 +273,25 @@ def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, retu
     -----------
     cell_model_folder : string
         Path to folder where cell model is saved.
-    sim_folder : string
-        Data directory for transmembrane currents and membrane potential of the neuron.
-    seed : int
-        Random seed
     verbose : bool
         If True, output is verbose
     save : bool
-        If True, currents and membrane potentials are saved in 'sim_folder'
-    return_vi : bool
-        If True, currents and membrane potentials are returned
+        If True, currents and membrane potentials are saved in 'sim_folder'. If False the function returns the simulated
+        cell, the soma potentials of the spikes, and the transmembrane currents of the spikes
+    sim_folder : string
+        Data directory for transmembrane currents and membrane potential of the neuron.
     custom_return_cell_function : function
         Python function to to return an LFPy cell from the cell_model_folder
     **kwargs : keyword arguments
-        Kwargs must include: 'sim_time', 'dt', 'delay', 'weights', 'target_spikes', 'cut_out'
+        Kwargs must include: 'sim_time', 'dt', 'delay', 'weights', 'target_spikes', 'cut_out', 'seed'
     Returns:
     --------
     cell : object
-        LFPy cell object (if return_vi is True)
+        LFPy cell object (if save is False)
     v : np.array
-        Array (N_spikes x t) with soma membrane potential (if return_vi is True)
+        Array (N_spikes x t) with soma membrane potential (if save is False)
     i : np.array
-        Array (N_spikes x N_compartments x t) with transmembrane currents (if return_vi is True)
+        Array (N_spikes x N_compartments x t) with transmembrane currents (if save is False)
 
     """
     cell_name = Path(cell_model_folder).parts[-1]
@@ -305,6 +302,7 @@ def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, retu
         return_function = custom_return_cell_function
 
     if save:
+        assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
         if not os.path.isdir(sim_folder):
             os.makedirs(sim_folder)
 
@@ -314,7 +312,7 @@ def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, retu
         if not (np.any([cell_name in ifile for ifile in imem_files]) and
                 np.any([cell_name in vfile for vfile in vmem_files])):
 
-            np.random.seed(seed)
+            np.random.seed(kwargs['seed'])
             T = kwargs['sim_time'] * 1000
             dt = kwargs['dt']
             cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
@@ -375,7 +373,7 @@ def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, retu
             if verbose:
                 print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
     else:
-        np.random.seed(seed)
+        np.random.seed(kwargs['seed'])
         T = kwargs['sim_time'] * 1000
         dt = kwargs['dt']
         cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
@@ -427,8 +425,7 @@ def run_cell_model(cell_model_folder, sim_folder, seed, verbose, save=True, retu
             i_spikes[idx, :, :] = i_spike
             v_spikes[idx, :] = v_spike
 
-        if return_vi:
-            return cell, v_spikes, i_spikes
+        return cell, v_spikes, i_spikes
 
 
 def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, rotation=None):
@@ -509,25 +506,28 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     return 1000 * electrodes.LFP
 
 
-def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed=0, verbose=False, position=None,
-                       custom_return_cell_function=None, **kwargs):
-    """  Loads data from previous cell simulation, and use results to generate
-         arbitrary number of spikes above a certain noise level.
+def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0, verbose=False, position=None,
+                       save=True, custom_return_cell_function=None, **kwargs):
+    """
+    Loads data from previous cell simulation, and use results to generate
+    arbitrary number of spikes above a certain noise level.
 
     Parameters:
     -----------
     cell_model_folder : string
         Path to folder where cell model is saved.
     model_type : string
-        Cell model type (e.g. 'bbp')    
-    save_sim_folder : string
-        Path to folder where to save EAP data
+        Cell model type (e.g. 'bbp')
     load_sim_folder : string
         Path to folder from which NEURON simulation results (currents, membrane potential) are loaded
+    save_sim_folder : string
+        Path to folder where to save EAP data
     position : array
         3D position of the soma (optional, default is None and the cell is randomly located within specified limits)
     custom_return_cell_function : function
         Python function to to return an LFPy cell from the cell_model_folder
+    save : bool
+        If True eaps are saved in the 'save_sim_folder'. If False eaps, positions, and rotations are returned as arrays
     **kwargs: keyword arguments
         Template generation parameters (use mr.get_default_template_parameters() to retrieve the arguments)
 
@@ -562,13 +562,14 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
 
     if custom_return_cell_function is None:
         return_function = return_bbp_cell
+        model_type = 'bbp'
     else:
         return_function = custom_return_cell_function
+        model_type = 'custom'
 
     cuts = kwargs['cut_out']
     cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
-    sim_folder = join(save_sim_folder, rotation)
     cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
 
     # Load data from previous cell simulation
@@ -588,10 +589,13 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
     elinfo = mu.return_mea_info(electrode_name=MEAname)
 
     # Create save folder
-    save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
+    if save:
+        assert save_sim_folder is not None, "Specify 'save_sim_folder' argument!"
+        sim_folder = join(save_sim_folder, rotation)
+        save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
 
-    if not os.path.isdir(save_folder):
-        os.makedirs(save_folder)
+        if not os.path.isdir(save_folder):
+            os.makedirs(save_folder)
 
     if verbose:
         print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
@@ -651,7 +655,7 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
         cell.somav = v_spikes[spike_idx, :]
 
         if not drifting:
-            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type='bbp',
+            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
                                                                  electrode_parameters=electrode_parameters,
                                                                  limits=[x_lim, y_lim, z_lim], rotation=rotation,
                                                                  pos=position)
@@ -678,9 +682,9 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
 
-            if pos[0] - drift_x_lim[0] > x_lim[0] and pos[0] - drift_x_lim[1] < x_lim[1] and \
-                    pos[1] - drift_y_lim[0] > y_lim[0] and pos[1] - drift_y_lim[1] < y_lim[1] and \
-                    pos[2] - drift_z_lim[0] > z_lim[0] and pos[2] - drift_z_lim[1] < z_lim[1]:
+            if x_lim[0] < pos[0] - drift_x_lim[0] < x_lim[1] and \
+                    y_lim[0] < pos[1] - drift_y_lim[0] < y_lim[1] and \
+                    z_lim[0] < pos[2] - drift_z_lim[0] < z_lim[1]:
                 if check_espike(espikes, min_amp):
                     drift_ok = False
                     # fix rotation while drifting
@@ -697,11 +701,11 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
                         drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
 
                         # check location and boundaries
-                        if drift_dist < max_drift and drift_dist > min_drift and \
-                                x_rand > x_lim[0] and x_rand < x_lim[1] and \
-                                y_rand > y_lim[0] and y_rand < y_lim[1] and \
-                                z_rand > z_lim[0] and z_rand < z_lim[1]:
-                            espikes, pos, rot_, offs = return_extracellular_spike(cell, cell_name, 'bbp',
+                        if max_drift > drift_dist > min_drift and \
+                                x_lim[0] < x_rand < x_lim[1] and \
+                                y_lim[0] < y_rand < y_lim[1] and \
+                                z_lim[0] < z_rand < z_lim[1]:
+                            espikes, pos, rot_, offs = return_extracellular_spike(cell, cell_name, model_type,
                                                                                   electrode_parameters,
                                                                                   [x_lim, y_lim, z_lim],
                                                                                   rotation=None,
@@ -727,7 +731,7 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
                         drift_dir = np.array(final_pos) - np.array(init_pos)
                         for i, dp in enumerate(np.linspace(0, 1, drift_steps)):
                             pos_drift = init_pos + dp * drift_dir
-                            espikes, pos, r_, offs = return_extracellular_spike(cell, cell_name, 'bbp',
+                            espikes, pos, r_, offs = return_extracellular_spike(cell, cell_name, model_type,
                                                                                 electrode_parameters,
                                                                                 [x_lim, y_lim, z_lim],
                                                                                 rotation=None,
@@ -768,9 +772,12 @@ def calc_extracellular(cell_model_folder, save_sim_folder, load_sim_folder, seed
     save_pos = np.array(save_pos)
     save_rot = np.array(save_rot)
 
-    np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
-    np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
-    np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
+    if save:
+        np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
+        np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
+        np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
+    else:
+        return save_spikes, save_pos, save_rot
 
 
 def check_espike(espikes, min_amp):
@@ -994,6 +1001,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
             x_rot_offset = np.pi / 2.
             y_rot_offset = 0
             z_rot_offset = 0
+        else:
+            x_rot_offset = 0
+            y_rot_offset = 0
+            z_rot_offset = 0
         x_rot = x_rot_offset
         y_rot = y_rot_offset
         z_rot = z_rot_offset
@@ -1001,6 +1012,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
         if model_type == 'bbp':
             # orientate cells in z direction
             x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        else:
+            x_rot_offset = 0
             y_rot_offset = 0
             z_rot_offset = 0
         x_rot, _, _ = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
@@ -1013,6 +1028,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
             x_rot_offset = np.pi / 2.
             y_rot_offset = 0
             z_rot_offset = 0
+        else:
+            x_rot_offset = 0
+            y_rot_offset = 0
+            z_rot_offset = 0
         _, y_rot, _ = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
         x_rot = x_rot_offset
         y_rot = y_rot + y_rot_offset
@@ -1021,6 +1040,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
         if model_type == 'bbp':
             # orientate cells in z direction
             x_rot_offset = np.pi / 2.
+            y_rot_offset = 0
+            z_rot_offset = 0
+        else:
+            x_rot_offset = 0
             y_rot_offset = 0
             z_rot_offset = 0
         _, _, z_rot = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
@@ -1032,6 +1055,10 @@ def return_extracellular_spike(cell, cell_name, model_type,
             x_rot_offset = np.pi / 2.  # align neuron with z axis
             y_rot_offset = 0  # align neuron with z axis
             z_rot_offset = 0  # align neuron with z axis
+        else:
+            x_rot_offset = 0
+            y_rot_offset = 0
+            z_rot_offset = 0
         x_rot, y_rot, z_rot = get_xyz_angles(np.array(get_rnd_rot_Arvo()))
         x_rot = x_rot + x_rot_offset
         y_rot = y_rot + y_rot_offset
@@ -1042,6 +1069,8 @@ def return_extracellular_spike(cell, cell_name, model_type,
             x_rot_offset = np.pi / 2.  # align neuron with z axis
             y_rot_offset = 0  # align neuron with z axis
             z_rot_offset = 0  # align neuron with z axis
+        else:
+            raise NotImplementedError("'physrot' rotation is only available with BBP cells")
         while True:
             R = np.array(get_rnd_rot_Arvo())
             if polarlim is None or pref_orient is None:
@@ -1096,6 +1125,30 @@ def str2bool(v):
         ``True`` is returned, else ``False``
     """
     return v.lower() in ("yes", "true", "t", "1")
+
+
+def simulate_templates_one_cell(cell_model, intra_save_folder, params, verbose, custom_return_cell_function=None):
+    '''
+
+    Parameters
+    ----------
+    cell_model
+    intra_save_folder
+    params
+    verbose
+    custom_return_cell_function
+
+    Returns
+    -------
+
+    '''
+    run_cell_model(cell_model, save=True, sim_folder=intra_save_folder, verbose=verbose,
+                   custom_return_cell_function=custom_return_cell_function, **params)
+    print('Extracellular simulation: ', cell_model)
+    eaps, locs, rots = calc_extracellular(cell_model, intra_save_folder, verbose=verbose,
+                                          save=False, custom_return_cell_function=custom_return_cell_function, **params)
+
+    return eaps, locs, rots
 
 
 if __name__ == '__main__':
