@@ -12,6 +12,16 @@ class SpikeTrainGenerator:
     """
     Class for generation of spike trains called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml (spiketrains field).
+
+    Parameters
+    ----------
+    params :  dict
+        Dictionary with parameters to simulate spiketrains. Default values can be retrieved with
+        mr.get_default_recordings_params()['spiketrains']
+    spiketrains : list of neo.SpikeTrain
+        List of neo.SpikeTrain objects to instantiate a SpikeTrainGenerator with existing data
+    verbose : bool
+        If True, output is verbose
     """
 
     def __init__(self, params=None, spiketrains=None, verbose=False):

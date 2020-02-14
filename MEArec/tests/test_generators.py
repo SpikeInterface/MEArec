@@ -47,6 +47,7 @@ class TestGenerators(unittest.TestCase):
             templates_folder = info['templates_folder']
             print('Generating non-drifting templates')
             templates_params['min_amp'] = 10
+            print(templates_params)
             self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                             params=templates_params, parallel=True, delete_tmp=True, verbose=True)
             self.templates_params = templates_params
@@ -620,9 +621,9 @@ class TestGenerators(unittest.TestCase):
         cell_name = [c for c in cells if 'TTPC1' in c][0]
         cell_path = os.path.join(cell_folder, cell_name)
 
-        cell, v, i = mr.run_cell_model(cell_model=cell_path, sim_folder=None, verbose=True, save=False, return_vi=True,
-                                       **params)
-        c = mr.return_cell_morphology(cell_name, cell_folder)
+        cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
+                                       save=False, return_vi=True, **params)
+        c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
         assert len(v) >= target_spikes[0] and len(v) <= target_spikes[1]
         assert len(i) >= target_spikes[0] and len(i) <= target_spikes[1]
         assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)

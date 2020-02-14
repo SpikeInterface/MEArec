@@ -22,6 +22,32 @@ class RecordingGenerator:
     """
     Class for generation of recordings called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml.
+
+    Parameters
+    ----------
+    spgen : SpikeTrainGenerator
+        SpikeTrainGenerator object containing spike trains
+    tempgen : TemplateGenerator
+        TemplateGenerator object containing templates
+    params : dict
+        Dictionary with parameters to simulate recordings. Default values can be retrieved with
+        mr.get_default_recording_params()
+    rec_dict :  dict
+        Dictionary to instantiate RecordingGenerator with existing data. It contains the following fields:
+          - recordings : float (n_electrodes, n_samples)
+          - spiketrains : list of neo.SpikeTrains (n_spiketrains)
+          - templates : float (n_spiketrains, 3)
+          - template_locations : float (n_spiketrains, 3)
+          - template_rotations : float (n_spiketrains, 3)
+          - template_celltypes : str (n_spiketrains)
+          - channel_positions : float (n_electrodes, 3)
+          - timestamps : float (n_samples)
+          - voltage_peaks : float (n_spiketrains, n_electrodes)
+          - spike_traces : float (n_spiketrains, n_samples)
+    info :  dict
+        Info dictionary to instantiate RecordingGenerator with existing data. Same fields as 'params'
+    verbose : bool
+        If True, output is verbose
     """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
@@ -275,18 +301,18 @@ class RecordingGenerator:
                 n_bursting = rec_params['n_bursting']
 
             if shape_mod:
-                if 'bursting_sigmoid' not in rec_params.keys():
-                    params['recordings']['bursting_sigmoid'] = 30
-                bursting_sigmoid = params['recordings']['bursting_sigmoid']
+                if 'shape_stretch' not in rec_params.keys():
+                    params['recordings']['shape_stretch'] = 30
+                shape_stretch = params['recordings']['shape_stretch']
                 if self._verbose:
-                    print('Bursting with modulation sigmoid: ', bursting_sigmoid)
+                    print('Bursting with modulation sigmoid: ', shape_stretch)
             else:
-                bursting_sigmoid = None
+                shape_stretch = None
         else:
             exp_decay = None
             n_burst_spikes = None
             max_burst_duration = None
-            bursting_sigmoid = None
+            shape_stretch = None
             n_bursting = None
 
         if 'chunk_noise_duration' not in rec_params.keys():
@@ -686,7 +712,7 @@ class RecordingGenerator:
                                                                                 template_locs, velocity_vector,
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
-                                                                                bursting_sigmoid, chunk[0], True,
+                                                                                shape_stretch, chunk[0], True,
                                                                                 voltage_peaks, dtype, tempfiles[ch],))
                     p.start()
                     threads.append(p)
@@ -727,7 +753,7 @@ class RecordingGenerator:
                                   modulation=modulation, drifting=drifting, drifting_units=drifting_units,
                                   templates=templates, cut_outs_samples=cut_outs_samples, template_locs=template_locs,
                                   velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
-                                  bursting_units=bursting_units, shape_mod=shape_mod, bursting_sigmoid=bursting_sigmoid,
+                                  bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
                                   dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
                 if not tmp_h5:

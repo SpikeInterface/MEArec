@@ -30,6 +30,34 @@ class TemplateGenerator:
     """
     Class for generation of templates called by the gen_templates function.
     The list of parameters is in default_params/templates_params.yaml.
+
+    Parameters
+    ----------
+    cell_models_folder : str
+        Path to folder containing Blue Brain Project cell models
+    templates_folder : str
+        Path to output template folder (if not in params)
+    temp_dict :  dict
+        Dictionary to instantiate TemplateGenerator with existing data. It contains the following fields:
+          - templates : float (n_templates, n_electrodes, n_timepoints)
+          - locations : float (n_templates, 3)
+          - rotations : float (n_templates, 3)
+          - celltypes : str (n_templates)
+    info :  dict
+        Info dictionary to instantiate TemplateGenerator with existing data. It contains the following fields:
+          - params : dict with template generation parameters
+          - electrodes : dict with probe info (from MEAutility.return_mea_info('probe-name'))
+    params : dict
+        Dictionary with parameters to simulate templates. Default values can be retrieved with
+        mr.get_default_template_params()
+    intraonly : bool
+        If True, only intracellular simulations are performed
+    parallel : bool
+        If True, cell models are run in parallel
+    delete_tmp : bool
+        If True, temporary files are removed
+    verbose : bool
+        If True, output is verbose
     """
 
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
@@ -175,6 +203,7 @@ class TemplateGenerator:
                 p.join()
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
         else:
+            # TODO try without subprocess
             start_time = time.time()
             for numb, cell_model in enumerate(cell_models):
                 if self._verbose:

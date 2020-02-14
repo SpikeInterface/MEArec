@@ -60,7 +60,7 @@ recordings:
   n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
   max_burst_duration: 100 # duration in ms of maximum burst modulation
   shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
-  bursting_sigmoid: 30.  # min and max frequencies to be mapped to modulation value
+  shape_stretch: 30.  # parameter that controls the amount of shape modulation (higher values -> higher stretch)
   n_bursting: null  # number of bursting units
   chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
 
