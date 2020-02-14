@@ -22,6 +22,32 @@ class RecordingGenerator:
     """
     Class for generation of recordings called by the gen_recordings function.
     The list of parameters is in default_params/recordings_params.yaml.
+
+    Parameters
+    ----------
+    spgen : SpikeTrainGenerator
+        SpikeTrainGenerator object containing spike trains
+    tempgen : TemplateGenerator
+        TemplateGenerator object containing templates
+    params : dict
+        Dictionary with parameters to simulate recordings. Default values can be retrieved with
+        mr.get_default_recording_params()
+    rec_dict :  dict
+        Dictionary to instantiate RecordingGenerator with existing data. It contains the following fields:
+          - recordings : float (n_electrodes, n_samples)
+          - spiketrains : list of neo.SpikeTrains (n_spiketrains)
+          - templates : float (n_spiketrains, 3)
+          - template_locations : float (n_spiketrains, 3)
+          - template_rotations : float (n_spiketrains, 3)
+          - template_celltypes : str (n_spiketrains)
+          - channel_positions : float (n_electrodes, 3)
+          - timestamps : float (n_samples)
+          - voltage_peaks : float (n_spiketrains, n_electrodes)
+          - spike_traces : float (n_spiketrains, n_samples)
+    info :  dict
+        Info dictionary to instantiate RecordingGenerator with existing data. Same fields as 'params'
+    verbose : bool
+        If True, output is verbose
     """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
