@@ -416,6 +416,7 @@ class RecordingGenerator:
             angle_tol = rec_params['angle_tol']
             drift_velocity = rec_params['slow_drift_velocity']
             fast_drift_period = rec_params['fast_drift_period'] * pq.s
+            fast_drift_max_jump = rec_params['fast_drift_max_jump']
             drift_mode = rec_params['drift_mode']
             t_start_drift = rec_params['t_start_drift'] * pq.s
             if rec_params['n_drifting'] is None:
@@ -434,6 +435,8 @@ class RecordingGenerator:
             preferred_dir = None
             angle_tol = None
             drift_velocity = None
+            fast_drift_period = None
+            fast_drift_max_jump = None
             t_start_drift = None
             n_drifting = None
             drift_mode = None
@@ -714,6 +717,7 @@ class RecordingGenerator:
                                                                                 cut_outs_samples,
                                                                                 template_locs, velocity_vector,
                                                                                 fast_drift_period,
+                                                                                fast_drift_max_jump,
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
                                                                                 shape_stretch, chunk[0], True,
@@ -752,12 +756,12 @@ class RecordingGenerator:
                 output_dict = dict()
                 idxs = np.arange(spike_matrix.shape[1])
                 ch = 0
-                # reorder this
                 chunk_convolution(ch=ch, idxs=idxs, output_dict=output_dict, spike_matrix=spike_matrix,
                                   modulation=modulation, drifting=drifting, drift_mode=drift_mode,
                                   drifting_units=drifting_units, templates=templates, cut_outs_samples=cut_outs_samples,
                                   template_locs=template_locs,
                                   velocity_vector=velocity_vector, fast_drift_period=fast_drift_period,
+                                  fast_drift_max_jump=fast_drift_max_jump,
                                   t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
@@ -1023,7 +1027,8 @@ class RecordingGenerator:
                                                                                     None, templates_noise,
                                                                                     cut_outs_samples,
                                                                                     template_noise_locs, None,
-                                                                                    None, None, None, self._verbose,
+                                                                                    None, None, None, None,
+                                                                                    self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
                                                                                     voltage_peaks, dtype,
@@ -1051,10 +1056,17 @@ class RecordingGenerator:
                     idxs = np.arange(spike_matrix_noise.shape[1])
                     ch = 0
                     # reorder this
-                    chunk_convolution(ch, idxs, output_dict, spike_matrix_noise, 'none', False, None, None,
-                                      templates_noise, cut_outs_samples, template_noise_locs, None, None, None, None,
-                                      self._verbose, None, None, False, None, 0 * pq.s, False, voltage_peaks, dtype,
-                                      tmp_mearec_file=tmp_noise_rec)
+                    chunk_convolution(ch=ch, idxs=idxs, output_dict=output_dict, spike_matrix=spike_matrix_noise,
+                                      modulation='none', drifting=False, drift_mode=None,
+                                      drifting_units=None, templates=templates_noise,
+                                      cut_outs_samples=cut_outs_samples,
+                                      template_locs=template_noise_locs,
+                                      velocity_vector=None, fast_drift_period=None,
+                                      fast_drift_max_jump=None,
+                                      t_start_drift=None, fs=fs, amp_mod=None,
+                                      bursting_units=None, shape_mod=False, shape_stretch=None,
+                                      chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
+                                      dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
                     # additive_noise = np.array(tmp_noise_rec['recordings'])
                     additive_noise = tmp_noise_rec['recordings']
 
