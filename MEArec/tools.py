@@ -2093,19 +2093,22 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         Modulated template
     """
     import scipy.interpolate as interp
+
+    if isinstance(mod, (int, np.integer)):
+        mod = np.array(mod)
+
+    if mod.size > 1:
+        stretch_factor = np.mean(mod)
+        mod_value = np.mean(mod)
+    else:
+        stretch_factor = mod
+        mod_value = mod
+
     if len(template.shape) == 2:
         min_idx = np.unravel_index(np.argmin(template), template.shape)[1]
         x_centered = np.arange(-min_idx, template.shape[1] - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
         x_centered = x_centered * sigmoid_range
-
-        if isinstance(mod, (int, np.integer)):
-            mod = np.array(mod)
-
-        if mod.size > 1:
-            stretch_factor = np.mean(mod)
-        else:
-            stretch_factor = mod
 
         if stretch_factor >= 1:
             x_stretch = x_centered
@@ -2135,11 +2138,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         x_centered = x_centered / float(np.ptp(x_centered))
         x_centered = x_centered * sigmoid_range
 
-        if mod.size > 1:
-            stretch_factor = np.mean(mod)
-        else:
-            stretch_factor = mod
-        if mod >= 1:
+        if stretch_factor >= 1:
             x_stretch = x_centered
         else:
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
@@ -2153,7 +2152,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             temp_filt = f(x_recovered)
         except Exception as e:
             raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
-        temp_filt = (mod * np.min(template) / np.min(temp_filt)) * temp_filt
+        temp_filt = (mod_value * np.min(template) / np.min(temp_filt)) * temp_filt
     return temp_filt
 
 

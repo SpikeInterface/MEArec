@@ -990,7 +990,7 @@ class RecordingGenerator:
                                                            templates_noise.shape[2]))
 
                 chunks_rec = []
-                if duration > chunk_conv_duration and chunk_conv_duration != 0:
+                if duration > chunk_conv_duration != 0:
                     if self._verbose:
                         print('Splitting in chunks of', chunk_conv_duration, 's')
                     start = 0 * pq.s
@@ -1033,7 +1033,7 @@ class RecordingGenerator:
                                                                                     self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
-                                                                                    voltage_peaks, dtype,
+                                                                                    None, dtype,
                                                                                     tempfilesnoise[ch],))
                         p.start()
                         threads.append(p)
@@ -1067,8 +1067,8 @@ class RecordingGenerator:
                                       fast_drift_min_jump=None, fast_drift_max_jump=None,
                                       t_start_drift=None, fs=fs, amp_mod=None,
                                       bursting_units=None, shape_mod=False, shape_stretch=None,
-                                      chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
-                                      dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
+                                      chunk_start=0 * pq.s, extract_spike_traces=False, voltage_peaks=None,
+                                      dtype=dtype, tmp_mearec_file=tmp_noise_rec, verbose=self._verbose)
                     # additive_noise = np.array(tmp_noise_rec['recordings'])
                     additive_noise = tmp_noise_rec['recordings']
 
