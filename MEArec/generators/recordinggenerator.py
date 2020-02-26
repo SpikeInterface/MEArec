@@ -2,7 +2,7 @@ import numpy as np
 import scipy.signal as ss
 import time
 from copy import copy, deepcopy
-from MEArec.tools import *
+from MEArec.tools import * # <<<<<<< Note for Alessio, this is very bad!!!
 import MEAutility as mu
 import yaml
 import os
@@ -686,10 +686,11 @@ class RecordingGenerator:
 
             if self.tmp_mode == 'h5':
                 tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
+                assert not os.path.exists(tmp_rec_path), 'temporay file already exists'
                 self._h5file = h5py.File(tmp_rec_path)
-                
                 recordings = self._h5file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 spike_traces = self._h5file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+                
             elif self.tmp_mode == 'memmap':
                 self._h5file = None
                 assert NotImplementedError
@@ -869,10 +870,16 @@ class RecordingGenerator:
                             additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                                              np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                             additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-                        if tmp_rec is not None:
+                        
+                        if self.tmp_mode == 'h5':
                             recordings[..., idxs] = recordings[:, idxs] + additive_noise
+                        elif self.tmp_mode == 'memmap':
+                            assert NotImplementedError
                         else:
                             recordings[:, idxs] += additive_noise
+
+
+
                 else:
                     additive_noise = noise_level * np.random.randn(recordings.shape[0],
                                                                    recordings.shape[1]).astype(dtype)
@@ -1020,9 +1027,13 @@ class RecordingGenerator:
                     tmp_noise_rec = h5py.File(tmp_rec_noise_path)
                     additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 elif self.tmp_mode =='memmap':
-                    raise NotImplementedError
+                    tmp_rec_noise_path = self.tmp_folder / "mearec_tmp_noise_file.raw"
+                    tmp_noise_rec = np.memmap(tmp_rec_noise_path, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
+                    additive_noise = tmp_noise_rec.transpose()
                 else:
+                    tmp_noise_rec = None
                     additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
+                
                 if len(chunks_rec) > 0:
                     import multiprocessing
                     threads = []
@@ -1035,9 +1046,10 @@ class RecordingGenerator:
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
 
                         if self.tmp_mode == 'h5':
-                            tempfilesnoise[ch] = self.tmp_folder / ('recnoise_' + str(ch))
+                            tempfilesnoise[ch] = self.tmp_folder / ('recnoise_' + str(ch)+'.h5')
                         elif self.tmp_mode == 'memmap':
-                            assert NotImplementedError
+                            # here the entire file is given!!!
+                            tempfilesnoise[ch] = tmp_noise_rec
                         else:
                             tempfilesnoise[ch] = None
 
