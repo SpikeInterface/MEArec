@@ -711,8 +711,10 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                    if tmp_h5:
+                    if self.tmp_mode == 'h5':
                         tempfiles[ch] = self.tmp_folder / ('rec_' + str(ch))
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError                    
                     else:
                         tempfiles[ch] = None
                     p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
@@ -733,18 +735,22 @@ class RecordingGenerator:
                 for ch, chunk in enumerate(chunks_rec):
                     if self._verbose:
                         print('Extracting data from chunk', ch + 1, 'out of', len(chunks_rec))
-                    if not tmp_h5:
+                    
+                    if self.tmp_mode == 'h5':
+                        idxs = output_dict[ch]['idxs']
+                        with h5py.File(tempfiles[ch], 'r') as tmp_ch_file:
+                            recordings[:, idxs] = tmp_ch_file['recordings']
+                            spike_traces[:, idxs] = tmp_ch_file['spike_traces']
+                        os.remove(tempfiles[ch])                        
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
                         rec = output_dict[ch]['rec']
                         spike_trace = output_dict[ch]['spike_traces']
                         idxs = output_dict[ch]['idxs']
                         recordings[:, idxs] += rec
                         spike_traces[:, idxs] = spike_trace
-                    else:
-                        idxs = output_dict[ch]['idxs']
-                        with h5py.File(tempfiles[ch], 'r') as tmp_ch_file:
-                            recordings[:, idxs] = tmp_ch_file['recordings']
-                            spike_traces[:, idxs] = tmp_ch_file['spike_traces']
-                        os.remove(tempfiles[ch])
+
                     if ch == len(chunks_rec) - 1 and drifting:
                         for st in np.arange(n_neurons):
                             final_locs = output_dict[ch]['final_locs']
@@ -767,9 +773,16 @@ class RecordingGenerator:
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
                                   dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
-                if not tmp_h5:
+
+
+                if self.tmp_mode == 'h5':
+                    pass
+                elif self.tmp_mode == 'memmap':
+                    assert NotImplementedError
+                else:
                     recordings = output_dict[ch]['rec']
                     spike_traces = output_dict[ch]['spike_traces']
+
                 for st in np.arange(n_neurons):
                     if drifting and st in drifting_units:
                         final_locs = output_dict[ch]['final_locs']
@@ -1020,10 +1033,14 @@ class RecordingGenerator:
                         if self._verbose:
                             print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                        if tmp_h5:
+
+                        if self.tmp_mode == 'h5':
                             tempfilesnoise[ch] = self.tmp_folder / ('recnoise_' + str(ch))
+                        elif self.tmp_mode == 'memmap':
+                            assert NotImplementedError
                         else:
                             tempfilesnoise[ch] = None
+
                         p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
                                                                                     output_dict, spike_matrix_noise,
                                                                                     'none', False,
@@ -1043,15 +1060,19 @@ class RecordingGenerator:
                     for ch, chunk in enumerate(chunks_rec):
                         if self._verbose:
                             print('Extracting data from chunk', ch + 1, 'out of', len(chunks_rec))
-                        if not tmp_h5:
-                            rec = output_dict[ch]['rec']
-                            idxs = output_dict[ch]['idxs']
-                            additive_noise[:, idxs] += rec
-                        else:
+
+
+                        if self.tmp_mode == 'h5':
                             idxs = output_dict[ch]['idxs']
                             with h5py.File(tempfilesnoise[ch], 'r') as tmp_ch_file:
                                 additive_noise[:, idxs] = tmp_ch_file['recordings']
                             os.remove(tempfilesnoise[ch])
+                        elif self.tmp_mode == 'memmap':
+                            assert NotImplementedError
+                        else:
+                            rec = output_dict[ch]['rec']
+                            idxs = output_dict[ch]['idxs']
+                            additive_noise[:, idxs] += rec
                 else:
                     # convolve in single chunk
                     output_dict = dict()
@@ -1067,29 +1088,37 @@ class RecordingGenerator:
 
                 # removing mean
                 for i, m in enumerate(np.mean(additive_noise, axis=1)):
-                    if not tmp_h5:
-                        additive_noise[i] -= m
-                    else:
+
+                    if self.tmp_mode == 'h5':
                         additive_noise[i, ...] -= m
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
+                        additive_noise[i] -= m
 
                 # adding noise floor
                 for i, s in enumerate(np.std(additive_noise, axis=1)):
-                    if not tmp_h5:
-                        additive_noise[i] += far_neurons_noise_floor * s * \
-                                             np.random.randn(additive_noise.shape[1])
-                    else:
+                    if self.tmp_mode == 'h5':
                         additive_noise[i, ...] += far_neurons_noise_floor * s * \
                                                   np.random.randn(additive_noise.shape[1])
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
+                        additive_noise[i] += far_neurons_noise_floor * s * \
+                                             np.random.randn(additive_noise.shape[1])
+                
                 # scaling noise
                 noise_scale = noise_level / np.std(additive_noise, axis=1)
                 if self._verbose:
                     print('Scaling to reach desired level')
 
                 for i, n in enumerate(noise_scale):
-                    if not tmp_h5:
-                        additive_noise[i] *= n
-                    else:
+                    if self.tmp_mode == 'h5':
                         additive_noise[i, ...] *= n
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
+                        additive_noise[i] *= n
 
                 if tmp_rec is not None:
                     recordings[...] += additive_noise
@@ -1120,49 +1149,43 @@ class RecordingGenerator:
                     if self._verbose:
                         print('Filtering in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
-                    if not tmp_h5:
-                        if cutoff.size == 1:
-                            recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
-                                                                        filter_type='highpass', order=order)
-                        elif cutoff.size == 2:
-                            if fs / 2. < cutoff[1]:
-                                recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
-                                                                            filter_type='highpass', order=order)
-                            else:
-                                recordings[:, idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
-                    else:
-                        if cutoff.size == 1:
-                            recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
-                                                                             filter_type='highpass', order=order)
-                        elif cutoff.size == 2:
-                            if fs / 2. < cutoff[1]:
-                                recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff[0],
-                                                                                 fs=fs, filter_type='highpass',
-                                                                                 order=order)
-                            else:
-                                recordings[..., idxs] = filter_analog_signals(recordings[:, idxs], freq=cutoff,
-                                                                                 fs=fs)
-            else:
-                if not tmp_h5:
+                    
                     if cutoff.size == 1:
-                        recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
-                                                           order=order)
-                    elif cutoff.size == 2:
-                        if fs / 2. < cutoff[1]:
-                            recordings = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
-                                                               filter_type='highpass', order=order)
-                        else:
-                            recordings = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
-                else:
-                    if cutoff.size == 1:
-                        recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
-                                                                order=order)
-                    elif cutoff.size == 2:
-                        if fs / 2. < cutoff[1]:
-                            recordings[...] = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
+                        filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
                                                                     filter_type='highpass', order=order)
+                    elif cutoff.size == 2:
+                        if fs / 2. < cutoff[1]:
+                            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
+                                                                        filter_type='highpass', order=order)
                         else:
-                            recordings[...] = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
+                            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
+                    
+                    if self.tmp_mode == 'h5':
+                        recordings[..., idxs] = filtered_chunk
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
+                        recordings[:, idxs] = filtered_chunk
+            
+            else:
+                # Note for Alessio : this should not exists, having one chunk is a a special case of the previous loop.
+                if cutoff.size == 1:
+                    filtered_rec = filter_analog_signals(recordings, freq=cutoff, fs=fs, filter_type='highpass',
+                                                       order=order)
+                elif cutoff.size == 2:
+                    if fs / 2. < cutoff[1]:
+                        filtered_rec = filter_analog_signals(recordings, freq=cutoff[0], fs=fs,
+                                                           filter_type='highpass', order=order)
+                    else:
+                        filtered_rec = filter_analog_signals(recordings, freq=cutoff, fs=fs, order=order)
+                
+                if self.tmp_mode == 'h5':
+                    recordings[...] = filtered_rec
+                elif self.tmp_mode == 'memmap':
+                    assert NotImplementedError
+                else:
+                    recordings[:] = filtered_rec
+            
 
         if not only_noise:
             if extract_waveforms:
