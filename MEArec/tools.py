@@ -2273,10 +2273,10 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     """
     if verbose:
         print('Starting convolution with spike:', spike_id, 'shape modulation:', bursting)
-    if len(template.shape) == 3:
-        njitt = template.shape[0]
-        n_elec = template.shape[1]
-        len_spike = template.shape[2]
+    assert len(template.shape) == 3, "For non-drifting len(template.shape) should be 4"
+    n_jitt = template.shape[0]
+    n_elec = template.shape[1]
+    len_spike = template.shape[2]
     n_samples = len(spike_bin)
 
     if recordings is None:
@@ -2287,14 +2287,48 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
 
-    if modulation is False:
+    spike_pos = np.where(spike_bin == 1)[0]
+
+    if not modulation:
         # No modulation
-        spike_pos = np.where(spike_bin == 1)[0]
         mod_array = np.ones_like(spike_pos)
-        if len(template.shape) == 3:
-            rand_idx = np.random.randint(njitt)
-            temp_jitt = template[rand_idx]
-            for pos, spos in enumerate(spike_pos):
+    else:
+        assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
+
+    for pos, spos in enumerate(spike_pos):
+        rand_idx = np.random.randint(n_jitt)
+        temp_jitt = template[rand_idx]
+
+        if bursting:
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # template
+                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                else:
+                    diff = n_samples - (spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+            else:
+                # electrode
+                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                else:
+                    diff = n_samples - (spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+        else:
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                     recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
                 elif spos - cut_out[0] < 0:
@@ -2303,69 +2337,20 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
-        else:
-            raise Exception('For drifting len(template.shape) should be 3')
-    else:
-        assert mod_array is not None
-        spike_pos = np.where(spike_bin == 1)[0]
-        if len(template.shape) == 3:
-            rand_idx = np.random.randint(njitt)
-            temp_jitt = template[rand_idx]
-            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
-                # Template modulation
-                if bursting:
-                    for pos, spos in enumerate(spike_pos):
-                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
-                else:
-                    for pos, spos in enumerate(spike_pos):
-                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
-                # Electrode modulation
-                if bursting:
-                    for pos, spos in enumerate(spike_pos):
-                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+                # electrode
+                if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    recordings[:, :spos + cut_out[1]] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
                 else:
-                    for pos, spos in enumerate(spike_pos):
-                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            recordings[:, :spos + cut_out[1]] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            recordings[:, spos - cut_out[0]:] += \
-                                [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
-        else:
-            raise Exception('For drifting len(template.shape) should be 3')
+                    diff = n_samples - (spos - cut_out[0])
+                    recordings[:, spos - cut_out[0]:] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
+
     if verbose:
         print('Done convolution with spike ', spike_id)
 
@@ -2477,9 +2462,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     else:
         assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
-    rand_idx = np.random.randint(n_jitt)
-
     for pos, spos in enumerate(spike_pos):
+        rand_idx = np.random.randint(n_jitt)
         sp_time = chunk_start + spos / fs
         if sp_time < t_start_drift:
             temp_idx = 0
@@ -2688,8 +2672,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                 spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
                                                             template[:, max_electrode],
                                                             cut_out=cut_outs_samples,
-                                                            modulation=mod_array,
-                                                            mod_array=amp_mod[st],
+                                                            modulation=mod_bool,
+                                                            mod_array=mod_array,
                                                             bursting=unit_burst,
                                                             sigmoid_range=shape_stretch)
             template_idx = None
