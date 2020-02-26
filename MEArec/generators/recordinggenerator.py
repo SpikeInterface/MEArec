@@ -1292,3 +1292,43 @@ class RecordingGenerator:
         else:
             raise Exception("templates are already computed. Use the 'recompute' argument to compute them from "
                             "extracted waveforms")
+
+
+
+
+
+def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_folder):
+    """
+    Alessio have a look to that function.
+    
+    """
+    
+    arg_tasks = []
+    for ch, chunk in enumerate(chunks_rec):
+        idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+        if tmp_mode == 'h5':
+            tempfiles[ch] = tmp_folder / ('rec_' + str(ch) + '.h5')
+        elif tmp_mode == 'memmap':
+            tempfiles[ch] = tmp_folder / ('rec_' + str(ch) + '.raw')
+        else:
+            tempfiles[ch] = None    
+
+        arg_task =(ch, idxs,) + args + (tempfiles[ch], )
+        arg_tasks.append(arg_task)
+        
+    if pool is None:
+        # simple loop
+        output_dict = []
+        for arg_task in arg_tasks:
+            out = func(*arg_tasks)
+            output_dict.append(out)
+    else:
+        # multiprocessing
+        output_dict = pool.map(func, arg_tasks)
+    
+    return output_dict
+
+
+
+
+
