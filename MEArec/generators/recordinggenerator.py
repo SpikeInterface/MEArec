@@ -894,10 +894,13 @@ class RecordingGenerator:
                         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) \
                                          * np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
                     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-                    if tmp_rec is not None:
+                    if self.tmp_mode == 'h5':
                         recordings[...] += additive_noise
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
                     else:
                         recordings += additive_noise
+                    
             elif noise_mode == 'distance-correlated':
                 cov_dist = np.zeros((n_elec, n_elec))
                 for i, el in enumerate(mea.positions):
@@ -925,8 +928,10 @@ class RecordingGenerator:
                                              np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                                            size=(len(idxs))).T
                         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-                        if tmp_rec is not None:
+                        if self.tmp_mode == 'h5':
                             recordings[..., idxs] = recordings[:, idxs] + additive_noise
+                        elif self.tmp_mode == 'memmap':
+                            assert NotImplementedError
                         else:
                             recordings[:, idxs] += additive_noise
                 else:
@@ -945,8 +950,11 @@ class RecordingGenerator:
                                                                        size=recordings.shape[1]).T
                     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
-                    if tmp_rec is not None:
+                    
+                    if self.tmp_mode == 'h5':
                         recordings[...] = recordings + additive_noise
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
                     else:
                         recordings += additive_noise
 
@@ -1132,8 +1140,10 @@ class RecordingGenerator:
                     else:
                         additive_noise[i] *= n
 
-                if tmp_rec is not None:
+                if self.tmp_mode == 'h5':
                     recordings[...] += additive_noise
+                elif self.tmp_mode == 'memmap':
+                    assert NotImplementedError
                 else:
                     recordings += additive_noise
         else:
