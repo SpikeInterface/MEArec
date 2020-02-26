@@ -359,7 +359,6 @@ class TestGenerators(unittest.TestCase):
         ne = 1
         ni = 1
         num_chan = self.num_chan
-        n_steps = self.num_steps_drift
         n_neurons = ne + ni
 
         rec_params = mr.get_default_recordings_params()
@@ -375,35 +374,41 @@ class TestGenerators(unittest.TestCase):
 
         modulations = ['none', 'template', 'electrode']
         bursting = [False, True]
+        drift_modes = ['slow', 'fast', 'slow+fast']
 
         for i, mod in enumerate(modulations):
-            for b in bursting:
-                for j in n_jitter:
-                    for ch in chunk_rec:
-                        print('Drifting: modulation', mod, 'bursting', b, 'jitter', j, 'chunk', ch)
-                        rec_params['templates']['n_jitters'] = j
-                        rec_params['recordings']['modulation'] = mod
-                        rec_params['recordings']['bursting'] = b
-                        rec_params['recordings']['chunk_conv_duration'] = ch
-                        if i == len(modulations) - 1:
-                            rec_params['recordings']['fs'] = 30000
-                            rec_params['recordings']['n_drifting'] = 1
-                        if mod == 'electrode' and b is True and j == 5:
-                            rec_params['cell_types'] = None
-                            rec_params['recordings']['shape_mod'] = True
-                        recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift, verbose=False)
-                        assert recgen_drift.recordings.shape[0] == num_chan
-                        assert len(recgen_drift.spiketrains) == n_neurons
-                        assert recgen_drift.channel_positions.shape == (num_chan, 3)
-                        if j == 1:
-                            assert recgen_drift.templates.shape[0] == n_neurons
-                            assert recgen_drift.templates.shape[2] == num_chan
-                        else:
-                            assert recgen_drift.templates.shape[0] == n_neurons
-                            assert recgen_drift.templates.shape[2] == j
-                            assert recgen_drift.templates.shape[3] == num_chan
-                        assert len(recgen_drift.spike_traces) == n_neurons
-                        del recgen_drift
+            for dm in drift_modes:
+                for b in bursting:
+                    for j in n_jitter:
+                        for ch in chunk_rec:
+                            print('Drifting: modulation', mod, 'bursting', b, 'jitter', j, 'drift mode', dm,
+                                  'chunk', ch)
+                            rec_params['templates']['n_jitters'] = j
+                            rec_params['recordings']['modulation'] = mod
+                            rec_params['recordings']['bursting'] = b
+                            rec_params['recordings']['chunk_conv_duration'] = ch
+                            rec_params['recordings']['drift_mode'] = dm
+
+                            if i == len(modulations) - 1:
+                                rec_params['recordings']['fs'] = 30000
+                                rec_params['recordings']['n_drifting'] = 1
+                            if mod == 'electrode' and b is True and j == 5:
+                                rec_params['cell_types'] = None
+                                rec_params['recordings']['shape_mod'] = True
+                            recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift,
+                                                             verbose=False)
+                            assert recgen_drift.recordings.shape[0] == num_chan
+                            assert len(recgen_drift.spiketrains) == n_neurons
+                            assert recgen_drift.channel_positions.shape == (num_chan, 3)
+                            if j == 1:
+                                assert recgen_drift.templates.shape[0] == n_neurons
+                                assert recgen_drift.templates.shape[2] == num_chan
+                            else:
+                                assert recgen_drift.templates.shape[0] == n_neurons
+                                assert recgen_drift.templates.shape[2] == j
+                                assert recgen_drift.templates.shape[3] == num_chan
+                            assert len(recgen_drift.spike_traces) == n_neurons
+                            del recgen_drift
 
     def test_default_params(self):
         print('Test default params')
@@ -481,11 +486,11 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_waveforms(self.recgen, electrode='max')
 
     def test_extract_features(self):
-        feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['na', 'rep', 'amp', 'width', 'fwhm',
+        feat_t0 = mr.get_templates_features(self.tempgen.templates, feat_list=['neg', 'pos', 'amp', 'width', 'fwhm',
                                                                                'ratio', 'speed'],
                                             dt=self.tempgen.info['params']['dt'])
-        assert feat_t0['na'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
-        assert feat_t0['rep'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['neg'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
+        assert feat_t0['pos'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['amp'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['width'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
         assert feat_t0['fwhm'].shape == (self.tempgen.templates.shape[0], self.tempgen.templates.shape[1])
