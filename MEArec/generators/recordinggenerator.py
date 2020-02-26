@@ -100,11 +100,15 @@ class RecordingGenerator:
                 self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
             self.tempgen = None
             if isinstance(self.recordings, h5py.Dataset):
+                self.tmp_mode = 'h5'
                 self._h5file = self.recordings.file
-                self._is_h5 = True
-            else:
+            elif isinstance(self.recordings, np.memmap):
+                self.tmp_mode = 'memmap'
                 self._h5file = None
-                self._is_h5 = False
+            else:
+                self.tmp_mode = None
+                self._h5file = None
+                
         else:
             if spgen is None or tempgen is None:
                 raise AttributeError("Specify SpikeTrainGenerator and TemplateGenerator objects!")
@@ -119,24 +123,31 @@ class RecordingGenerator:
             self.spgen = spgen
             self.tempgen = tempgen
             self._h5file = None
-            self._is_h5 = None
+            self.tmp_mode = None
 
     def __del__(self):
-        if self._is_h5 and self._h5file is not None:
+        if self.tmp_mode == 'h5' and self._h5file is not None:
             self._h5file.close()
 
-    def generate_recordings(self, tmp_h5=True, verbose=None):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None):
         """
         Generates recordings
         Parameters
         ----------
-        tmp_h5 : bool
-            If True, temporary h5 files are used to store the data
+        tmp_mode : None, 'h5' 'memmap'
+            Use temporary file h5 memmap or None
+            None is no temporary file.
+        tmp_folder: str or Path
+            In case of tmp files, you can specify the folder.
+            If None, then it is automatic using tempfile.mkdtemp()
         """
-        if tmp_h5:
-            self._is_h5 = True
-        else:
-            self._is_h5 = False
+        self.tmp_mode = tmp_mode
+        self.tmp_folder = tmp_folder
+        if self.tmp_mode is not None:
+            if self.tmp_folder is None:
+                self.tmp_folder = Path(tempfile.mkdtemp())
+            else:
+                self.tmp_folder = Path(self.tmp_folder)
 
         if verbose is not None and isinstance(verbose, bool):
             self._verbose = verbose
@@ -673,22 +684,22 @@ class RecordingGenerator:
                     if start >= duration:
                         finished = True
 
-            if tmp_h5:
-                temp_dir = Path(tempfile.mkdtemp())
-                tmp_rec_path = temp_dir / "mearec_tmp_file.h5"
-                tmp_rec = h5py.File(tmp_rec_path)
-                recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-                spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+            if self.tmp_mode == 'h5':
+                tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
+                self._h5file = h5py.File(tmp_rec_path)
+                
+                recordings = self._h5file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = self._h5file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+            elif self.tmp_mode == 'memmap':
+                self._h5file = None
+                assert NotImplementedError
             else:
-                tmp_rec = None
-                tmp_rec_path = None
-                temp_dir = None
-                recordings = np.zeros((n_elec, n_samples))
-                spike_traces = np.zeros((n_neurons, n_samples))
+                self._h5file = None
+                
+                recordings = np.zeros((n_elec, n_samples), dtype=dtype)
+                spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
+            
             timestamps = np.arange(recordings.shape[1]) / fs
-            self._h5file = tmp_rec
-            self._tmp_rec_path = tmp_rec_path
-            self._temp_dir = temp_dir
 
             if len(chunks_rec) > 0:
                 import multiprocessing
@@ -701,7 +712,7 @@ class RecordingGenerator:
                         print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                     idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                     if tmp_h5:
-                        tempfiles[ch] = self._temp_dir / ('rec_' + str(ch))
+                        tempfiles[ch] = self.tmp_folder / ('rec_' + str(ch))
                     else:
                         tempfiles[ch] = None
                     p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,
@@ -783,22 +794,24 @@ class RecordingGenerator:
                         templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
                 templates = templates_drift
         else:
-            if tmp_h5:
-                temp_dir = Path(tempfile.mkdtemp())
-                tmp_rec_path = temp_dir / "mearec_tmp_file.h5"
-                tmp_rec = h5py.File(tmp_rec_path)
-                recordings = tmp_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-                spike_traces = tmp_rec.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+
+            if self.tmp_mode == 'h5':
+                tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
+                self._h5file = h5py.File(tmp_rec_path)
+                
+                recordings = self._h5file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = self._h5file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+            elif self.tmp_mode == 'memmap':
+                self._h5file = None
+                assert NotImplementedError
             else:
-                tmp_rec = None
-                tmp_rec_path = None
-                temp_dir = None
-                recordings = np.zeros((n_elec, n_samples))
-                spike_traces = np.zeros((n_neurons, n_samples))
+                self._h5file = None
+                
+                recordings = np.zeros((n_elec, n_samples), dtype=dtype)
+                spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
+
             timestamps = np.arange(recordings.shape[1]) / fs
-            self._h5file = tmp_rec
-            self._tmp_rec_path = tmp_rec_path
-            self._temp_dir = temp_dir
+
             spiketrains = np.array([])
             voltage_peaks = np.array([])
             spike_traces = np.array([])
@@ -989,12 +1002,12 @@ class RecordingGenerator:
                         if start >= duration:
                             finished = True
 
-                if tmp_h5:
-                    if self._temp_dir is None:
-                        self._temp_dir = Path(tempfile.mkdtemp())
-                    tmp_rec_noise_path = self._temp_dir / "mearec_tmp_noise_file.h5"
+                if self.tmp_mode =='h5':
+                    tmp_rec_noise_path = self.tmp_folder / "mearec_tmp_noise_file.h5"
                     tmp_noise_rec = h5py.File(tmp_rec_noise_path)
                     additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                elif self.tmp_mode =='memmap':
+                    raise NotImplementedError
                 else:
                     additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
                 if len(chunks_rec) > 0:
@@ -1008,7 +1021,7 @@ class RecordingGenerator:
                             print('Convolving in: ', chunk[0], chunk[1], ' chunk')
                         idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
                         if tmp_h5:
-                            tempfilesnoise[ch] = self._temp_dir / ('recnoise_' + str(ch))
+                            tempfilesnoise[ch] = self.tmp_folder / ('recnoise_' + str(ch))
                         else:
                             tempfilesnoise[ch] = None
                         p = multiprocessing.Process(target=chunk_convolution, args=(ch, idxs,

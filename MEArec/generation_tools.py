@@ -10,7 +10,8 @@ else:
     use_loader = False
 
 
-def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True, tmp_h5=True):
+def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True, 
+            tmp_mode=None, tmp_folder=None):
     """
     Generates recordings.
 
@@ -26,8 +27,12 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Spike train generator object. If None spike trains are created from params['spiketrains']
     verbose : bool
         If True output is verbose
-    tmp_h5 : bool
-        If True recordings are dumped onto h5 files as they are generated
+    tmp_mode : None, 'h5' 'memmap'
+        Use temporary file h5 memmap or None
+        None is no temporary file.
+    tmp_folder: str or Path
+        In case of tmp files, you can specify the folder.
+        If None, then it is automatic using tempfile.mkdtemp()
 
     Returns
     -------
@@ -95,7 +100,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
-    recgen.generate_recordings(tmp_h5=tmp_h5)
+    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder)
 
     print('Elapsed time: ', time.time() - t_start)
 
