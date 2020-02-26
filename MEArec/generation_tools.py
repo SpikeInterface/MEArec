@@ -10,8 +10,8 @@ else:
     use_loader = False
 
 
-def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True, 
-            tmp_mode=None, tmp_folder=None):
+def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
+                   tmp_mode='h5', tmp_folder=None):
     """
     Generates recordings.
 
@@ -96,7 +96,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         spgen.generate_spikes()
     else:
         assert isinstance(spgen, SpikeTrainGenerator), "'spgen' should be a SpikeTrainGenerator object"
-    
+
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)

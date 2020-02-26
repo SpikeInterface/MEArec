@@ -2709,7 +2709,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
 
 
 ### RECORDING OPERATION ###
-def extract_waveforms(spiketrains, recordings, fs, cut_out=2, timestamps=None):
+def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
     """
     Extract waveforms from recordings and load it in waveform field of neo spike trains.
 

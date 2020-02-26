@@ -4,7 +4,7 @@ import time
 from copy import copy, deepcopy
 from MEArec.tools import select_templates, find_overlapping_templates, chunk_convolution, filter_analog_signals, \
     get_binary_cat, resample_templates, jitter_templates, pad_templates, get_templates_features, resample_spiketrains, \
-    compute_modulation, annotate_overlapping_spikes, extract_waveforms
+    compute_modulation, annotate_overlapping_spikes, extract_wf
 import MEAutility as mu
 import yaml
 import os
@@ -1119,7 +1119,12 @@ class RecordingGenerator:
                                       chunk_start=0 * pq.s, extract_spike_traces=False, voltage_peaks=None,
                                       dtype=dtype, tmp_mearec_file=tmp_noise_rec, verbose=self._verbose)
                     # additive_noise = np.array(tmp_noise_rec['recordings'])
-                    additive_noise = tmp_noise_rec['recordings']
+                    if self.tmp_mode == 'h5':
+                        pass
+                    elif self.tmp_mode == 'memmap':
+                        assert NotImplementedError
+                    else:
+                        additive_noise = output_dict[ch]['rec']
 
                 # removing mean
                 for i, m in enumerate(np.mean(additive_noise, axis=1)):
@@ -1227,7 +1232,7 @@ class RecordingGenerator:
             if extract_waveforms:
                 if self._verbose:
                     print('Extracting spike waveforms')
-                extract_waveforms(spiketrains, recordings, fs=fs, timestamps=timestamps)
+                extract_wf(spiketrains, recordings, fs=fs, timestamps=timestamps)
 
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
