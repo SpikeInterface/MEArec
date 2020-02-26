@@ -571,7 +571,6 @@ class RecordingGenerator:
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
             else:
-                #TODO add templates_bin
                 templates = self.templates
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
@@ -580,6 +579,15 @@ class RecordingGenerator:
                 template_locs = self.template_locations
                 template_rots = self.template_rotations
                 template_celltypes = self.template_celltypes
+                if celltype_params is not None:
+                    if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
+                        exc_categories = celltype_params['excitatory']
+                        inh_categories = celltype_params['inhibitory']
+                        templates_bin = get_binary_cat(template_celltypes, exc_categories, inh_categories)
+                    else:
+                        templates_bin = np.array(['U'] * len(celltypes))
+                else:
+                    templates_bin = np.array(['U'] * len(celltypes))
                 voltage_peaks = self.voltage_peaks
                 overlapping = np.array([])
                 if not drifting:
@@ -616,9 +624,8 @@ class RecordingGenerator:
 
             if self._verbose:
                 print('Adding spiketrain annotations')
-            if tempgen is not None:
-                for i, st in enumerate(spiketrains):
-                    st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
+            for i, st in enumerate(spiketrains):
+                st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
 
             if overlap:
                 annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=self._verbose)
@@ -780,21 +787,6 @@ class RecordingGenerator:
                         template_idxs = output_dict[ch]['template_idxs']
                         spiketrains[st].annotate(drifting=True)
                         spiketrains[st].annotate(template_idxs=template_idxs[st])
-            # if drifting:
-            #     templates_drift = np.zeros((templates.shape[0], np.max(final_idxs) + 1,
-            #                                 templates.shape[2], templates.shape[3],
-            #                                 templates.shape[4]))
-            #     for i, st in enumerate(spiketrains):
-            #         if i in drifting_units:
-            #             if final_idxs[i] == np.max(final_idxs):
-            #                 templates_drift[i] = templates[i, :(final_idxs[i] + 1)]
-            #             else:
-            #                 templates_drift[i] = np.vstack((templates[i, :(final_idxs[i] + 1)],
-            #                                                 np.array([templates[i, final_idxs[i]]]
-            #                                                          * (np.max(final_idxs) - final_idxs[i]))))
-            #         else:
-            #             templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
-            #     templates = templates_drift
         else:
             if tmp_h5:
                 temp_dir = Path(tempfile.mkdtemp())
@@ -806,8 +798,8 @@ class RecordingGenerator:
                 tmp_rec = None
                 tmp_rec_path = None
                 temp_dir = None
-                recordings = np.zeros((n_elec, n_samples), dtype=dtype)
-                spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
+                recordings = np.zeros((n_elec, n_samples))
+                spike_traces = np.zeros((n_neurons, n_samples))
             timestamps = np.arange(recordings.shape[1]) / fs
             self._h5file = tmp_rec
             self._tmp_rec_path = tmp_rec_path
@@ -824,7 +816,7 @@ class RecordingGenerator:
             print('Adding noise')
         # divide in chunks
         chunks_noise = []
-        if duration > chunk_noise_duration and chunk_noise_duration != 0:
+        if duration > chunk_noise_duration != 0:
             start = 0 * pq.s
             finished = False
             while not finished:
@@ -1114,7 +1106,7 @@ class RecordingGenerator:
                 elif cutoff.size == 2:
                     print('Band-pass cutoff', cutoff)
             chunks_filter = []
-            if duration > chunk_filter_duration and chunk_filter_duration != 0:
+            if duration > chunk_filter_duration != 0:
                 start = 0 * pq.s
                 finished = False
                 while not finished:
