@@ -539,8 +539,8 @@ class TestGenerators(unittest.TestCase):
         n_jitter = 2
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
-        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_h5=True, verbose=False)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_h5=False, verbose=False)
+        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False)
+        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False)
 
         assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
 
