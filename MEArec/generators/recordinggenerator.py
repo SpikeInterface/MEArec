@@ -101,13 +101,10 @@ class RecordingGenerator:
             self.tempgen = None
             if isinstance(self.recordings, h5py.Dataset):
                 self.tmp_mode = 'h5'
-                self._h5file = self.recordings.file
             elif isinstance(self.recordings, np.memmap):
                 self.tmp_mode = 'memmap'
-                self._h5file = None
             else:
                 self.tmp_mode = None
-                self._h5file = None
                 
         else:
             if spgen is None or tempgen is None:
@@ -122,12 +119,11 @@ class RecordingGenerator:
             self.params = deepcopy(params)
             self.spgen = spgen
             self.tempgen = tempgen
-            self._h5file = None
             self.tmp_mode = None
 
-    def __del__(self):
-        if self.tmp_mode == 'h5' and self._h5file is not None:
-            self._h5file.close()
+    #~ def __del__(self):
+        #~ if self.tmp_mode == 'h5' and self._h5file is not None:
+            #~ self._h5file.close()
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, pool=None):
         """
@@ -691,15 +687,15 @@ class RecordingGenerator:
             if self.tmp_mode == 'h5':
                 tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
                 assert not os.path.exists(tmp_rec_path), 'temporay file already exists'
-                self._h5file = h5py.File(tmp_rec_path)
-                recordings = self._h5file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-                spike_traces = self._h5file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+                tmp_file = h5py.File(tmp_rec_path)
+                recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = tmp_file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
                 
             elif self.tmp_mode == 'memmap':
-                self._h5file = None
+                tmp_file = None
                 assert NotImplementedError
             else:
-                self._h5file = None
+                tmp_file = None
                 
                 recordings = np.zeros((n_elec, n_samples), dtype=dtype)
                 spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
@@ -777,7 +773,7 @@ class RecordingGenerator:
                                   velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
-                                  dtype=dtype, tmp_mearec_file=self._h5file, verbose=self._verbose)
+                                  dtype=dtype, tmp_mearec_file=tmp_file, verbose=self._verbose)
 
 
                 if self.tmp_mode == 'h5':
@@ -815,15 +811,15 @@ class RecordingGenerator:
 
             if self.tmp_mode == 'h5':
                 tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
-                self._h5file = h5py.File(tmp_rec_path)
+                tmp_file = h5py.File(tmp_rec_path)
                 
-                recordings = self._h5file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-                spike_traces = self._h5file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+                recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                spike_traces = tmp_file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
             elif self.tmp_mode == 'memmap':
-                self._h5file = None
+                tmp_file = None
                 assert NotImplementedError
             else:
-                self._h5file = None
+                tmp_file = None
                 
                 recordings = np.zeros((n_elec, n_samples), dtype=dtype)
                 spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
