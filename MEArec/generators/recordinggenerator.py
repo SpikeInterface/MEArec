@@ -129,20 +129,24 @@ class RecordingGenerator:
         if self.tmp_mode == 'h5' and self._h5file is not None:
             self._h5file.close()
 
-    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, pool=None):
         """
         Generates recordings
         Parameters
         ----------
         tmp_mode : None, 'h5' 'memmap'
             Use temporary file h5 memmap or None
-            None is no temporary file.
+            None is no temporary file and then use memory.
         tmp_folder: str or Path
             In case of tmp files, you can specify the folder.
             If None, then it is automatic using tempfile.mkdtemp()
+        pool: None or multiprocessing.Pool object to execute chunk in parralel
+            If None then run in loop.
         """
         self.tmp_mode = tmp_mode
         self.tmp_folder = tmp_folder
+        self.pool = pool
+        
         if self.tmp_mode is not None:
             if self.tmp_folder is None:
                 self.tmp_folder = Path(tempfile.mkdtemp())
@@ -773,7 +777,7 @@ class RecordingGenerator:
                                   velocity_vector=velocity_vector, t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
-                                  dtype=dtype, tmp_mearec_file=tmp_rec, verbose=self._verbose)
+                                  dtype=dtype, tmp_mearec_file=self._h5file, verbose=self._verbose)
 
 
                 if self.tmp_mode == 'h5':
@@ -1297,7 +1301,7 @@ class RecordingGenerator:
 
 
 
-def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_folder):
+def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_folder, assignement_dict):
     """
     Alessio have a look to that function.
     
@@ -1322,9 +1326,35 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
         for arg_task in arg_tasks:
             out = func(*arg_tasks)
             output_dict.append(out)
+            
+            if tmp_mode == 'h5' or tmp_mode is None:
+                # note for memmap it will be done inside the "func"
+                idxs = arg_task[1]
+                for key, full_arr in assignement_dict.items():
+                    if tmp_mode == 'h5':
+                        pass
+                        # TODO ALESSIO : read the H5 file chunked
+                        # out_chunk = blablabla
+                    else:
+                        out_chunk = out[key]
+                    full_arr[:, idxs] = out_chunk
     else:
         # multiprocessing
         output_dict = pool.map(func, arg_tasks)
+        
+        if tmp_mode == 'h5' or tmp_mode is None:
+            for arg_task, out in zip(arg_tasks, output_dict):
+                idxs = arg_task[1]
+                for key, full_arr in assignement_dict.items():
+                    if tmp_mode == 'h5':
+                        pass
+                        # TODO ALESSIO : read the H5 file chunked
+                        # out_chunk = blablabla
+                    else:
+                        out_chunk = out[key]
+                    full_arr[:, idxs] = out_chunk
+        
+        
     
     return output_dict
 
