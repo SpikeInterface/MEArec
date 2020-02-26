@@ -417,6 +417,7 @@ class RecordingGenerator:
             drift_velocity = rec_params['slow_drift_velocity']
             fast_drift_period = rec_params['fast_drift_period'] * pq.s
             fast_drift_max_jump = rec_params['fast_drift_max_jump']
+            fast_drift_min_jump = rec_params['fast_drift_min_jump']
             drift_mode = rec_params['drift_mode']
             t_start_drift = rec_params['t_start_drift'] * pq.s
             if rec_params['n_drifting'] is None:
@@ -437,6 +438,7 @@ class RecordingGenerator:
             drift_velocity = None
             fast_drift_period = None
             fast_drift_max_jump = None
+            fast_drift_min_jump = None
             t_start_drift = None
             n_drifting = None
             drift_mode = None
@@ -481,7 +483,12 @@ class RecordingGenerator:
                     drift_velocity_ums = drift_velocity / 60.
                     velocity_vector = drift_velocity_ums * preferred_dir
                     if self._verbose:
-                        print('Drift velocity vector: ', velocity_vector)
+                        print('Drift mode: ', drift_mode)
+                        if 'slow' in drift_mode:
+                            print('Slow drift velocity', drift_velocity, 'um/min')
+                        if 'fast' in drift_mode:
+                            print('Fast drift period', fast_drift_period)
+                            print('Fast drift max jump', fast_drift_max_jump) # 'Fast drift min jump', fast_drift_min_jump)
                     n_elec = eaps.shape[2]
                 else:
                     drift_directions = None
@@ -564,6 +571,7 @@ class RecordingGenerator:
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
             else:
+                #TODO add templates_bin
                 templates = self.templates
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
@@ -668,7 +676,7 @@ class RecordingGenerator:
             spike_matrix = resample_spiketrains(spiketrains, fs=fs)
             # divide in chunks
             chunks_rec = []
-            if duration > chunk_conv_duration and chunk_conv_duration != 0:
+            if duration > chunk_conv_duration != 0:
                 if self._verbose:
                     print('Splitting in chunks of', chunk_conv_duration, 's')
                 start = 0 * pq.s
@@ -717,6 +725,7 @@ class RecordingGenerator:
                                                                                 cut_outs_samples,
                                                                                 template_locs, velocity_vector,
                                                                                 fast_drift_period,
+                                                                                fast_drift_min_jump,
                                                                                 fast_drift_max_jump,
                                                                                 t_start_drift, fs, self._verbose,
                                                                                 amp_mod, bursting_units, shape_mod,
@@ -744,13 +753,10 @@ class RecordingGenerator:
                         os.remove(tempfiles[ch])
                     if ch == len(chunks_rec) - 1 and drifting:
                         for st in np.arange(n_neurons):
-                            final_locs = output_dict[ch]['final_locs']
-                            final_idxs = output_dict[ch]['final_idxs']
+                            template_idxs = output_dict[ch]['template_idxs']
                             if st in drifting_units:
                                 spiketrains[st].annotate(drifting=True)
-                                spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                                spiketrains[st].annotate(final_soma_position=final_locs[st])
-                                spiketrains[st].annotate(final_idx=final_idxs[st])
+                                spiketrains[st].annotate(template_idxs=template_idxs[st])
             else:
                 # convolve in single chunk
                 output_dict = dict()
@@ -761,7 +767,7 @@ class RecordingGenerator:
                                   drifting_units=drifting_units, templates=templates, cut_outs_samples=cut_outs_samples,
                                   template_locs=template_locs,
                                   velocity_vector=velocity_vector, fast_drift_period=fast_drift_period,
-                                  fast_drift_max_jump=fast_drift_max_jump,
+                                  fast_drift_min_jump=fast_drift_min_jump, fast_drift_max_jump=fast_drift_max_jump,
                                   t_start_drift=t_start_drift, fs=fs, amp_mod=amp_mod,
                                   bursting_units=bursting_units, shape_mod=shape_mod, shape_stretch=shape_stretch,
                                   chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,
@@ -771,27 +777,24 @@ class RecordingGenerator:
                     spike_traces = output_dict[ch]['spike_traces']
                 for st in np.arange(n_neurons):
                     if drifting and st in drifting_units:
-                        final_locs = output_dict[ch]['final_locs']
-                        final_idxs = output_dict[ch]['final_idxs']
+                        template_idxs = output_dict[ch]['template_idxs']
                         spiketrains[st].annotate(drifting=True)
-                        spiketrains[st].annotate(initial_soma_position=template_locs[st, 0])
-                        spiketrains[st].annotate(final_soma_position=final_locs[st])
-                        spiketrains[st].annotate(final_idx=final_idxs[st])
-            if drifting:
-                templates_drift = np.zeros((templates.shape[0], np.max(final_idxs) + 1,
-                                            templates.shape[2], templates.shape[3],
-                                            templates.shape[4]))
-                for i, st in enumerate(spiketrains):
-                    if i in drifting_units:
-                        if final_idxs[i] == np.max(final_idxs):
-                            templates_drift[i] = templates[i, :(final_idxs[i] + 1)]
-                        else:
-                            templates_drift[i] = np.vstack((templates[i, :(final_idxs[i] + 1)],
-                                                            np.array([templates[i, final_idxs[i]]]
-                                                                     * (np.max(final_idxs) - final_idxs[i]))))
-                    else:
-                        templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
-                templates = templates_drift
+                        spiketrains[st].annotate(template_idxs=template_idxs[st])
+            # if drifting:
+            #     templates_drift = np.zeros((templates.shape[0], np.max(final_idxs) + 1,
+            #                                 templates.shape[2], templates.shape[3],
+            #                                 templates.shape[4]))
+            #     for i, st in enumerate(spiketrains):
+            #         if i in drifting_units:
+            #             if final_idxs[i] == np.max(final_idxs):
+            #                 templates_drift[i] = templates[i, :(final_idxs[i] + 1)]
+            #             else:
+            #                 templates_drift[i] = np.vstack((templates[i, :(final_idxs[i] + 1)],
+            #                                                 np.array([templates[i, final_idxs[i]]]
+            #                                                          * (np.max(final_idxs) - final_idxs[i]))))
+            #         else:
+            #             templates_drift[i] = np.array([templates[i, 0]] * (np.max(final_idxs) + 1))
+            #     templates = templates_drift
         else:
             if tmp_h5:
                 temp_dir = Path(tempfile.mkdtemp())
@@ -803,15 +806,14 @@ class RecordingGenerator:
                 tmp_rec = None
                 tmp_rec_path = None
                 temp_dir = None
-                recordings = np.zeros((n_elec, n_samples))
-                spike_traces = np.zeros((n_neurons, n_samples))
+                recordings = np.zeros((n_elec, n_samples), dtype=dtype)
+                spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
             timestamps = np.arange(recordings.shape[1]) / fs
             self._h5file = tmp_rec
             self._tmp_rec_path = tmp_rec_path
             self._temp_dir = temp_dir
             spiketrains = np.array([])
             voltage_peaks = np.array([])
-            spike_traces = np.array([])
             templates = np.array([])
             template_locs = np.array([])
             template_rots = np.array([])
@@ -1027,7 +1029,7 @@ class RecordingGenerator:
                                                                                     None, templates_noise,
                                                                                     cut_outs_samples,
                                                                                     template_noise_locs, None,
-                                                                                    None, None, None, None,
+                                                                                    None, None, None, None, None,
                                                                                     self._verbose,
                                                                                     None, None, False,
                                                                                     None, chunk[0], False,
@@ -1062,7 +1064,7 @@ class RecordingGenerator:
                                       cut_outs_samples=cut_outs_samples,
                                       template_locs=template_noise_locs,
                                       velocity_vector=None, fast_drift_period=None,
-                                      fast_drift_max_jump=None,
+                                      fast_drift_min_jump=None, fast_drift_max_jump=None,
                                       t_start_drift=None, fs=fs, amp_mod=None,
                                       bursting_units=None, shape_mod=False, shape_stretch=None,
                                       chunk_start=0 * pq.s, extract_spike_traces=True, voltage_peaks=voltage_peaks,

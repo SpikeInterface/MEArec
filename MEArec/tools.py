@@ -259,7 +259,7 @@ def load_templates(templates, return_h5_objects=True, verbose=False, check_suffi
 
 
 def load_recordings(recordings, return_h5_objects=True,
-                    load=None, load_waveforms=True, check_suffix=True,  verbose=False):
+                    load=None, load_waveforms=True, check_suffix=True, verbose=False):
     """
     Load generated recordings.
 
@@ -2197,8 +2197,8 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     if len(template.shape) == 2:
         rand_idx = np.random.randint(njitt)
         temp_jitt = template[rand_idx]
-        if not modulation:
-            for pos, spos in enumerate(spike_pos):
+        for pos, spos in enumerate(spike_pos):
+            if not modulation:
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += temp_jitt
                 elif spos - cut_out[0] < 0:
@@ -2207,9 +2207,8 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     spike_trace[spos - cut_out[0]:] += temp_jitt[:diff]
-        else:
-            if bursting:
-                for pos, spos in enumerate(spike_pos):
+            else:
+                if bursting:
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                         spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
                             compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
@@ -2221,16 +2220,19 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
                         diff = n_samples - (spos - cut_out[0])
                         temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
                         spike_trace[spos - cut_out[0]:] += temp_filt[:diff]
-            else:
-                for pos, spos in enumerate(spike_pos):
+                else:
+                    if mod_array[pos].size > 1:
+                        mod_value = np.mean(mod_array[pos])
+                    else:
+                        mod_value = mod_array[pos]
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                        spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_array[pos] * temp_jitt
+                        spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += mod_value * temp_jitt
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        spike_trace[:spos - cut_out[0] + len_spike] += mod_array[pos] * temp_jitt[diff:]
+                        spike_trace[:spos - cut_out[0] + len_spike] += mod_value * temp_jitt[diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        spike_trace[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:diff]
+                        spike_trace[spos - cut_out[0]:] += mod_value * temp_jitt[:diff]
     else:
         raise Exception('For drifting len(template.shape) should be 2')
     return spike_trace
@@ -2268,7 +2270,6 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     -------
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
-
     """
     if verbose:
         print('Starting convolution with spike:', spike_id, 'shape modulation:', bursting)
@@ -2285,6 +2286,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
+
     if modulation is False:
         # No modulation
         spike_pos = np.where(spike_bin == 1)[0]
@@ -2370,11 +2372,11 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     return recordings
 
 
-# TODO fix min drift jump and compute templates on t_step
 def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, t_start_drift,
                                             drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
-                                            fast_drift_max_jump=10, cut_out=None, modulation=False, mod_array=None,
-                                            n_step_sec=1, verbose=False, bursting=False, sigmoid_range=None,
+                                            fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
+                                            modulation=False, mod_array=None,
+                                            verbose=False, bursting=False, sigmoid_range=None,
                                             chunk_start=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
@@ -2399,6 +2401,8 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         Slow drifting velocity vector in um/s
     fast_drift_period : Quantity
         Period between fast drifts in s
+    fast_drift_min_jump: float
+        Minimum 'jump' for fast drifts in uV
     fast_drift_max_jump: float
         Maximum 'jump' for fast drifts in uV
     cut_out : list
@@ -2407,8 +2411,6 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         If True modulation is applied
     mod_array : np.array
         Array with modulation value for each spike
-    n_step_sec : int
-        Number of drifting steps in a second
     verbose : bool
         If True output is verbose
     bursting : bool
@@ -2430,116 +2432,96 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
         Final index among n drift steps
     peaks : np.array
         Drifting peak images (n_steps, n_elec)
-
     """
     if verbose:
         print('Starting drifting convolution with spike:', spike_id, 'shape modulation:', bursting)
-    if len(template.shape) == 4:
-        njitt = template.shape[1]
-        n_elec = template.shape[2]
-        len_spike = template.shape[3]
+    assert len(template.shape) == 4, "For drifting len(template.shape) should be 4"
+
+    n_jitt = template.shape[1]
+    n_elec = template.shape[2]
+    len_spike = template.shape[3]
     n_samples = len(spike_bin)
-    dur = (n_samples / fs).rescale('s').magnitude
-    dt = 1. / fs.magnitude
+
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
     if chunk_start is None:
         chunk_start = 0 * pq.s
-    t_steps = np.arange(chunk_start.magnitude, chunk_start.magnitude + dur, n_step_sec)
 
-    peaks = np.zeros((int(n_samples / float(fs.rescale('Hz').magnitude)), n_elec))
     if recordings is None:
         recordings = np.zeros((n_elec, n_samples))
     else:
         assert recordings.shape == (n_elec, n_samples), "'recordings' has the wrong shape"
 
-    if 'fast' in drift_mode:
-        assert fast_drift_period is not None, "Provide 'fast_drift_period' argument"
-        last_fast_drift = t_start_drift
+    # find drift direction and magnitude
+    drift_direction = loc[-1] - loc[0]
+    drift_direction /= np.linalg.norm(drift_direction)
+    v_drift_mag = np.linalg.norm(slow_drift_velocity)
 
-    if 'slow' in drift_mode:
-        assert fast_drift_period is not None, "Provide 'slow_drift_velocity' argument"
-        v_drift = slow_drift_velocity
+    spike_pos = np.where(spike_bin == 1)[0]
+    template_idxs = np.zeros(len(spike_pos), dtype='int')
 
-    old_pos = loc[0]
+    # set states for fast drifts
     temp_jitt = template[0, 0]
-    old_amp = np.min(temp_jitt)
-    old_idx = 0
-    max_iter = 100
-    fast_drift_min_jump = 5
-    fast_drift = 0
-    has_drifted = False
+    max_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+    drift_state = {'old_pos': loc[0], 'old_chan': max_chan,
+                   'old_amp': np.min(temp_jitt[max_chan]), 'old_idx': 0, 'last_drift_position': loc[0],
+                   'direction_sign': 1, 'last_fast_drift': t_start_drift, 'loc_start': loc[0],
+                   't_start_drift': t_start_drift}
+    drift_params = {'fast_drift_period': fast_drift_period, 'fast_drift_min_jump': fast_drift_min_jump,
+                    'fast_drift_max_jump': fast_drift_max_jump, 'v_drift_mag': v_drift_mag,
+                    'drift_direction': drift_direction, 'max_iter': 100}
+
     if not modulation:
         # No modulation
-        spike_pos = np.where(spike_bin == 1)[0]
         mod_array = np.ones_like(spike_pos)
-        if len(template.shape) == 4:
-            rand_idx = np.random.randint(njitt)
-            for pos, spos in enumerate(spike_pos):
-                sp_time = chunk_start + spos / fs
-                if sp_time < t_start_drift:
-                    temp_idx = 0
-                    temp_jitt = template[temp_idx, rand_idx]
-                else:
-                    # compute current position
-                    if drift_mode == 'slow':
-                        new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                    elif drift_mode == 'fast':
-                        if sp_time - last_fast_drift > fast_drift_period:
-                            found_position = False
-                            i = 0
-                            while not found_position and i < max_iter:
-                                new_idx = np.random.randint(len(loc))
-                                new_pos = loc[np.random.randint(len(loc))]
-                                temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                temp_jitt = template[temp_idx, rand_idx]
-                                new_amp = np.min(temp_jitt)
-                                if fast_drift_min_jump < np.abs(new_amp - old_amp) < fast_drift_max_jump \
-                                        and new_idx != old_idx:
-                                    found_position = True
-                                i += 1
-                            if i == max_iter:
-                                new_pos = old_pos
-                                new_idx = old_idx
-                                new_amp = old_amp
-                            last_fast_drift = sp_time
-                            fast_drift += 1
-                            print('Drift', fast_drift, 'time', sp_time, 'spike id', spike_id,
-                                  'old_amp', old_amp, 'new_amp', new_amp)
-                            has_drifted = True
-                            old_amp = new_amp
-                            old_pos = new_pos
-                            old_idx = new_idx
-                        else:
-                            new_pos = old_pos
-                            new_idx = old_idx
-                            new_amp = old_amp
-                            has_drifted = False
-                    else:  # slow+fast mode
-                        if sp_time - last_fast_drift > fast_drift_period:
-                            found_position = False
-                            i = 0
-                            while not found_position and i < max_iter:
-                                new_idx = np.random.randint(len(loc))
-                                new_pos = loc[np.random.randint(len(loc))]
-                                temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                temp_jitt = template[temp_idx, rand_idx]
-                                new_amp = np.min(temp_jitt)
-                                if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                    found_position = True
-                                i += 1
-                            last_fast_drift = sp_time
-                            old_amp = new_amp
-                            old_pos = new_pos
-                            old_idx = new_idx
-                        else:
-                            new_pos = old_pos
-                            new_idx = old_idx
-                            new_amp = old_amp
-                        new_pos = np.array(new_pos + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                    temp_jitt = template[temp_idx, rand_idx]
+    else:
+        assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
+    rand_idx = np.random.randint(n_jitt)
+
+    for pos, spos in enumerate(spike_pos):
+        sp_time = chunk_start + spos / fs
+        if sp_time < t_start_drift:
+            temp_idx = 0
+            temp_jitt = template[temp_idx, rand_idx]
+        else:
+            temp_jitt, temp_idx, drift_state = _find_new_drift_template(drift_mode, spike_pos, sp_time, pos,
+                                                                        template, template_idxs, loc,
+                                                                        chunk_start, t_start_drift, fs,
+                                                                        rand_idx, drift_params, drift_state,
+                                                                        verbose)
+            template_idxs[pos] = temp_idx
+
+        if bursting:
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # template
+                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                else:
+                    diff = n_samples - (spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+            else:
+                # electrode
+                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                else:
+                    diff = n_samples - (spos - cut_out[0])
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+        else:
+            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
                     recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
                 elif spos - cut_out[0] < 0:
@@ -2548,339 +2530,30 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
-
-                if has_drifted:
-                    raise Exception
-
-            # for i, t in enumerate(t_steps):
-            #     if t < t_start_drift:
-            #         temp_idx = 0
-            #         temp_jitt = template[temp_idx, rand_idx]
-            #     else:
-            #         # compute current position
-            #         new_pos = np.array(loc[0] + v_drift * (t - t_start_drift.rescale('s').magnitude))
-            #         temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-            #         temp_jitt = template[temp_idx, rand_idx]
-            #
-            #     feat = get_templates_features(np.squeeze(temp_jitt), ['neg'], dt=dt)
-            #     peaks[i] = -np.squeeze(feat['neg'])
-        else:
-            raise Exception('For drifting len(template.shape) should be 4')
-    else:
-        assert mod_array is not None
-        spike_pos = np.where(spike_bin == 1)[0]
-        if len(template.shape) == 4:
-            rand_idx = np.random.randint(njitt)
-            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
-                # Template modulation
-                if bursting:
-                    for pos, spos in enumerate(spike_pos):
-                        sp_time = chunk_start + spos / fs
-                        if sp_time < t_start_drift:
-                            temp_idx = 0
-                            temp_jitt = template[temp_idx, rand_idx]
-                        else:
-                            # compute current position
-                            if drift_mode == 'slow':
-                                new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            elif drift_mode == 'fast':
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                            else:  # slow+fast mode
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                                new_pos = np.array(new_pos + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                            temp_jitt = template[temp_idx, rand_idx]
-                        if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
-                else:
-                    for pos, spos in enumerate(spike_pos):
-                        sp_time = chunk_start + spos / fs
-                        if sp_time < t_start_drift:
-                            temp_idx = 0
-                            temp_jitt = template[temp_idx, rand_idx]
-                        else:
-                            # compute current position
-                            if drift_mode == 'slow':
-                                new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            elif drift_mode == 'fast':
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                            else:  # slow+fast mode
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                                new_pos = np.array(new_pos + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                        if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                            recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] \
-                                                                                  * temp_jitt
-                        elif spos - cut_out[0] < 0:
-                            diff = -(spos - cut_out[0])
-                            recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
-                        else:
-                            diff = n_samples - (spos - cut_out[0])
-                            recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
             else:
-                # Electrode modulation
-                if bursting:
-                    for pos, spos in enumerate(spike_pos):
-                        sp_time = chunk_start + spos / fs
-                        if sp_time < t_start_drift:
-                            temp_idx = 0
-                            temp_jitt = template[temp_idx, rand_idx]
-                            if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                    compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                            elif spos - cut_out[0] < 0:
-                                diff = -(spos - cut_out[0])
-                                temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                                recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
-                            else:
-                                diff = n_samples - (spos - cut_out[0])
-                                temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                                recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
-                        else:
-                            # compute current position
-                            if drift_mode == 'slow':
-                                new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            elif drift_mode == 'fast':
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                            else:  # slow+fast mode
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                                new_pos = np.array(new_pos + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                            new_temp_jitt = template[temp_idx, rand_idx]
-                            if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                    compute_stretched_template(new_temp_jitt, mod_array[pos], sigmoid_range)
-                            elif spos - cut_out[0] < 0:
-                                diff = -(spos - cut_out[0])
-                                temp_filt = compute_stretched_template(new_temp_jitt, mod_array[pos], sigmoid_range)
-                                recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
-                            else:
-                                diff = n_samples - (spos - cut_out[0])
-                                temp_filt = compute_stretched_template(new_temp_jitt, mod_array[pos], sigmoid_range)
-                                recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
-
+                # electrode
+                if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                elif spos - cut_out[0] < 0:
+                    diff = -(spos - cut_out[0])
+                    recordings[:, :spos + cut_out[1]] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
                 else:
-                    for pos, spos in enumerate(spike_pos):
-                        sp_time = chunk_start + spos / fs
-                        if sp_time < t_start_drift:
-                            temp_idx = 0
-                            temp_jitt = template[temp_idx, rand_idx]
-                            if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
-                            elif spos - cut_out[0] < 0:
-                                diff = -(spos - cut_out[0])
-                                recordings[:, :spos + cut_out[1]] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
-                            else:
-                                diff = n_samples - (spos - cut_out[0])
-                                recordings[:, spos - cut_out[0]:] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
-                        else:
-                            # compute current position
-                            if drift_mode == 'slow':
-                                new_pos = np.array(loc[0] + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            elif drift_mode == 'fast':
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                            else:  # slow+fast mode
-                                if sp_time - last_fast_drift > fast_drift_period:
-                                    found_position = False
-                                    i = 0
-                                    while not found_position and i < max_iter:
-                                        new_idx = np.random.randint(len(loc))
-                                        new_pos = loc[np.random.randint(len(loc))]
-                                        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                                        temp_jitt = template[temp_idx, rand_idx]
-                                        new_amp = np.min(temp_jitt)
-                                        if np.abs(new_amp - old_amp) < fast_drift_max_jump and new_idx != old_idx:
-                                            found_position = True
-                                        i += 1
-                                    last_fast_drift = sp_time
-                                    print('last drift', last_fast_drift)
-                                    old_amp = new_amp
-                                    old_pos = new_pos
-                                    old_idx = new_idx
-                                else:
-                                    new_pos = old_pos
-                                    new_idx = old_idx
-                                    new_amp = old_amp
-                                new_pos = np.array(new_pos + v_drift * (sp_time - t_start_drift).rescale('s').magnitude)
-                            temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
-                            new_temp_jitt = template[temp_idx, rand_idx]
-                            if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                                recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt)]
-                            elif spos - cut_out[0] < 0:
-                                diff = -(spos - cut_out[0])
-                                recordings[:, :spos + cut_out[1]] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, diff:])]
-                            else:
-                                diff = n_samples - (spos - cut_out[0])
-                                recordings[:, spos - cut_out[0]:] += \
-                                    [a * t for (a, t) in zip(mod_array[pos], new_temp_jitt[:, :diff])]
-        else:
-            raise Exception('For drifting len(template.shape) should be 4')
-    final_loc = loc[temp_idx]
-    final_idx = temp_idx
+                    diff = n_samples - (spos - cut_out[0])
+                    recordings[:, spos - cut_out[0]:] += \
+                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
 
     if verbose:
         print('Done drifting convolution with spike ', spike_id)
 
-    return recordings, final_loc, final_idx
+    return recordings, template_idxs
 
 
 def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
-                      cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_max_jump,
-                      t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod, shape_stretch, chunk_start,
-                      extract_spike_traces, voltage_peaks, dtype, tmp_mearec_file=None):
+                      cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
+                      fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
+                      shape_stretch, chunk_start, extract_spike_traces, voltage_peaks, dtype, tmp_mearec_file=None):
     """
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -2912,6 +2585,8 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         For drifting, drifring direction
     fast_drift_period : Quantity
         Periods between fast drifts
+    fast_drift_min_jump : float
+        Min 'jump' in um for fast drifts
     fast_drift_max_jump : float
         Max 'jump' in um for fast drifts
     t_start_drift: quantity
@@ -2935,75 +2610,26 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
     voltage_peaks: np.array
         Array containing the voltage values at the peak
     """
-    final_locs = []
-    final_idxs = []
+    template_idxs = []
     if extract_spike_traces:
         spike_traces = np.zeros((len(spike_matrix), len(idxs)), dtype=dtype)
     if len(templates.shape) == 4:
         n_elec = templates.shape[2]
     elif len(templates.shape) == 5:
         n_elec = templates.shape[3]
+    else:
+        raise AttributeError("Wrong 'templates' shape!")
     recordings = np.zeros((n_elec, len(idxs)), dtype=dtype)
+
     for st, spike_bin in enumerate(spike_matrix):
         if extract_spike_traces:
             max_electrode = np.argmax(voltage_peaks[st])
-        if modulation == 'none':
-            # reset random seed to keep sampling of jitter spike same
-            seed = np.random.randint(10000)
-            np.random.seed(seed)
 
-            if drifting and st in drifting_units:
-                recordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(spike_id=st,
-                                                                                           spike_bin=spike_bin[idxs],
-                                                                                           template=templates[st],
-                                                                                           cut_out=
-                                                                                           cut_outs_samples,
-                                                                                           fs=fs,
-                                                                                           loc=
-                                                                                           template_locs[
-                                                                                               st],
-                                                                                           drift_mode=drift_mode,
-                                                                                           slow_drift_velocity=
-                                                                                           velocity_vector,
-                                                                                           fast_drift_period=
-                                                                                           fast_drift_period,
-                                                                                           fast_drift_max_jump=
-                                                                                           fast_drift_max_jump,
-                                                                                           t_start_drift=
-                                                                                           t_start_drift,
-                                                                                           chunk_start=chunk_start,
-                                                                                           verbose=verbose,
-                                                                                           recordings=
-                                                                                           recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                templates[st, 0, :, max_electrode],
-                                                                cut_out=cut_outs_samples)
-            else:
-                if drifting:
-                    template = templates[st, 0]
-                    locs = template_locs[st, 0]
-                else:
-                    template = templates[st]
-                    locs = template_locs[st]
-                recordings = convolve_templates_spiketrains(st, spike_bin[idxs],
-                                                            template,
-                                                            cut_out=cut_outs_samples,
-                                                            verbose=verbose,
-                                                            recordings=recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                template[:,
-                                                                max_electrode],
-                                                                cut_out=cut_outs_samples)
-                final_pos = locs[0]
-                final_idx = 0
-        elif 'electrode' in modulation:
-            seed = np.random.randint(10000)
-            np.random.seed(seed)
+        seed = np.random.randint(10000)
+        np.random.seed(seed)
 
+        if modulation in ['electrode', 'template']:
+            mod_bool = True
             if bursting_units is not None:
                 if st in bursting_units and shape_mod:
                     unit_burst = True
@@ -3011,152 +2637,64 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
                     unit_burst = False
             else:
                 unit_burst = False
+            mod_array = amp_mod[st]
+        else:  # modulation 'none'
+            mod_bool = False
+            mod_array = None
+            unit_burst = False
 
-            if drifting and st in drifting_units:
-                rececordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
-                                                                                             spike_bin[idxs],
-                                                                                             templates[st],
-                                                                                             cut_out=
-                                                                                             cut_outs_samples,
-                                                                                             modulation=True,
-                                                                                             mod_array=
-                                                                                             amp_mod[st],
-                                                                                             fs=fs,
-                                                                                             loc=
-                                                                                             template_locs[
-                                                                                                 st],
-                                                                                             drift_mode=drift_mode,
-                                                                                             slow_drift_velocity=
-                                                                                             velocity_vector,
-                                                                                             fast_drift_period=
-                                                                                             fast_drift_period,
-                                                                                             fast_drift_max_jump=
-                                                                                             fast_drift_max_jump,
-                                                                                             t_start_drift=
-                                                                                             t_start_drift,
-                                                                                             chunk_start=chunk_start,
-                                                                                             bursting=unit_burst,
-                                                                                             sigmoid_range=shape_stretch,
-                                                                                             verbose=verbose,
-                                                                                             recordings=recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                templates[st, 0, :,
-                                                                max_electrode],
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=True,
-                                                                mod_array=amp_mod[st][:, max_electrode],
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
-            else:
-                if drifting:
-                    template = templates[st, 0]
-                    locs = template_locs[st, 0]
-                else:
-                    template = templates[st]
-                    locs = template_locs[st]
-                recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
-                                                            cut_out=cut_outs_samples,
-                                                            modulation=True,
-                                                            mod_array=amp_mod[st],
-                                                            bursting=unit_burst,
-                                                            sigmoid_range=shape_stretch, verbose=verbose,
-                                                            recordings=recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                template[:,
-                                                                max_electrode],
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=True,
-                                                                mod_array=amp_mod[st][:, max_electrode],
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
-                final_pos = locs[0]
-                final_idx = 0
-
-        elif 'template' in modulation:
-            seed = np.random.randint(10000)
+        if drifting and st in drifting_units:
+            recordings, template_idx = convolve_drifting_templates_spiketrains(st, spike_bin[idxs], templates[st],
+                                                                               cut_out=cut_outs_samples,
+                                                                               modulation=mod_bool,
+                                                                               mod_array=mod_array,
+                                                                               fs=fs,
+                                                                               loc=template_locs[st],
+                                                                               drift_mode=drift_mode,
+                                                                               slow_drift_velocity=velocity_vector,
+                                                                               fast_drift_period=fast_drift_period,
+                                                                               fast_drift_min_jump=fast_drift_min_jump,
+                                                                               fast_drift_max_jump=fast_drift_max_jump,
+                                                                               t_start_drift=t_start_drift,
+                                                                               chunk_start=chunk_start,
+                                                                               bursting=unit_burst,
+                                                                               sigmoid_range=shape_stretch,
+                                                                               verbose=verbose,
+                                                                               recordings=recordings)
             np.random.seed(seed)
-
-            if bursting_units is not None:
-                if st in bursting_units and shape_mod:
-                    unit_burst = True
-                else:
-                    unit_burst = False
-            else:
-                unit_burst = False
-
-            if drifting and st in drifting_units:
-                recordings, final_pos, final_idx = convolve_drifting_templates_spiketrains(st,
-                                                                                           spike_bin[idxs],
-                                                                                           templates[st],
-                                                                                           cut_out=
-                                                                                           cut_outs_samples,
-                                                                                           modulation=True,
-                                                                                           mod_array=
-                                                                                           amp_mod[st],
-                                                                                           fs=fs,
-                                                                                           loc=
-                                                                                           template_locs[
-                                                                                               st],
-                                                                                           drift_mode=drift_mode,
-                                                                                           slow_drift_velocity=
-                                                                                           velocity_vector,
-                                                                                           fast_drift_period=
-                                                                                           fast_drift_period,
-                                                                                           fast_drift_max_jump=
-                                                                                           fast_drift_max_jump,
-                                                                                           t_start_drift=
-                                                                                           t_start_drift,
-                                                                                           chunk_start=chunk_start,
-                                                                                           bursting=unit_burst,
-                                                                                           sigmoid_range=shape_stretch,
-                                                                                           verbose=verbose,
-                                                                                           recordings=recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                templates[st, 0, :,
-                                                                max_electrode],
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=True,
-                                                                mod_array=amp_mod[st],
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
-            else:
-                if drifting:
-                    template = templates[st, 0]
-                    locs = template_locs[st, 0]
-                else:
-                    template = templates[st]
-                    locs = template_locs[st]
-                recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+            if extract_spike_traces:
+                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                                                            templates[st, 0, :, max_electrode],
                                                             cut_out=cut_outs_samples,
-                                                            modulation=True,
-                                                            mod_array=amp_mod[st],
+                                                            modulation=mod_bool,
+                                                            mod_array=mod_array,
                                                             bursting=unit_burst,
-                                                            sigmoid_range=shape_stretch,
-                                                            verbose=verbose,
-                                                            recordings=recordings)
-                np.random.seed(seed)
-                if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
-                                                                template[:,
-                                                                max_electrode],
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=True,
-                                                                mod_array=amp_mod[st],
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
-                final_pos = locs[0]
-                final_idx = 0
+                                                            sigmoid_range=shape_stretch)
         else:
-            raise Exception('Modulation is unknown!')
+            if drifting:
+                template = templates[st, 0]
+            else:
+                template = templates[st]
+            recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+                                                        cut_out=cut_outs_samples,
+                                                        modulation=mod_bool,
+                                                        mod_array=mod_array,
+                                                        bursting=unit_burst,
+                                                        sigmoid_range=shape_stretch,
+                                                        verbose=verbose,
+                                                        recordings=recordings)
+            np.random.seed(seed)
+            if extract_spike_traces:
+                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                                                            template[:, max_electrode],
+                                                            cut_out=cut_outs_samples,
+                                                            modulation=mod_array,
+                                                            mod_array=amp_mod[st],
+                                                            bursting=unit_burst,
+                                                            sigmoid_range=shape_stretch)
+            template_idx = None
 
-        final_idxs.append(final_idx)
-        final_locs.append(final_pos)
+        template_idxs.append(template_idx)
 
     if verbose:
         print('Done all convolutions')
@@ -3183,8 +2721,7 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         return_dict['idxs'] = idxs
         if extract_spike_traces:
             return_dict['spike_traces'] = spike_traces
-    return_dict['final_locs'] = final_locs
-    return_dict['final_idxs'] = final_idxs
+    return_dict['template_idxs'] = template_idxs
     output_dict[ch] = return_dict
 
 
@@ -3733,7 +3270,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
     return ax
 
 
-def plot_amplitudes(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, single_axes=True,
+def plot_amplitudes(recgen, spiketrain_id=None, electrode=None, ax=None, color=None, cmap=None, single_axes=True,
                     marker='*', ms=5, ncols=6):
     """
     Plot waveform amplitudes over time.
@@ -3744,10 +3281,12 @@ def plot_amplitudes(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, 
         Recording generator object to plot spike train waveform from
     spiketrain_id : int or list
         Indexes of spike trains
+    electrode : int or 'max'
+        Electrode id or 'max'
     ax : axis
         Matplotlib  axis
     color : matplotlib color
-        Color of the waveforms amplitudes
+        Color of the waveform amplitudes
     cmap : matplotlib colormap
         Colormap to be used
     single_axes : bool
@@ -3775,6 +3314,8 @@ def plot_amplitudes(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, 
 
     n_units = len(spiketrain_id)
 
+    if electrode is None:
+        electrode = 'max'
     waveforms = []
     for sp in spiketrain_id:
         wf = recgen.spiketrains[sp].waveforms
@@ -3794,7 +3335,10 @@ def plot_amplitudes(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, 
         else:
             colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     else:
-        colors = 'k'
+        if color is None:
+            colors = 'k'
+        else:
+            colors = color
 
     if ax is None:
         fig = plt.figure()
@@ -3807,9 +3351,13 @@ def plot_amplitudes(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, 
         st = recgen.spiketrains[id]
         wf = st.waveforms
         mwf = np.mean(wf, axis=0)
-        max_elec = np.unravel_index(np.argmin(mwf), mwf.shape)[0]
-        min_amp_time = np.unravel_index(np.argmin(mwf), mwf.shape)[1]
-        amps.append(np.array([w[max_elec, min_amp_time] for w in wf]))
+        if electrode == 'max':
+            max_elec = np.unravel_index(np.argmin(mwf), mwf.shape)[0]
+            print('Max electrode', max_elec)
+        else:
+            assert isinstance(electrode, (int, np.integer)), "'electrode' can be 'max' or type int"
+            max_elec = electrode
+        amps.append(np.array([np.min(w[max_elec]) for w in wf]))
 
     if single_axes:
         for i_n, n in enumerate(spiketrain_id):
@@ -3992,3 +3540,150 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
 
     fig.subplots_adjust(wspace=0.02, hspace=0.02)
     return ax, pca_scores, pc_comp
+
+
+######### HELPER FUNCTIONS #########
+
+def _find_new_drift_template(drift_mode, spike_pos, sp_time, pos, template, template_idxs, loc,
+                             chunk_start, t_start_drift, fs, rand_idx, drift_params, drift_state, verbose):
+    """Helper function to find drifting template"""
+    # extract state
+    old_chan = drift_state['old_chan']
+    old_amp = drift_state['old_amp']
+    old_pos = drift_state['old_pos']
+    old_idx = drift_state['old_idx']
+    last_drift_position = drift_state['last_drift_position']
+    last_fast_drift = drift_state['last_fast_drift']
+    direction_sign = drift_state['direction_sign']
+    loc_start = drift_state['loc_start']
+    t_start_drift = drift_state['t_start_drift']
+
+    # extract params
+    fast_drift_period = drift_params['fast_drift_period']
+    fast_drift_min_jump = drift_params['fast_drift_min_jump']
+    fast_drift_max_jump = drift_params['fast_drift_max_jump']
+    v_drift_mag = drift_params['v_drift_mag']
+    drift_direction = drift_params['drift_direction']
+    max_iter = drift_params['max_iter']
+
+    # compute current position
+    if drift_mode == 'slow':
+        if pos > 1:
+            if template_idxs[pos - 1] == len(loc) - 1 and direction_sign == 1:
+                direction_sign = -1
+                loc_start = loc[-1]
+                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                if verbose:
+                    print('Reversing drift direction', direction_sign, sp_time)
+            elif template_idxs[pos - 1] == 0 and direction_sign == -1:
+                direction_sign = 1
+                loc_start = loc[0]
+                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                if verbose:
+                    print('Reversing drift direction', direction_sign, sp_time)
+        else:
+            loc_start = loc[0]
+        new_pos = np.array(loc_start + drift_direction * direction_sign * v_drift_mag *
+                           (sp_time - t_start_drift).rescale('s').magnitude)
+    elif drift_mode == 'fast':
+        if sp_time - last_fast_drift > fast_drift_period:
+            found_position = False
+            i = 0
+            while not found_position and i < max_iter:
+                new_idx = np.random.randint(len(loc))
+                new_pos = loc[np.random.randint(len(loc))]
+                temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
+                temp_jitt = template[temp_idx, rand_idx]
+                new_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+                # new amp is computed on old chan
+                new_amp_old_chan = np.min(temp_jitt[old_chan])
+                new_amp_new_chan = np.min(temp_jitt[new_chan])
+                if fast_drift_min_jump < np.abs(new_amp_old_chan - old_amp) < fast_drift_max_jump \
+                        and new_idx != old_idx:
+                    found_position = True
+                i += 1
+            if i == max_iter:
+                print('Max iter reached, couldnt find drifting template')
+                new_pos = old_pos
+            last_fast_drift = sp_time
+            if verbose:
+                print('Fast drift time', last_fast_drift, 'Old amplitude', old_amp, 'New amplitude',
+                      new_amp_old_chan, 'New amplitude (new)', new_amp_new_chan, 'Old chan', old_chan,
+                      'New chan', new_chan)
+            old_chan = new_chan
+            old_amp = new_amp_new_chan
+            old_pos = new_pos
+            old_idx = new_idx
+        else:
+            new_pos = old_pos
+    else:  # slow+fast mode
+        # slow drift first
+        if pos > 1:
+            if template_idxs[pos - 1] == len(loc) - 1 and direction_sign == 1:
+                direction_sign = -1
+                loc_start = loc[-1]
+                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                if verbose:
+                    print('Reversing drift direction', direction_sign)
+            elif template_idxs[pos - 1] == 0 and direction_sign == -1:
+                direction_sign = 1
+                loc_start = loc[0]
+                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                if verbose:
+                    print('Reversing drift direction', direction_sign)
+            else:
+                loc_start = last_drift_position
+        else:
+            loc_start = old_pos
+        new_pos = np.array(loc_start + drift_direction * direction_sign * v_drift_mag *
+                           (sp_time - t_start_drift).rescale('s').magnitude)
+        # set states for fast drift
+        temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
+        temp_jitt = template[temp_idx, rand_idx]
+        old_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+        # new amp is computed on old chan
+        old_amp = np.min(temp_jitt[old_chan])
+        old_idx = temp_idx
+        old_pos = new_pos
+
+        # fast drift now
+        if sp_time - last_fast_drift > fast_drift_period:
+            # find new drift position
+            found_position = False
+            i = 0
+            while not found_position and i < max_iter:
+                new_idx = np.random.randint(len(loc))
+                new_pos = loc[np.random.randint(len(loc))]
+                temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
+                temp_jitt = template[temp_idx, rand_idx]
+                new_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+                # new amp is computed on old chan
+                new_amp_old_chan = np.min(temp_jitt[old_chan])
+                new_amp_new_chan = np.min(temp_jitt[new_chan])
+                if fast_drift_min_jump < np.abs(new_amp_old_chan - old_amp) < fast_drift_max_jump \
+                        and new_idx != old_idx:
+                    found_position = True
+                i += 1
+            if i == max_iter:
+                print("Max iter reached, couldn't find drifting template")
+                new_pos = old_pos
+            last_fast_drift = sp_time
+            if verbose:
+                print('Fast drift time', last_fast_drift)
+            old_pos = new_pos
+            old_idx = new_idx
+            old_amp = new_amp_new_chan
+            old_chan = new_chan
+            last_drift_position = loc[temp_idx]
+        else:
+            new_pos = old_pos
+
+    temp_idx = np.argmin([np.linalg.norm(p - new_pos) for p in loc])
+    temp_jitt = template[temp_idx, rand_idx]
+
+    new_drift_state = {'old_pos': old_pos, 'old_chan': old_chan,
+                       'old_amp': old_amp, 'old_idx': old_idx, 'last_drift_position': last_drift_position,
+                       'direction_sign': direction_sign, 'last_fast_drift': last_fast_drift,
+                       'loc_start': loc_start, 't_start_drift': t_start_drift}
+
+    return temp_jitt, temp_idx, new_drift_state
