@@ -335,18 +335,18 @@ class RecordingGenerator:
             max_burst_duration = None
             shape_stretch = None
             n_bursting = None
+        
+        chunk_noise_duration = params['recordings'].get('chunk_noise_duration', 0) * pq.s
+        if chunk_noise_duration == 0*pq.s:
+            chunk_noise_duration = duration
 
-        if 'chunk_noise_duration' not in rec_params.keys():
-            params['recordings']['chunk_noise_duration'] = duration
-        chunk_noise_duration = params['recordings']['chunk_noise_duration'] * pq.s
+        chunk_filter_duration = params['recordings'].get('chunk_filter_duration', 0) * pq.s
+        if chunk_filter_duration == 0*pq.s:
+            chunk_filter_duration = duration
 
-        if 'chunk_filter_duration' not in rec_params.keys():
-            params['recordings']['chunk_filter_duration'] = duration
-        chunk_filter_duration = params['recordings']['chunk_filter_duration'] * pq.s
-
-        if 'chunk_conv_duration' not in rec_params.keys():
-            params['recordings']['chunk_conv_duration'] = duration
-        chunk_conv_duration = params['recordings']['chunk_conv_duration'] * pq.s
+        chunk_conv_duration = params['recordings'].get('chunk_conv_duration', 0) * pq.s
+        if chunk_noise_duration == 0*pq.s:
+            chunk_filter_duration = duration
         
         if 'mrand' not in rec_params.keys():
             params['recordings']['mrand'] = 1
@@ -1125,10 +1125,14 @@ def make_chunk_list(total_duration, chunk_duration):
     total_dur = total_duration.rescale('s').magnitude
     chunk_dur = chunk_duration.rescale('s').magnitude
     
-    n = int(np.floor(total_dur / chunk_dur))
-    chunks = [ (i*chunk_dur*pq.s, (i+1)*chunk_dur*pq.s)  for i in range(n)]
-    if (total_dur % chunk_dur) > 0:
-        chunks.append((n*chunk_dur*pq.s, total_dur))
+    if chunk_duration == 0*pq.s:
+        chunks = [(0*pq.s, total_duration), ]
+    else:
+        n = int(np.floor(total_dur / chunk_dur))
+        chunks = [ (i*chunk_dur*pq.s, (i+1)*chunk_dur*pq.s)  for i in range(n)]
+        if (total_dur % chunk_dur) > 0:
+            chunks.append((n*chunk_dur*pq.s, total_dur))
+    
     return chunks
 
 def chunk_convolution_one_arg(args):
