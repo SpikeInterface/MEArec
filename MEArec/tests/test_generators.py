@@ -539,10 +539,15 @@ class TestGenerators(unittest.TestCase):
         n_jitter = 2
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
-        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False)
-
-        assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
+        
+        for n_jobs in (1, 2):
+            recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False, n_jobs=n_jobs)
+            recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False, n_jobs=n_jobs)
+            recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False, n_jobs=n_jobs)
+        
+            assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
+            assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
+            
 
     def test_recordings_dtype(self):
         print('Test recording generation - dtype')
