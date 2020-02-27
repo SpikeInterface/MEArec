@@ -758,7 +758,7 @@ class RecordingGenerator:
             for st in np.arange(n_neurons):
                 if drifting and st in drifting_units:
                     spiketrains[st].annotate(drifting=True)
-                    spiketrains[st].annotate(template_idxs=output_dict[-1]['template_idxs'][st])
+                    spiketrains[st].annotate(template_idxs=output_list[-1]['template_idxs'][st])
         
         
         ######
