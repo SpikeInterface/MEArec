@@ -11,7 +11,7 @@ else:
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
-                   tmp_mode='h5', tmp_folder=None, pool=None):
+                   tmp_mode='h5', tmp_folder=None, n_jobs=0):
     """
     Generates recordings.
 
@@ -100,7 +100,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
-    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, pool=pool)
+    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs)
 
     print('Elapsed time: ', time.time() - t_start)
 

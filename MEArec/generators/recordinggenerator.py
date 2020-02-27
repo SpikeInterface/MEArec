@@ -15,6 +15,8 @@ from distutils.version import StrictVersion
 import tempfile
 from pathlib import Path
 
+from joblib import Parallel, delayed
+
 from MEArec.generators import SpikeTrainGenerator
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
@@ -130,7 +132,7 @@ class RecordingGenerator:
     # ~ if self.tmp_mode == 'h5' and self._h5file is not None:
     # ~ self._h5file.close()
 
-    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, pool=None):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
         Generates recordings
         Parameters
@@ -141,12 +143,12 @@ class RecordingGenerator:
         tmp_folder: str or Path
             In case of tmp files, you can specify the folder.
             If None, then it is automatic using tempfile.mkdtemp()
-        pool: None or multiprocessing.Pool object to execute chunk in parralel
-            If None then run in loop.
+        n_jobs: int if >1 then use joblib to execute chunk in parralel else in loop
+
         """
         self.tmp_mode = tmp_mode
         self.tmp_folder = tmp_folder
-        self.pool = pool
+        self.n_jobs = n_jobs
 
         if self.tmp_mode is not None:
             if self.tmp_folder is None:
@@ -749,7 +751,7 @@ class RecordingGenerator:
                 'recordings': recordings,
                 'spike_traces': spike_traces,
             }
-            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args, self.pool,
+            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args,self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # if drift then propagate annoations to spikestrains
@@ -881,7 +883,7 @@ class RecordingGenerator:
             assignement_dict = {
                 'additive_noise': additive_noise,
             }
-            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args, self.pool,
+            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args,self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # removing mean
@@ -1130,19 +1132,15 @@ def make_chunk_list(total_duration, chunk_duration):
 def chunk_convolution_one_arg(args):
     return chunk_convolution(*args)
 
-one_args_converter = {
-    chunk_convolution: chunk_convolution_one_arg,
-}
+#~ one_args_converter = {
+    #~ chunk_convolution: chunk_convolution_one_arg,
+#~ }
 
-def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_folder, assignement_dict):
+def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignement_dict):
     """
     
     
     """
-    if pool is not None and tmp_mode is None:
-        print('WARNING multiprocessing mode + in memmory is not efficient')
-        print('It double the memmory usage')
-        print('It will be one day more efficient with py38')
     
     arg_tasks = []
     tmpfiles = [] # only for h5
@@ -1165,7 +1163,7 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
         arg_task = (ch, idxs, chunk_start, tmpfile) + args
         arg_tasks.append(arg_task)
 
-    if pool is None:
+    if n_jobs in (0, 1):
         # simple loop
         output_list = []
         for ch, arg_task in enumerate(arg_tasks):
@@ -1188,12 +1186,11 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
                     full_arr[:, idxs] = out_chunk
             
     else:
-        # multiprocessing
         
-        # need a trick to have a unique arg function
-        func2 = one_args_converter[func]
-        output_list = pool.map(func2, arg_tasks)
-
+        output_list = Parallel(n_jobs=4)(delayed(func)(*arg_task) for arg_task in arg_tasks)
+        
+        
+        #~ print('tmp_mode', tmp_mode)
         if tmp_mode == 'h5':
             for ch, arg_task in enumerate(arg_tasks):
                 with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
