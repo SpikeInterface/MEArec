@@ -413,7 +413,7 @@ def save_template_generator(tempgen, filename=None, verbose=True):
         raise Exception('Provide an .h5 or .hdf5 file name')
 
 
-def save_recording_generator(recgen, filename=None, verbose=True):
+def save_recording_generator(recgen, filename=None, verbose=False):
     """
     Save recordings to disk.
 

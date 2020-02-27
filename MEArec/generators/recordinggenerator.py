@@ -760,17 +760,19 @@ class RecordingGenerator:
             # divide in chunks
             chunks_rec = make_chunk_list(duration, chunk_conv_duration)
             
+            
+            verbose = self._verbose and self.n_jobs<2
             # call the loop on chunks
             args = (spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
                         cut_outs_samples, template_locs, velocity_vector, fast_drift_period,
-                        fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, self._verbose,
+                        fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, verbose,
                         amp_mod, bursting_units, shape_mod, shape_stretch,
                         True, voltage_peaks, dtype,)
             assignement_dict = {
                 'recordings': recordings,
                 'spike_traces': spike_traces,
             }
-            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args,self.n_jobs,
+            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args, self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # if drift then propagate annoations to spikestrains
@@ -900,9 +902,10 @@ class RecordingGenerator:
             chunks_rec = make_chunk_list(duration, chunk_conv_duration)
 
             # call the loop on chunks
+            verbose = self._verbose and self.n_jobs<2
             args = (spike_matrix_noise, 'none', False, None, None, templates_noise,
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
-                        self._verbose, None, None, False, None, False, None, dtype,)
+                        verbose, None, None, False, None, False, None, dtype,)
             assignement_dict = {
                 'additive_noise': additive_noise,
             }
