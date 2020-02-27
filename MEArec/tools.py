@@ -2695,7 +2695,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
         if extract_spike_traces:
             return_dict['spike_traces'] = spike_traces
     elif isinstance(tmp_mearec_file, str) and tmp_mearec_file.endswith('.h5'):
-        with h5py.File(tmp_mearec_file) as f:
+        with h5py.File(tmp_mearec_file, mode='w') as f:
             if verbose:
                 print('Dumping on tmp file:', f.filename)
             f.create_dataset('recordings', data=recordings)

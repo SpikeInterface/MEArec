@@ -128,9 +128,18 @@ class RecordingGenerator:
             self.tempgen = tempgen
             self.tmp_mode = None
 
-    # ~ def __del__(self):
-    # ~ if self.tmp_mode == 'h5' and self._h5file is not None:
-    # ~ self._h5file.close()
+    def __del__(self):
+        self.recordings = None
+        self.spike_traces = None
+        
+        for fname in self._to_remove_on_delete:
+            if self._verbose:
+                try:
+                    os.remove(fname)
+                    print('deleted', fname)
+                except:
+                    pass
+                
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
@@ -483,12 +492,17 @@ class RecordingGenerator:
 
 
         # create buffer h5/memmap/memmory
+        self._to_remove_on_delete = []
+        
         if self.tmp_mode == 'h5':
             tmp_path = self.tmp_folder / "mearec_tmp_file.h5"
             assert not os.path.exists(tmp_path), 'temporay file already exists'
-            tmp_file = h5py.File(tmp_path)
+            tmp_file = h5py.File(tmp_path, mode='w')
             recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
             spike_traces = tmp_file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
+            
+            self._to_remove_on_delete.append(tmp_path)
+            
         elif self.tmp_mode == 'memmap':
             tmp_path_0 = self.tmp_folder / "mearec_tmp_file_recordings.raw"
             recordings = np.memmap(tmp_path_0, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
@@ -498,6 +512,9 @@ class RecordingGenerator:
             spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
             spike_traces[:] = 0
             spike_traces = spike_traces.transpose()
+
+            self._to_remove_on_delete.extend([tmp_path_0, tmp_path_1])
+            
         else:
             recordings = np.zeros((n_elec, n_samples), dtype=dtype)
             spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
@@ -866,12 +883,16 @@ class RecordingGenerator:
 
             if self.tmp_mode == 'h5':
                 tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
-                tmp_noise_rec = h5py.File(tmp_path)
+                tmp_noise_rec = h5py.File(tmp_path, mode='w')
                 additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
+                self._to_remove_on_delete.append(tmp_path_noise)
+            
             elif self.tmp_mode == 'memmap':
                 tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
                 additive_noise = np.memmap(tmp_path_noise, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
                 additive_noise = additive_noise.transpose()
+                self._to_remove_on_delete.append(tmp_path_noise)
+
             else:
                 tmp_noise_rec = None
                 additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
