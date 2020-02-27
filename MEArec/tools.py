@@ -2550,7 +2550,10 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
     chunk_start: quantity
         Start time for current chunk
     tmp_mearec_file
-        temp file
+        temp file:
+            None : in memmory return results in out dict
+            str = h5 mode put out chunk in tmp h5 file
+            dict = memmap mode
     
     spike_matrix: np.array
         2D matrix with binned spike trains
@@ -2605,6 +2608,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
         n_elec = templates.shape[3]
     else:
         raise AttributeError("Wrong 'templates' shape!")
+    
     recordings = np.zeros((n_elec, len(idxs)), dtype=dtype)
 
     for st, spike_bin in enumerate(spike_matrix):
@@ -2679,42 +2683,36 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
                                                             bursting=unit_burst,
                                                             sigmoid_range=shape_stretch)
             template_idx = None
-
         template_idxs.append(template_idx)
 
     if verbose:
-        print('Done all convolutions')
+        print('Done all convolutions for chunk', ch)
 
     return_dict = dict()
-    
+    return_dict['ch'] = int(ch)
     if tmp_mearec_file is  None:
-        print('DEBUG in memorry out dict')
         return_dict['recordings'] = recordings
-        #~ return_dict['idxs'] = idxs
         if extract_spike_traces:
             return_dict['spike_traces'] = spike_traces
-    elif tmp_mearec_file.endswith('.h5'):
-        
-        #~ if isinstance(tmp_mearec_file, h5py.File):
-            #~ if verbose:
-                #~ print('Dumping on tmp file:', tmp_mearec_file.filename)
-            #~ tmp_mearec_file['recordings'][:, :len(idxs)] = recordings
-            #~ if extract_spike_traces:
-                #~ tmp_mearec_file['spike_traces'][:, :len(idxs)] = spike_traces
-        #~ else:
-            #~ assert isinstance(tmp_mearec_file, (str, Path))
+    elif isinstance(tmp_mearec_file, str) and tmp_mearec_file.endswith('.h5'):
         with h5py.File(tmp_mearec_file) as f:
             if verbose:
                 print('Dumping on tmp file:', f.filename)
             f.create_dataset('recordings', data=recordings)
             if extract_spike_traces:
                 f.create_dataset('spike_traces', data=spike_traces)
-        #~ return_dict['idxs'] = idxs
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
-
-
-
+    elif isinstance(tmp_mearec_file, dict):
+        # note be carefull with transpose!!!
+        rec_file = tmp_mearec_file['recordings']
+        full_recordings = np.memmap(rec_file, dtype=dtype, mode='r+').reshape(-1, n_elec)
+        full_recordings[idxs, :] = recordings.T
+        
+        if extract_spike_traces:
+            spike_trace_file = tmp_mearec_file['spike_traces']
+            n_neurons = spike_traces.shape[0]
+            full_spike_traces = np.memmap(spike_trace_file, dtype=dtype, mode='r+').reshape(-1, n_neurons)
+            full_spike_traces[idxs, :] = spike_traces.T
+    
     return_dict['template_idxs'] = template_idxs
     
     return return_dict

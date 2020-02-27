@@ -188,6 +188,7 @@ class RecordingGenerator:
         spiketrains = spgen.spiketrains
 
         n_neurons = len(spiketrains)
+        print('n_neurons', n_neurons)
         if len(spiketrains) > 0:
             duration = spiketrains[0].t_stop - spiketrains[0].t_start
             only_noise = False
@@ -481,16 +482,19 @@ class RecordingGenerator:
 
         # create buffer h5/memmap/memmory
         if self.tmp_mode == 'h5':
-            tmp_rec_path = self.tmp_folder / "mearec_tmp_file.h5"
-            assert not os.path.exists(tmp_rec_path), 'temporay file already exists'
-            tmp_file = h5py.File(tmp_rec_path)
+            tmp_path = self.tmp_folder / "mearec_tmp_file.h5"
+            assert not os.path.exists(tmp_path), 'temporay file already exists'
+            tmp_file = h5py.File(tmp_path)
             recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
             spike_traces = tmp_file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
         elif self.tmp_mode == 'memmap':
-            tmp_file = None
-            assert NotImplementedError
+            tmp_path_0 = self.tmp_folder / "mearec_tmp_file_recordings.raw"
+            recordings = np.memmap(tmp_path_0, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
+            recordings = recordings.transpose()
+            tmp_path_1 = self.tmp_folder / "mearec_tmp_file_spike_traces.raw"
+            spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
+            spike_traces = spike_traces.transpose()
         else:
-            tmp_file = None
             recordings = np.zeros((n_elec, n_samples), dtype=dtype)
             spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
 
@@ -857,15 +861,13 @@ class RecordingGenerator:
                                                        templates_noise.shape[2]))
 
             if self.tmp_mode == 'h5':
-                tmp_rec_noise_path = self.tmp_folder / "mearec_tmp_noise_file.h5"
-                tmp_noise_rec = h5py.File(tmp_rec_noise_path)
+                tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
+                tmp_noise_rec = h5py.File(tmp_path)
                 additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
             elif self.tmp_mode == 'memmap':
-                raise NotImplementedError
-                tmp_noise_rec = None
-                #~ tmp_rec_noise_path = self.tmp_folder / "mearec_tmp_noise_file.raw"
-                #~ tmp_noise_rec = np.memmap(tmp_rec_noise_path, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
-                #~ additive_noise = tmp_noise_rec.transpose()
+                tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
+                additive_noise = np.memmap(tmp_path_noise, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
+                additive_noise = additive_noise.transpose()
             else:
                 tmp_noise_rec = None
                 additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
@@ -887,9 +889,9 @@ class RecordingGenerator:
                 if self.tmp_mode == 'h5':
                     additive_noise[i, ...] -= m
                 elif self.tmp_mode == 'memmap':
-                    assert NotImplementedError
+                    additive_noise[i, :] -= m
                 else:
-                    additive_noise[i] -= m
+                    additive_noise[i, :] -= m
 
             # adding noise floor
             for i, s in enumerate(np.std(additive_noise, axis=1)):
@@ -897,9 +899,10 @@ class RecordingGenerator:
                     additive_noise[i, ...] += far_neurons_noise_floor * s * \
                                               np.random.randn(additive_noise.shape[1])
                 elif self.tmp_mode == 'memmap':
-                    assert NotImplementedError
+                    additive_noise[i, :] += far_neurons_noise_floor * s * \
+                                         np.random.randn(additive_noise.shape[1])
                 else:
-                    additive_noise[i] += far_neurons_noise_floor * s * \
+                    additive_noise[i, :] += far_neurons_noise_floor * s * \
                                          np.random.randn(additive_noise.shape[1])
 
             # scaling noise
@@ -911,15 +914,15 @@ class RecordingGenerator:
                 if self.tmp_mode == 'h5':
                     additive_noise[i, ...] *= n
                 elif self.tmp_mode == 'memmap':
-                    assert NotImplementedError
+                    additive_noise[i, :] *= n
                 else:
-                    additive_noise[i] *= n
+                    additive_noise[i, :] *= n
             
             # Add it to recordings
             if self.tmp_mode == 'h5':
                 recordings[...] += additive_noise
             elif self.tmp_mode == 'memmap':
-                assert NotImplementedError
+                recordings += additive_noise
             else:
                 recordings += additive_noise
         
@@ -1136,7 +1139,7 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
     
     
     """
-    if pool is not None and tmp_mode is not None:
+    if pool is not None and tmp_mode is None:
         print('WARNING multiprocessing mode + in memmory is not efficient')
         print('It double the memmory usage')
         print('It will be one day more efficient with py38')
@@ -1151,7 +1154,10 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
                 os.remove(tmpfile)
             tmpfiles.append(tmpfile)
         elif tmp_mode == 'memmap':
-            raise NotImplementeError
+            # trick : in this case the assignement is done in the subprocess
+            tmpfile = {}
+            for k, v in assignement_dict.items():
+                tmpfile[k] = str(v.filename)
         else:
             tmpfile = None
         
@@ -1174,7 +1180,8 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
                         full_arr[:, idxs] = out_chunk
                 os.remove(tmpfiles[ch])
             elif tmp_mode == 'memmap':
-                raise NotImplementeError
+                pass
+                # Nothing to do here because done inside the func
             else:
                 for key, full_arr in assignement_dict.items():
                     out_chunk = out[key]
@@ -1195,7 +1202,8 @@ def run_several_chunks(func, chunks_rec, timestamps, args, pool, tmp_mode, tmp_f
                         full_arr[:, idxs] += out_chunk
                 os.remove(tmpfiles[ch])
         elif tmp_mode == 'memmap':
-            raise NotImplementeError
+            pass
+            # Nothing to do here because done inside the func
         else:
             # This case is very unefficient because it double the memory usage!!!!!!!
             for ch, arg_task in enumerate(arg_tasks):
