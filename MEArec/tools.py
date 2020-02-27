@@ -2533,10 +2533,11 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     return recordings, template_idxs
 
 
-def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
-                      cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
+def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
+                    spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
+                    cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
                       fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
-                      shape_stretch, chunk_start, extract_spike_traces, voltage_peaks, dtype, tmp_mearec_file=None):
+                      shape_stretch, extract_spike_traces, voltage_peaks, dtype, ):
     """
     Perform full convolution for all spike trains by chunk. Used with multiprocessing.
 
@@ -2546,8 +2547,11 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         Chunk id
     idxs: np.array
         Indexes belonging to the chunk
-    output_dict: multiprocessing.manager.dict
-        Multiprocessing dict to cache outputs
+    chunk_start: quantity
+        Start time for current chunk
+    tmp_mearec_file
+        temp file
+    
     spike_matrix: np.array
         2D matrix with binned spike trains
     modulation: str
@@ -2586,12 +2590,11 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         If True waveforms are modulated in shape
     shape_stretch: float
         Low and high frequency for bursting
-    chunk_start: quantity
-        Start time for current chunk
     extract_spike_traces: bool
         If True (default), spike traces are extracted
     voltage_peaks: np.array
         Array containing the voltage values at the peak
+    
     """
     template_idxs = []
     if extract_spike_traces:
@@ -2683,29 +2686,38 @@ def chunk_convolution(ch, idxs, output_dict, spike_matrix, modulation, drifting,
         print('Done all convolutions')
 
     return_dict = dict()
-    if tmp_mearec_file is not None:
-        if isinstance(tmp_mearec_file, h5py.File):
-            if verbose:
-                print('Dumping on tmp file:', tmp_mearec_file.filename)
-            tmp_mearec_file['recordings'][:, :len(idxs)] = recordings
-            if extract_spike_traces:
-                tmp_mearec_file['spike_traces'][:, :len(idxs)] = spike_traces
-        else:
-            assert isinstance(tmp_mearec_file, (str, Path))
-            with h5py.File(tmp_mearec_file) as f:
-                if verbose:
-                    print('Dumping on tmp file:', f.filename)
-                f.create_dataset('recordings', data=recordings)
-                if extract_spike_traces:
-                    f.create_dataset('spike_traces', data=spike_traces)
-        return_dict['idxs'] = idxs
-    else:
-        return_dict['rec'] = recordings
-        return_dict['idxs'] = idxs
+    
+    if tmp_mearec_file is  None:
+        print('DEBUG in memorry out dict')
+        return_dict['recordings'] = recordings
+        #~ return_dict['idxs'] = idxs
         if extract_spike_traces:
             return_dict['spike_traces'] = spike_traces
+    elif tmp_mearec_file.endswith('.h5'):
+        
+        #~ if isinstance(tmp_mearec_file, h5py.File):
+            #~ if verbose:
+                #~ print('Dumping on tmp file:', tmp_mearec_file.filename)
+            #~ tmp_mearec_file['recordings'][:, :len(idxs)] = recordings
+            #~ if extract_spike_traces:
+                #~ tmp_mearec_file['spike_traces'][:, :len(idxs)] = spike_traces
+        #~ else:
+            #~ assert isinstance(tmp_mearec_file, (str, Path))
+        with h5py.File(tmp_mearec_file) as f:
+            if verbose:
+                print('Dumping on tmp file:', f.filename)
+            f.create_dataset('recordings', data=recordings)
+            if extract_spike_traces:
+                f.create_dataset('spike_traces', data=spike_traces)
+        #~ return_dict['idxs'] = idxs
+    elif tmp_mearec_file.endswith('.raw'):
+        raise NotImplementedError
+
+
+
     return_dict['template_idxs'] = template_idxs
-    output_dict[ch] = return_dict
+    
+    return return_dict
 
 
 ### RECORDING OPERATION ###
