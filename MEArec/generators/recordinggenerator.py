@@ -492,9 +492,11 @@ class RecordingGenerator:
         elif self.tmp_mode == 'memmap':
             tmp_path_0 = self.tmp_folder / "mearec_tmp_file_recordings.raw"
             recordings = np.memmap(tmp_path_0, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
+            recordings[:] = 0
             recordings = recordings.transpose()
             tmp_path_1 = self.tmp_folder / "mearec_tmp_file_spike_traces.raw"
             spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
+            spike_traces[:] = 0
             spike_traces = spike_traces.transpose()
         else:
             recordings = np.zeros((n_elec, n_samples), dtype=dtype)
@@ -783,7 +785,7 @@ class RecordingGenerator:
                 'additive_noise': recordings,
             }
             # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunks_noise, timestamps, args, None, None, None, assignement_dict)
+            run_several_chunks(func, chunks_noise, timestamps, args, 1, None, None, assignement_dict)
         
         elif noise_mode == 'distance-correlated':
             cov_dist = np.zeros((n_elec, n_elec))
@@ -800,7 +802,7 @@ class RecordingGenerator:
                 'additive_noise': recordings,
             }
             # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunks_noise, timestamps, args, None, None, None, assignement_dict)
+            run_several_chunks(func, chunks_noise, timestamps, args, 1, None, None, assignement_dict)
         
         elif noise_mode == 'far-neurons':
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
@@ -949,7 +951,7 @@ class RecordingGenerator:
             }
             # Done in loop (as before)
             output_list = run_several_chunks(chunk_apply_filter, chunks_filter, timestamps, args, 
-                                None, None, None, assignement_dict)
+                                1, None, None, assignement_dict)
 
         ######
         ## Step 4 extract waveforms
