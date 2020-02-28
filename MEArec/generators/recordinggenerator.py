@@ -136,6 +136,7 @@ class RecordingGenerator:
             self.tempgen = tempgen
             self.tmp_mode = None
 
+        self.overlapping = []
         # temp file that should remove on delete
         self._to_remove_on_delete = []
 
