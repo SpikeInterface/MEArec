@@ -766,7 +766,7 @@ class RecordingGenerator:
             spike_matrix = resample_spiketrains(spiketrains, fs=fs)
 
             # divide in chunks
-            chunks_rec = make_chunk_list(duration, chunk_conv_duration)
+            chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
             
             
 
@@ -781,7 +781,7 @@ class RecordingGenerator:
                 'recordings': recordings,
                 'spike_traces': spike_traces,
             }
-            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args, self.n_jobs,
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args, self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # if drift then propagate annoations to spikestrains
@@ -800,7 +800,7 @@ class RecordingGenerator:
         np.random.seed(noise_seed)
         
         # divide in chunks
-        chunks_noise = make_chunk_list(duration, chunk_noise_duration)
+        chunk_indexes = make_chunk_indexes(duration, chunk_noise_duration, fs)
         
         if noise_level == 0:
             if self._verbose:
@@ -813,7 +813,7 @@ class RecordingGenerator:
                 'additive_noise': recordings,
             }
             # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunks_noise, timestamps, args, 1, None, None, assignement_dict)
+            run_several_chunks(func, chunk_indexes, fs, timestamps, args, 1, None, None, assignement_dict)
         
         elif noise_mode == 'distance-correlated':
             cov_dist = np.zeros((n_elec, n_elec))
@@ -830,7 +830,7 @@ class RecordingGenerator:
                 'additive_noise': recordings,
             }
             # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunks_noise, timestamps, args, 1, None, None, assignement_dict)
+            run_several_chunks(func, chunk_indexes, fs, timestamps, args, 1, None, None, assignement_dict)
         
         elif noise_mode == 'far-neurons':
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
@@ -908,7 +908,7 @@ class RecordingGenerator:
                 tmp_noise_rec = None
                 additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
             
-            chunks_rec = make_chunk_list(duration, chunk_conv_duration)
+            chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
 
             # call the loop on chunks
             verbose = self._verbose >= 2
@@ -918,7 +918,7 @@ class RecordingGenerator:
             assignement_dict = {
                 'additive_noise': additive_noise,
             }
-            output_list = run_several_chunks(chunk_convolution, chunks_rec, timestamps, args,self.n_jobs,
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # removing mean
@@ -975,7 +975,7 @@ class RecordingGenerator:
                 elif cutoff.size == 2:
                     print('Band-pass cutoff', cutoff)
                     
-            chunks_filter = make_chunk_list(duration, chunk_filter_duration)
+            chunk_indexes = make_chunk_indexes(duration, chunk_filter_duration, fs)
 
             # call the loop on chunks
             args = (recordings, cutoff, order, fs, dtype, )
@@ -983,7 +983,7 @@ class RecordingGenerator:
                 'filtered_chunk': recordings,
             }
             # Done in loop (as before)
-            output_list = run_several_chunks(chunk_apply_filter, chunks_filter, timestamps, args, 
+            output_list = run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args, 
                                 1, None, None, assignement_dict)
 
         ######
@@ -1077,26 +1077,35 @@ class RecordingGenerator:
 
 
 
-def make_chunk_list(total_duration, chunk_duration):
+def make_chunk_indexes(total_duration, chunk_duration, frequency_sampling):
     """
     Construct chunks list.
+    Return a list of (start, stop) indexes.
     """
-    total_dur = total_duration.rescale('s').magnitude
-    chunk_dur = chunk_duration.rescale('s').magnitude
+    fs = frequency_sampling.rescale('Hz').magnitude
+    chunk_size = int(chunk_duration.rescale('s').magnitude * fs)
+    total_length = int(total_duration.rescale('s').magnitude * fs)
     
-    if chunk_duration == 0*pq.s:
-        chunks = [(0*pq.s, total_duration), ]
+    print('fs', fs, 'chunk_size', chunk_size, 'total_length', )
+    
+    if chunk_size == 0:
+        chunk_indexes = [(0, total_length), ]
     else:
-        n = int(np.floor(total_dur / chunk_dur))
-        chunks = [ (i*chunk_dur*pq.s, (i+1)*chunk_dur*pq.s)  for i in range(n)]
-        if (total_dur % chunk_dur) > 0:
-            chunks.append((n*chunk_dur*pq.s, total_dur))
+        n = int(np.floor(total_length / chunk_size))
+        chunk_indexes = [ (i*chunk_size, (i+1)*chunk_size)  for i in range(n)]
+        if (total_length % chunk_size) > 0:
+            chunk_indexes.append((n*chunk_size, total_length))
     
-    return chunks
+    return chunk_indexes
 
-
-def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignement_dict):
+def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignement_dict):
     """
+    Run a function on a list of chunks.
+    
+    this can be done in loop if n_jobs=1 (or 0)
+    or in paralell if n_jobs>1
+    
+    The function can return
     
     
     """
@@ -1104,8 +1113,12 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
     # create task list
     arg_tasks = []
     tmpfiles = [] # only for h5
-    for ch, chunk in enumerate(chunks_rec):
-        idxs,  = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))
+    for ch, (i_start, i_stop) in enumerate(chunk_indexes):
+        
+        chunk_start = (i_start / fs).rescale('s')
+        
+        #~ idxs,  = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))
+        #~ idxs = np.arange(i_start, i_stop, dtype='int64')
 
         if tmp_mode == 'h5':
             tmpfile = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
@@ -1120,8 +1133,7 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
         else:
             tmpfile = None
         
-        chunk_start = chunk[0]
-        arg_task = (ch, idxs, chunk_start, tmpfile) + args
+        arg_task = (ch, i_start, i_stop, chunk_start, tmpfile) + args
         arg_tasks.append(arg_task)
     
     
@@ -1133,13 +1145,13 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
             out = func(*arg_task)
             output_list.append(out)
             
-            idxs = arg_task[1]
+            i_start, i_stop = chunk_indexes[ch]
             
             if tmp_mode == 'h5':
                 with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
                     for key, full_arr in assignement_dict.items():
                         out_chunk = tmp_ch_file[key]
-                        full_arr[:, idxs] = out_chunk
+                        full_arr[:, i_start:i_stop] = out_chunk
                 os.remove(tmpfiles[ch])
             elif tmp_mode == 'memmap':
                 pass
@@ -1147,7 +1159,7 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
             else:
                 for key, full_arr in assignement_dict.items():
                     out_chunk = out[key]
-                    full_arr[:, idxs] += out_chunk
+                    full_arr[:, i_start:i_stop] += out_chunk
             
     else:
         # parallel
@@ -1158,16 +1170,15 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
                 with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
                     for key, full_arr in assignement_dict.items():
                         out_chunk = tmp_ch_file[key]
-                        full_arr[:, idxs] += out_chunk
+                        full_arr[:, i_start:i_stop] += out_chunk
                 os.remove(tmpfiles[ch])
         elif tmp_mode == 'memmap':
             pass
             # Nothing to do here because done inside the func
         else:
             # This case is very unefficient because it double the memory usage!!!!!!!
-            for ch, arg_task in enumerate(arg_tasks):
-                idxs = arg_task[1]
+            for ch, (i_start, i_stop) in enumerate(chunk_indexes):
                 for key, full_arr in assignement_dict.items():
-                    full_arr[:, idxs] += output_list[ch][key]
+                    full_arr[:, i_start:i_stop] += output_list[ch][key]
 
     return output_list

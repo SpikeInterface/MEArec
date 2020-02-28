@@ -1,8 +1,18 @@
 """
 This module group several sub function for recording generator.
 
+All this function work on chunk of signals.
+They can be call in loop mode or with joblib.
+
+Important:
+
+When tmp_mode=='memmap' : theses functions must assign and add directly the buffer.
+When tmp_mode is Noe : theses functions return the buffer and the assignament is done externally.
+
+
 
 """
+import h5py
 import numpy as np
 
 from MEArec.tools import filter_analog_signals, convolve_templates_spiketrains, convolve_single_template
@@ -10,20 +20,22 @@ from MEArec.tools import filter_analog_signals, convolve_templates_spiketrains, 
 
 
 
-def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
+def chunk_convolution(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
                     spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
                     cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
                       fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
                       shape_stretch, extract_spike_traces, voltage_peaks, dtype, ):
     """
-    Perform full convolution for all spike trains by chunk. Used with multiprocessing.
+    Perform full convolution for all spike trains by chunk.
 
     Parameters
     ----------
     ch: int
         Chunk id
-    idxs: np.array
-        Indexes belonging to the chunk
+    i_start: int
+        first index of chunk
+    i_stop: 
+        last index of chunk (exclude)
     chunk_start: quantity
         Start time for current chunk
     tmp_mearec_file
@@ -76,9 +88,11 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
         Array containing the voltage values at the peak
     
     """
+    length = i_stop - i_start
+    
     template_idxs = []
     if extract_spike_traces:
-        spike_traces = np.zeros((len(spike_matrix), len(idxs)), dtype=dtype)
+        spike_traces = np.zeros((len(spike_matrix), length), dtype=dtype)
     if len(templates.shape) == 4:
         n_elec = templates.shape[2]
     elif len(templates.shape) == 5:
@@ -86,7 +100,8 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
     else:
         raise AttributeError("Wrong 'templates' shape!")
     
-    recordings = np.zeros((n_elec, len(idxs)), dtype=dtype)
+    
+    recordings = np.zeros((n_elec, length), dtype=dtype)
 
     for st, spike_bin in enumerate(spike_matrix):
         if extract_spike_traces:
@@ -111,7 +126,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
             unit_burst = False
 
         if drifting and st in drifting_units:
-            recordings, template_idx = convolve_drifting_templates_spiketrains(st, spike_bin[idxs], templates[st],
+            recordings, template_idx = convolve_drifting_templates_spiketrains(st, spike_bin[i_start:i_stop], templates[st],
                                                                                cut_out=cut_outs_samples,
                                                                                modulation=mod_bool,
                                                                                mod_array=mod_array,
@@ -130,7 +145,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
                                                                                recordings=recordings)
             np.random.seed(seed)
             if extract_spike_traces:
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                spike_traces[st] = convolve_single_template(st, spike_bin[i_start:i_stop],
                                                             templates[st, 0, :, max_electrode],
                                                             cut_out=cut_outs_samples,
                                                             modulation=mod_bool,
@@ -142,7 +157,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
                 template = templates[st, 0]
             else:
                 template = templates[st]
-            recordings = convolve_templates_spiketrains(st, spike_bin[idxs], template,
+            recordings = convolve_templates_spiketrains(st, spike_bin[i_start:i_stop], template,
                                                         cut_out=cut_outs_samples,
                                                         modulation=mod_bool,
                                                         mod_array=mod_array,
@@ -152,7 +167,7 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
                                                         recordings=recordings)
             np.random.seed(seed)
             if extract_spike_traces:
-                spike_traces[st] = convolve_single_template(st, spike_bin[idxs],
+                spike_traces[st] = convolve_single_template(st, spike_bin[i_start:i_stop],
                                                             template[:, max_electrode],
                                                             cut_out=cut_outs_samples,
                                                             modulation=mod_bool,
@@ -182,24 +197,24 @@ def chunk_convolution(ch, idxs, chunk_start, tmp_mearec_file,
         # note be carefull with transpose!!!
         rec_file = tmp_mearec_file['recordings']
         full_recordings = np.memmap(rec_file, dtype=dtype, mode='r+').reshape(-1, n_elec)
-        full_recordings[idxs, :] = recordings.T
+        full_recordings[i_start:i_stop, :] = recordings.T
         
         if extract_spike_traces:
             spike_trace_file = tmp_mearec_file['spike_traces']
             n_neurons = spike_traces.shape[0]
             full_spike_traces = np.memmap(spike_trace_file, dtype=dtype, mode='r+').reshape(-1, n_neurons)
-            full_spike_traces[idxs, :] = spike_traces.T
+            full_spike_traces[i_start:i_stop, :] = spike_traces.T
     
     return_dict['template_idxs'] = template_idxs
     
     return return_dict
 
 
-def chunk_uncorrelated_noise(ch, idxs, chunk_start, tmp_mearec_file,
+def chunk_uncorrelated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
             num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype):
     
-    #~ print('chunk_uncorrelated_noise', num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype)
-    additive_noise = noise_level * np.random.randn(num_chan, len(idxs)).astype(dtype)
+    length = i_stop - i_start
+    additive_noise = noise_level * np.random.randn(num_chan, length).astype(dtype)
     
     if noise_color:
         # iir peak filter
@@ -222,18 +237,20 @@ def chunk_uncorrelated_noise(ch, idxs, chunk_start, tmp_mearec_file,
     return return_dict
 
 
-def chunk_distance_correlated_noise(ch, idxs, chunk_start, tmp_mearec_file,
+def chunk_distance_correlated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
             noise_level, cov_dist, n_elec, noise_color,color_peak, color_q, color_noise_floor, fs, dtype):
     
+    length = i_stop - i_start
+    
     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                 size=(len(idxs))).astype(dtype).T
+                                                                 size=(length)).astype(dtype).T
     if noise_color:
         # iir peak filter
         b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
         additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                          np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                       size=(len(idxs))).T
+                                                       size=(length)).T
     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
     return_dict = {}
@@ -247,18 +264,18 @@ def chunk_distance_correlated_noise(ch, idxs, chunk_start, tmp_mearec_file,
     return return_dict
 
 
-def chunk_apply_filter(ch, idxs, chunk_start, tmp_mearec_file,
+def chunk_apply_filter(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
                         recordings, cutoff, order, fs, dtype):
 
     if cutoff.size == 1:
-        filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
+        filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff, fs=fs,
                                                filter_type='highpass', order=order)
     elif cutoff.size == 2:
         if fs / 2. < cutoff[1]:
-            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
+            filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff[0], fs=fs,
                                                    filter_type='highpass', order=order)
         else:
-            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
+            filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff, fs=fs)
     
     filtered_chunk = filtered_chunk.astype(dtype)
 
