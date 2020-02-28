@@ -143,7 +143,6 @@ class RecordingGenerator:
     def __del__(self):
         self.recordings = None
         self.spike_traces = None
-
         for fname in self._to_remove_on_delete:
             if self._verbose:
                 try:
@@ -526,7 +525,6 @@ class RecordingGenerator:
                 spike_traces = spike_traces.transpose()
 
             self._to_remove_on_delete.extend([tmp_path_0, tmp_path_1])
-
         else:
             recordings = np.zeros((n_elec, n_samples), dtype=dtype)
             spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
@@ -825,7 +823,7 @@ class RecordingGenerator:
                 num_chan = recordings.shape[0]
                 args = (num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor,
                         fs.rescale('Hz').magnitude, dtype)
-                assignment_dict = {'recordings': additive_noise}
+                assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
@@ -842,7 +840,7 @@ class RecordingGenerator:
                 func = chunk_distance_correlated_noise
                 args = (noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
                         fs.rescale('Hz').magnitude, dtype)
-                assignment_dict = {'recordings': additive_noise}
+                assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)

@@ -34,7 +34,7 @@ class FuncThenAddChunk:
 
         ch, i_start, i_stop, = args[:3]
         
-        assignement_dict = kargs['assignement_dict']
+        assignment_dict = kargs['assignment_dict']
         tmp_mode = kargs['tmp_mode']
 
         if tmp_mode is None:
@@ -43,12 +43,12 @@ class FuncThenAddChunk:
             tmp_file = kargs['tmp_file']
 
             with h5py.File(tmp_file, mode='w') as f:
-                for key, full_arr in assignement_dict.items():
+                for key, full_arr in assignment_dict.items():
                     # full_arr is None in that case
                     out_chunk = return_dict.pop(key)
                     f.create_dataset(key, data=out_chunk)
         elif tmp_mode == 'memmap':
-            for key, full_arr in assignement_dict.items():
+            for key, full_arr in assignment_dict.items():
                 out_chunk = return_dict.pop(key)
                 if kargs['parallel_job']:
                     # there is a bug in joblib the do no strides in correct way
