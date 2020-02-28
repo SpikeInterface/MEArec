@@ -22,8 +22,6 @@ else:
 #local_temp = False
 local_temp = True
 
-sys.path = ['/usr/local/nrn/lib/python/'] + sys.path
-
 
 class TestGenerators(unittest.TestCase):
     @classmethod
