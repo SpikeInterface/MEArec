@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.signal as ss
 import time
 from copy import copy, deepcopy
 from MEArec.tools import (select_templates, find_overlapping_templates,  get_binary_cat,
@@ -9,7 +8,8 @@ from MEArec.tools import (select_templates, find_overlapping_templates,  get_bin
 from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
                 chunk_distance_correlated_noise, chunk_apply_filter)
 
-
+import random
+import string
 import MEAutility as mu
 import yaml
 import os
@@ -169,6 +169,9 @@ class RecordingGenerator:
         self.tmp_mode = tmp_mode
         self.tmp_folder = tmp_folder
         self.n_jobs = n_jobs
+        if tmp_mode is not None:
+            tmp_prefix = ''.join([random.choice(string.ascii_letters ) for i in range(5)]) + '_'
+        
 
         if self.tmp_mode is not None:
             if self.tmp_folder is None:
@@ -506,7 +509,7 @@ class RecordingGenerator:
         
         
         if self.tmp_mode == 'h5':
-            tmp_path = self.tmp_folder / "mearec_tmp_file.h5"
+            tmp_path = self.tmp_folder / (tmp_prefix + "mearec_tmp_file.h5")
             assert not os.path.exists(tmp_path), 'temporay file already exists'
             tmp_file = h5py.File(tmp_path, mode='w')
             recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
@@ -515,11 +518,11 @@ class RecordingGenerator:
             self._to_remove_on_delete.append(tmp_path)
             
         elif self.tmp_mode == 'memmap':
-            tmp_path_0 = self.tmp_folder / "mearec_tmp_file_recordings.raw"
+            tmp_path_0 = self.tmp_folder / (tmp_prefix+"mearec_tmp_file_recordings.raw")
             recordings = np.memmap(tmp_path_0, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
             recordings[:] = 0
             recordings = recordings.transpose()
-            tmp_path_1 = self.tmp_folder / "mearec_tmp_file_spike_traces.raw"
+            tmp_path_1 = self.tmp_folder /  (tmp_prefix + "mearec_tmp_file_spike_traces.raw")
             spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
             spike_traces[:] = 0
             spike_traces = spike_traces.transpose()
@@ -900,13 +903,13 @@ class RecordingGenerator:
                                                        templates_noise.shape[2]))
 
             if self.tmp_mode == 'h5':
-                tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
+                tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.h5")
                 tmp_noise_rec = h5py.File(tmp_path, mode='w')
                 additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 self._to_remove_on_delete.append(tmp_path_noise)
             
             elif self.tmp_mode == 'memmap':
-                tmp_path_noise = self.tmp_folder / "mearec_tmp_noise_file.h5"
+                tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.h5")
                 additive_noise = np.memmap(tmp_path_noise, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
                 additive_noise = additive_noise.transpose()
                 self._to_remove_on_delete.append(tmp_path_noise)
@@ -1087,14 +1090,14 @@ class RecordingGenerator:
 
 
 
-def make_chunk_indexes(total_duration, chunk_duration, frequency_sampling):
+def make_chunk_indexes(total_duration, chunk_duration, fs):
     """
     Construct chunks list.
     Return a list of (start, stop) indexes.
     """
-    fs = frequency_sampling.rescale('Hz').magnitude
-    chunk_size = int(chunk_duration.rescale('s').magnitude * fs)
-    total_length = int(total_duration.rescale('s').magnitude * fs)
+    fs_float = fs.rescale('Hz').magnitude
+    chunk_size = int(chunk_duration.rescale('s').magnitude * fs_float)
+    total_length = int(total_duration.rescale('s').magnitude * fs_float)
     
     if chunk_size == 0:
         chunk_indexes = [(0, total_length), ]

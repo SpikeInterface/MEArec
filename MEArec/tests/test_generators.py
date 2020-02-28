@@ -1,4 +1,5 @@
 import pytest
+import sys
 import os
 import numpy as np
 import unittest
@@ -6,7 +7,6 @@ import MEArec as mr
 import tempfile
 import shutil
 import yaml
-import os
 import elephant.statistics as stat
 from distutils.version import StrictVersion
 import tempfile
@@ -19,7 +19,10 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-local_temp = False
+#local_temp = False
+local_temp = True
+
+sys.path = ['/usr/local/nrn/lib/python/'] + sys.path
 
 
 class TestGenerators(unittest.TestCase):
@@ -540,11 +543,25 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
         
+        rec_params['recordings']['seed'] = 0
+        rec_params['templates']['seed'] = 0
+        rec_params['spiketrains']['seed'] = 0
+        
+        
         for n_jobs in (1, 2):
             recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False, n_jobs=n_jobs)
             recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False, n_jobs=n_jobs)
             recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False, n_jobs=n_jobs)
-        
+            
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots()
+            ax.plot(recgen_np.recordings[0, :], color='r')
+            #~ fig, ax = plt.subplots()
+            ax.plot(recgen_h5.recordings[0, :], color='g')
+            ax.plot(recgen_memmap.recordings[0, :], color='b')
+            plt.show()
+            
+            
             assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
             assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
             
@@ -638,5 +655,8 @@ class TestGenerators(unittest.TestCase):
         assert len(i) >= target_spikes[0] and len(i) <= target_spikes[1]
         assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
 
-# if __name__ == '__main__':
-#     unittest.main()
+if __name__ == '__main__':
+    #~ unittest.main()
+    
+    TestGenerators().setUpClass()
+    TestGenerators().test_recordings_backend()

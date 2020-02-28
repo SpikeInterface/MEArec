@@ -14,8 +14,10 @@ When tmp_mode is Noe : theses functions return the buffer and the assignament is
 """
 import h5py
 import numpy as np
+import scipy.signal
 
-from MEArec.tools import filter_analog_signals, convolve_templates_spiketrains, convolve_single_template
+from MEArec.tools import (filter_analog_signals, convolve_templates_spiketrains,
+                convolve_single_template, convolve_drifting_templates_spiketrains)
 
 class FuncThenAddChunk:
     """
@@ -232,14 +234,14 @@ chunk_convolution = FuncThenAddChunk(chunk_convolution_)
 
 def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start, 
             num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype):
-    
+
     length = i_stop - i_start
     additive_noise = noise_level * np.random.randn(num_chan, length).astype(dtype)
     
     if noise_color:
         # iir peak filter
-        b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
-        additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
+        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
+        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
         additive_noise  = additive_noise.astype(dtype)
         additive_noise += color_noise_floor * np.std(additive_noise) * \
                          np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
@@ -263,8 +265,8 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
                                                                  size=(length)).astype(dtype).T
     if noise_color:
         # iir peak filter
-        b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
-        additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
+        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
+        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=1)
         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                          np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
                                                        size=(length)).T
