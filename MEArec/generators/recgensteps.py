@@ -17,10 +17,48 @@ import numpy as np
 
 from MEArec.tools import filter_analog_signals, convolve_templates_spiketrains, convolve_single_template
 
+class FuncThenAddChunk:
+    """
+    Helper for functions that do chunk to assign one or several chunks at the 
+    good place.
+    """
+    def __init__(self, func):
+        self.func = func
+    
+    def __call__(self, *args, **kargs):
+        out = self.func(*args)
+        
+        ch, i_start, i_stop,  = args[:3]
+        
+        assignement_dict = kargs['assignement_dict']
+        tmp_mode = kargs['tmp_mode']
+        
+        
+        if tmp_mode is None:
+            pass
+        elif tmp_mode == 'h5':
+            tmp_file = kargs['tmp_file']
+            print('ici', tmp_file)
+            with h5py.File(tmp_file, mode='w') as f:
+                for key, full_arr in assignement_dict.items():
+                    #full_arr is None in that case
+                    out_chunk = out.pop(key)
+                    f.create_dataset(key, data=out_chunk)
+        elif tmp_mode == 'memmap':
+            for key, full_arr in assignement_dict.items():
+                out_chunk = out.pop(key)
+                if kargs['parallel_job']:
+                    # there is a bug in joblib the do no strides in correct way
+                    # see https://github.com/joblib/joblib/issues/1019
+                    # if joblib fix this then we MUST remove this two lines
+                    rev_shape = tuple(full_arr.shape[::-1])
+                    full_arr = np.memmap(full_arr.filename, mode='r+', shape=rev_shape, dtype=full_arr.dtype).transpose()
+                full_arr[:, i_start:i_stop] += out_chunk
+        
+        return out
 
 
-
-def chunk_convolution(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
+def chunk_convolution_(ch, i_start, i_stop, chunk_start, 
                     spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
                     cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
                       fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
@@ -180,37 +218,44 @@ def chunk_convolution(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
     if verbose:
         print('Done all convolutions for chunk', ch)
 
-    return_dict = dict()
-    return_dict['ch'] = int(ch)
-    if tmp_mearec_file is  None:
-        return_dict['recordings'] = recordings
-        if extract_spike_traces:
-            return_dict['spike_traces'] = spike_traces
-    elif isinstance(tmp_mearec_file, str) and tmp_mearec_file.endswith('.h5'):
-        with h5py.File(tmp_mearec_file, mode='w') as f:
-            if verbose:
-                print('Dumping on tmp file:', f.filename)
-            f.create_dataset('recordings', data=recordings)
-            if extract_spike_traces:
-                f.create_dataset('spike_traces', data=spike_traces)
-    elif isinstance(tmp_mearec_file, dict):
-        # note be carefull with transpose!!!
-        rec_file = tmp_mearec_file['recordings']
-        full_recordings = np.memmap(rec_file, dtype=dtype, mode='r+').reshape(-1, n_elec)
-        full_recordings[i_start:i_stop, :] = recordings.T
+    #~ return_dict = dict()
+    #~ return_dict['ch'] = int(ch)
+    #~ if tmp_mearec_file is  None:
+        #~ return_dict['recordings'] = recordings
+        #~ if extract_spike_traces:
+            #~ return_dict['spike_traces'] = spike_traces
+    #~ elif isinstance(tmp_mearec_file, str) and tmp_mearec_file.endswith('.h5'):
+        #~ with h5py.File(tmp_mearec_file, mode='w') as f:
+            #~ if verbose:
+                #~ print('Dumping on tmp file:', f.filename)
+            #~ f.create_dataset('recordings', data=recordings)
+            #~ if extract_spike_traces:
+                #~ f.create_dataset('spike_traces', data=spike_traces)
+    #~ elif isinstance(tmp_mearec_file, dict):
+        #~ # note be carefull with transpose!!!
+        #~ rec_file = tmp_mearec_file['recordings']
+        #~ full_recordings = np.memmap(rec_file, dtype=dtype, mode='r+').reshape(-1, n_elec)
+        #~ full_recordings[i_start:i_stop, :] = recordings.T
         
-        if extract_spike_traces:
-            spike_trace_file = tmp_mearec_file['spike_traces']
-            n_neurons = spike_traces.shape[0]
-            full_spike_traces = np.memmap(spike_trace_file, dtype=dtype, mode='r+').reshape(-1, n_neurons)
-            full_spike_traces[i_start:i_stop, :] = spike_traces.T
+        #~ if extract_spike_traces:
+            #~ spike_trace_file = tmp_mearec_file['spike_traces']
+            #~ n_neurons = spike_traces.shape[0]
+            #~ full_spike_traces = np.memmap(spike_trace_file, dtype=dtype, mode='r+').reshape(-1, n_neurons)
+            #~ full_spike_traces[i_start:i_stop, :] = spike_traces.T
     
+    return_dict = dict()
+    return_dict['recordings'] = recordings
+    if extract_spike_traces:
+        return_dict['spike_traces'] = spike_traces
     return_dict['template_idxs'] = template_idxs
     
     return return_dict
 
+chunk_convolution = FuncThenAddChunk(chunk_convolution_)
 
-def chunk_uncorrelated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
+
+
+def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start, 
             num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype):
     
     length = i_stop - i_start
@@ -227,17 +272,20 @@ def chunk_uncorrelated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
     
  
     return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['additive_noise'] = additive_noise
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
+    return_dict['additive_noise'] = additive_noise
+    #~ if tmp_mearec_file is  None:
+        #~ return_dict['additive_noise'] = additive_noise
+    #~ elif tmp_mearec_file.endswith('.h5'):
+        #~ raise NotImplementedError
+    #~ elif tmp_mearec_file.endswith('.raw'):
+        #~ raise NotImplementedError
     
     return return_dict
 
+chunk_uncorrelated_noise = FuncThenAddChunk(chunk_uncorrelated_noise_)
 
-def chunk_distance_correlated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
+
+def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start, 
             noise_level, cov_dist, n_elec, noise_color,color_peak, color_q, color_noise_floor, fs, dtype):
     
     length = i_stop - i_start
@@ -254,17 +302,20 @@ def chunk_distance_correlated_noise(ch, i_start, i_stop, chunk_start, tmp_mearec
     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
     return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['additive_noise'] = additive_noise
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
+    return_dict['additive_noise'] = additive_noise
+    #~ if tmp_mearec_file is  None:
+        #~ return_dict['additive_noise'] = additive_noise
+    #~ elif tmp_mearec_file.endswith('.h5'):
+        #~ raise NotImplementedError
+    #~ elif tmp_mearec_file.endswith('.raw'):
+        #~ raise NotImplementedError
     
     return return_dict
 
+chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noise_)
 
-def chunk_apply_filter(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
+
+def chunk_apply_filter_(ch, i_start, i_stop, chunk_start, 
                         recordings, cutoff, order, fs, dtype):
 
     if cutoff.size == 1:
@@ -280,11 +331,15 @@ def chunk_apply_filter(ch, i_start, i_stop, chunk_start, tmp_mearec_file,
     filtered_chunk = filtered_chunk.astype(dtype)
 
     return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['filtered_chunk'] = filtered_chunk
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
+    return_dict['filtered_chunk'] = filtered_chunk
+    #~ if tmp_mearec_file is  None:
+        #~ return_dict['filtered_chunk'] = filtered_chunk
+    #~ elif tmp_mearec_file.endswith('.h5'):
+        #~ raise NotImplementedError
+    #~ elif tmp_mearec_file.endswith('.raw'):
+        #~ raise NotImplementedError
     
     return return_dict
+
+
+chunk_apply_filter = FuncThenAddChunk(chunk_apply_filter_)

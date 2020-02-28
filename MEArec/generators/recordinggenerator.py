@@ -777,10 +777,9 @@ class RecordingGenerator:
                         fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, verbose,
                         amp_mod, bursting_units, shape_mod, shape_stretch,
                         True, voltage_peaks, dtype,)
-            assignement_dict = {
-                'recordings': recordings,
-                'spike_traces': spike_traces,
-            }
+            assignement_dict = { 
+                    'recordings': recordings,
+                    'spike_traces':spike_traces}
             output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args, self.n_jobs,
                                 self.tmp_mode, self.tmp_folder, assignement_dict)
             
@@ -1098,6 +1097,7 @@ def make_chunk_indexes(total_duration, chunk_duration, frequency_sampling):
     
     return chunk_indexes
 
+
 def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignement_dict):
     """
     Run a function on a list of chunks.
@@ -1110,60 +1110,61 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
     
     """
     
+    parallel_job = not n_jobs in (0, 1)
     # create task list
     arg_tasks = []
-    tmpfiles = [] # only for h5
+    karg_tasks = []
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
         
         chunk_start = (i_start / fs).rescale('s')
         
-        #~ idxs,  = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))
-        #~ idxs = np.arange(i_start, i_stop, dtype='int64')
-
         if tmp_mode == 'h5':
-            tmpfile = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
-            if os.path.exists(tmpfile):
-                os.remove(tmpfile)
-            tmpfiles.append(tmpfile)
+            tmp_file = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
         elif tmp_mode == 'memmap':
-            # trick : in this case the assignement is done in the subprocess
-            tmpfile = {}
-            for k, v in assignement_dict.items():
-                tmpfile[k] = str(v.filename)
+            tmp_file = None
         else:
-            tmpfile = None
+            tmp_file = None
         
-        arg_task = (ch, i_start, i_stop, chunk_start, tmpfile) + args
+        ch, i_start, i_stop, chunk_start,
+        
+        arg_task = (ch, i_start, i_stop, chunk_start,) + args
         arg_tasks.append(arg_task)
     
-    
+        karg_task = dict(assignement_dict=assignement_dict, tmp_mode=tmp_mode, parallel_job=parallel_job)
+        if tmp_file is not None:
+            karg_task['tmp_file'] = tmp_file
+        karg_tasks.append(karg_task)
+ 
     # run chunks
     if n_jobs in (0, 1):
         # simple loop
         output_list = []
-        for ch, arg_task in enumerate(arg_tasks):
-            out = func(*arg_task)
+        for ch, (i_start, i_stop) in enumerate(chunk_indexes):
+            out = func(*arg_tasks[ch], **karg_tasks[ch])
             output_list.append(out)
             
             i_start, i_stop = chunk_indexes[ch]
             
-            if tmp_mode == 'h5':
-                with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
-                    for key, full_arr in assignement_dict.items():
-                        out_chunk = tmp_ch_file[key]
-                        full_arr[:, i_start:i_stop] = out_chunk
-                os.remove(tmpfiles[ch])
-            elif tmp_mode == 'memmap':
-                pass
-                # Nothing to do here because done inside the func
-            else:
+            if tmp_mode is None:
                 for key, full_arr in assignement_dict.items():
                     out_chunk = out[key]
                     full_arr[:, i_start:i_stop] += out_chunk
-            
+            elif tmp_mode == 'h5':
+                tmp_file = karg_tasks[ch]['tmp_file']
+                with h5py.File(tmp_file, 'r') as f:
+                    for key, full_arr in assignement_dict.items():
+                        out_chunk = f[key]
+                        full_arr[:, i_start:i_stop] = out_chunk
+                os.remove(tmp_file)
+            elif tmp_mode == 'memmap':
+                pass
+                # Nothing to do here because done inside the func with FuncThenAddChunk
+
     else:
         # parallel
-        output_list = Parallel(n_jobs=4)(delayed(func)(*arg_task) for arg_task in arg_tasks)
+        output_list = Parallel(n_jobs=n_jobs)(delayed(func)(*arg_task, **karg_task) for arg_task, karg_task in zip(arg_tasks, karg_tasks))
         
         if tmp_mode == 'h5':
             for ch, arg_task in enumerate(arg_tasks):
