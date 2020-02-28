@@ -138,7 +138,7 @@ class RecordingGenerator:
                     os.remove(fname)
                     print('deleted', fname)
                 except:
-                    pass
+                    print('Impossible to delete temp file:', fname)
                 
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
@@ -199,7 +199,7 @@ class RecordingGenerator:
         spiketrains = spgen.spiketrains
 
         n_neurons = len(spiketrains)
-        print('n_neurons', n_neurons)
+
         if len(spiketrains) > 0:
             duration = spiketrains[0].t_stop - spiketrains[0].t_start
             only_noise = False
@@ -1068,7 +1068,8 @@ class RecordingGenerator:
 
 def chunk_uncorrelated_noise(ch, idxs, chunk_start, tmp_mearec_file,
             num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype):
-
+    
+    #~ print('chunk_uncorrelated_noise', num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype)
     additive_noise = noise_level * np.random.randn(num_chan, len(idxs)).astype(dtype)
     
     if noise_color:
@@ -1080,6 +1081,7 @@ def chunk_uncorrelated_noise(ch, idxs, chunk_start, tmp_mearec_file,
                          np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
     
+ 
     return_dict = {}
     if tmp_mearec_file is  None:
         return_dict['additive_noise'] = additive_noise
@@ -1172,10 +1174,12 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
     
     """
     
+    # create task list
     arg_tasks = []
     tmpfiles = [] # only for h5
     for ch, chunk in enumerate(chunks_rec):
-        idxs = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))[0]
+        idxs,  = np.where((timestamps >= chunk[0]) & (timestamps < chunk[1]))
+
         if tmp_mode == 'h5':
             tmpfile = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
             if os.path.exists(tmpfile):
@@ -1192,16 +1196,19 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
         chunk_start = chunk[0]
         arg_task = (ch, idxs, chunk_start, tmpfile) + args
         arg_tasks.append(arg_task)
-
+    
+    
+    # run chunks
     if n_jobs in (0, 1):
         # simple loop
         output_list = []
         for ch, arg_task in enumerate(arg_tasks):
             out = func(*arg_task)
             output_list.append(out)
-
+            
+            idxs = arg_task[1]
+            
             if tmp_mode == 'h5':
-                idxs = arg_task[1]
                 with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
                     for key, full_arr in assignement_dict.items():
                         out_chunk = tmp_ch_file[key]
@@ -1213,14 +1220,12 @@ def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp
             else:
                 for key, full_arr in assignement_dict.items():
                     out_chunk = out[key]
-                    full_arr[:, idxs] = out_chunk
+                    full_arr[:, idxs] += out_chunk
             
     else:
-        
+        # parallel
         output_list = Parallel(n_jobs=4)(delayed(func)(*arg_task) for arg_task in arg_tasks)
         
-        
-        #~ print('tmp_mode', tmp_mode)
         if tmp_mode == 'h5':
             for ch, arg_task in enumerate(arg_tasks):
                 with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
