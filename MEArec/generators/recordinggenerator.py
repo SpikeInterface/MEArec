@@ -780,8 +780,8 @@ class RecordingGenerator:
             assignement_dict = { 
                     'recordings': recordings,
                     'spike_traces':spike_traces}
-            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args, self.n_jobs,
-                                self.tmp_mode, self.tmp_folder, assignement_dict)
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args, 
+                                self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
             
             # if drift then propagate annoations to spikestrains
             for st in np.arange(n_neurons):
@@ -811,8 +811,10 @@ class RecordingGenerator:
             assignement_dict = {
                 'additive_noise': recordings,
             }
-            # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunk_indexes, fs, timestamps, args, 1, None, None, assignement_dict)
+            
+            run_several_chunks(func, chunk_indexes, fs, timestamps, args,
+                            self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
+                            #~ 1, None, None, assignement_dict)
         
         elif noise_mode == 'distance-correlated':
             cov_dist = np.zeros((n_elec, n_elec))
@@ -828,8 +830,11 @@ class RecordingGenerator:
             assignement_dict = {
                 'additive_noise': recordings,
             }
-            # NO multiprocessing for this part now (like before only a simple loop)
-            run_several_chunks(func, chunk_indexes, fs, timestamps, args, 1, None, None, assignement_dict)
+
+            run_several_chunks(func, chunk_indexes, fs, timestamps, args,
+                            self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
+                            #~ 1, None, None, assignement_dict)
+            
         
         elif noise_mode == 'far-neurons':
             idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
@@ -917,8 +922,9 @@ class RecordingGenerator:
             assignement_dict = {
                 'additive_noise': additive_noise,
             }
-            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,self.n_jobs,
-                                self.tmp_mode, self.tmp_folder, assignement_dict)
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
+                                self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
+                                
             
             # removing mean
             for i, m in enumerate(np.mean(additive_noise, axis=1)):
@@ -981,9 +987,11 @@ class RecordingGenerator:
             assignement_dict = {
                 'filtered_chunk': recordings,
             }
-            # Done in loop (as before)
+            # Done in loop (as before) : this cannot be done in parralel because of bug transpose in joblib!!!!!!!!!!!!!
             output_list = run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args, 
-                                1, None, None, assignement_dict)
+                            #~ self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
+                            1, None, None, assignement_dict)
+
 
         ######
         ## Step 4 extract waveforms
@@ -1118,23 +1126,20 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
         
         chunk_start = (i_start / fs).rescale('s')
         
-        if tmp_mode == 'h5':
-            tmp_file = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
-            if os.path.exists(tmp_file):
-                os.remove(tmp_file)
-        elif tmp_mode == 'memmap':
-            tmp_file = None
-        else:
-            tmp_file = None
-        
-        ch, i_start, i_stop, chunk_start,
-        
         arg_task = (ch, i_start, i_stop, chunk_start,) + args
         arg_tasks.append(arg_task)
     
         karg_task = dict(assignement_dict=assignement_dict, tmp_mode=tmp_mode, parallel_job=parallel_job)
-        if tmp_file is not None:
+        if tmp_mode is None:
+            pass
+        elif tmp_mode == 'h5':
+            tmp_file = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
             karg_task['tmp_file'] = tmp_file
+            karg_task['assignement_dict'] = {k:None for k in assignement_dict} # trick to not transmit the file
+        elif tmp_mode == 'memmap':
+            pass
         karg_tasks.append(karg_task)
  
     # run chunks
@@ -1168,11 +1173,12 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
         
         if tmp_mode == 'h5':
             for ch, arg_task in enumerate(arg_tasks):
-                with h5py.File(tmpfiles[ch], 'r') as tmp_ch_file:
+                tmp_file = karg_tasks[ch]['tmp_file']
+                with h5py.File(tmp_file, 'r') as f:
                     for key, full_arr in assignement_dict.items():
-                        out_chunk = tmp_ch_file[key]
+                        out_chunk = f[key]
                         full_arr[:, i_start:i_stop] += out_chunk
-                os.remove(tmpfiles[ch])
+                os.remove(tmp_file)
         elif tmp_mode == 'memmap':
             pass
             # Nothing to do here because done inside the func
