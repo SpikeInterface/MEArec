@@ -29,7 +29,8 @@ setup(
         'neo',
         'elephant',
         'h5py',
-        'MEAutility'
+        'MEAutility',
+        'joblib',
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )
