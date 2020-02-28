@@ -2,9 +2,14 @@ import numpy as np
 import scipy.signal as ss
 import time
 from copy import copy, deepcopy
-from MEArec.tools import select_templates, find_overlapping_templates, chunk_convolution, filter_analog_signals, \
-    get_binary_cat, resample_templates, jitter_templates, pad_templates, get_templates_features, resample_spiketrains, \
-    compute_modulation, annotate_overlapping_spikes, extract_wf
+from MEArec.tools import (select_templates, find_overlapping_templates,  get_binary_cat,
+    resample_templates, jitter_templates, pad_templates, get_templates_features,
+    resample_spiketrains, compute_modulation, annotate_overlapping_spikes, extract_wf)
+
+from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
+                chunk_distance_correlated_noise, chunk_apply_filter)
+
+
 import MEAutility as mu
 import yaml
 import os
@@ -53,8 +58,11 @@ class RecordingGenerator:
           - spike_traces : float (n_spiketrains, n_samples)
     info :  dict
         Info dictionary to instantiate RecordingGenerator with existing data. Same fields as 'params'
-    verbose : bool
-        If True, output is verbose
+    verbose : bool or int
+        When verbose is 0 or False: no verbode
+        When verbose is 1 or True: main verbose but no verbose each chunk
+        When verbose is 2 : full verbose even each chunk
+        
     """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None, verbose=True):
@@ -165,7 +173,7 @@ class RecordingGenerator:
             else:
                 self.tmp_folder = Path(self.tmp_folder)
 
-        if verbose is not None and isinstance(verbose, bool):
+        if verbose is not None and isinstance(verbose, bool) or isinstance(verbose, int):
             self._verbose = verbose
 
         params = deepcopy(self.params)
@@ -761,7 +769,8 @@ class RecordingGenerator:
             chunks_rec = make_chunk_list(duration, chunk_conv_duration)
             
             
-            verbose = self._verbose and self.n_jobs<2
+
+            verbose = self._verbose >= 2
             # call the loop on chunks
             args = (spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
                         cut_outs_samples, template_locs, velocity_vector, fast_drift_period,
@@ -902,7 +911,7 @@ class RecordingGenerator:
             chunks_rec = make_chunk_list(duration, chunk_conv_duration)
 
             # call the loop on chunks
-            verbose = self._verbose and self.n_jobs<2
+            verbose = self._verbose >= 2
             args = (spike_matrix_noise, 'none', False, None, None, templates_noise,
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
                         verbose, None, None, False, None, False, None, dtype,)
@@ -1066,82 +1075,6 @@ class RecordingGenerator:
 
 
 
-def chunk_uncorrelated_noise(ch, idxs, chunk_start, tmp_mearec_file,
-            num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype):
-    
-    #~ print('chunk_uncorrelated_noise', num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype)
-    additive_noise = noise_level * np.random.randn(num_chan, len(idxs)).astype(dtype)
-    
-    if noise_color:
-        # iir peak filter
-        b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
-        additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
-        additive_noise  = additive_noise.astype(dtype)
-        additive_noise += color_noise_floor * np.std(additive_noise) * \
-                         np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
-        additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-    
- 
-    return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['additive_noise'] = additive_noise
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
-    
-    return return_dict
-
-
-def chunk_distance_correlated_noise(ch, idxs, chunk_start, tmp_mearec_file,
-            noise_level, cov_dist, n_elec, noise_color,color_peak, color_q, color_noise_floor, fs, dtype):
-    
-    additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                 size=(len(idxs))).astype(dtype).T
-    if noise_color:
-        # iir peak filter
-        b_iir, a_iir = ss.iirpeak(color_peak, Q=color_q, fs=fs.rescale('Hz').magnitude)
-        additive_noise = ss.filtfilt(b_iir, a_iir, additive_noise, axis=1)
-        additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
-                         np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                       size=(len(idxs))).T
-    additive_noise = additive_noise * (noise_level / np.std(additive_noise))
-
-    return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['additive_noise'] = additive_noise
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
-    
-    return return_dict
-
-
-def chunk_apply_filter(ch, idxs, chunk_start, tmp_mearec_file,
-                        recordings, cutoff, order, fs, dtype):
-
-    if cutoff.size == 1:
-        filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs,
-                                               filter_type='highpass', order=order)
-    elif cutoff.size == 2:
-        if fs / 2. < cutoff[1]:
-            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff[0], fs=fs,
-                                                   filter_type='highpass', order=order)
-        else:
-            filtered_chunk = filter_analog_signals(recordings[:, idxs], freq=cutoff, fs=fs)
-    
-    filtered_chunk = filtered_chunk.astype(dtype)
-
-    return_dict = {}
-    if tmp_mearec_file is  None:
-        return_dict['filtered_chunk'] = filtered_chunk
-    elif tmp_mearec_file.endswith('.h5'):
-        raise NotImplementedError
-    elif tmp_mearec_file.endswith('.raw'):
-        raise NotImplementedError
-    
-    return return_dict
 
 
 def make_chunk_list(total_duration, chunk_duration):
@@ -1161,12 +1094,6 @@ def make_chunk_list(total_duration, chunk_duration):
     
     return chunks
 
-def chunk_convolution_one_arg(args):
-    return chunk_convolution(*args)
-
-#~ one_args_converter = {
-    #~ chunk_convolution: chunk_convolution_one_arg,
-#~ }
 
 def run_several_chunks(func, chunks_rec, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignement_dict):
     """
