@@ -11,7 +11,7 @@ else:
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
-                   tmp_mode='h5', tmp_folder=None, n_jobs=0):
+                   tmp_mode='memmap', tmp_folder=None, n_jobs=0):
     """
     Generates recordings.
 
