@@ -810,7 +810,7 @@ class RecordingGenerator:
             if self.tmp_mode == 'h5':
                 tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.h5")
                 tmp_noise_rec = h5py.File(tmp_path_noise, mode='w')
-                additive_noise = tmp_noise_rec.create_dataset("additive_noise", (n_elec, n_samples), dtype=dtype)
+                additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
                 self._to_remove_on_delete.append(tmp_path_noise)
             elif self.tmp_mode == 'memmap':
                 tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.raw")
@@ -825,7 +825,7 @@ class RecordingGenerator:
                 num_chan = recordings.shape[0]
                 args = (num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor,
                         fs.rescale('Hz').magnitude, dtype)
-                assignement_dict = {'additive_noise': additive_noise}
+                assignement_dict = {'recordings': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
@@ -842,7 +842,7 @@ class RecordingGenerator:
                 func = chunk_distance_correlated_noise
                 args = (noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
                         fs.rescale('Hz').magnitude, dtype)
-                assignement_dict = {'additive_noise': additive_noise}
+                assignement_dict = {'recordings': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
@@ -914,9 +914,7 @@ class RecordingGenerator:
                 args = (spike_matrix_noise, 'none', False, None, None, templates_noise,
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
                         verbose, None, None, False, None, False, None, dtype,)
-                assignement_dict = {
-                    'additive_noise': recordings,
-                }
+                assignement_dict = {'recordings': additive_noise}
                 output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
                                                  self.n_jobs, self.tmp_mode, self.tmp_folder, assignement_dict)
 
