@@ -135,6 +135,9 @@ class RecordingGenerator:
             self.spgen = spgen
             self.tempgen = tempgen
             self.tmp_mode = None
+        
+        # temp file that should remove on delete
+        self._to_remove_on_delete = []
 
     def __del__(self):
         self.recordings = None
@@ -500,7 +503,7 @@ class RecordingGenerator:
 
 
         # create buffer h5/memmap/memmory
-        self._to_remove_on_delete = []
+        
         
         if self.tmp_mode == 'h5':
             tmp_path = self.tmp_folder / "mearec_tmp_file.h5"
@@ -1092,8 +1095,6 @@ def make_chunk_indexes(total_duration, chunk_duration, frequency_sampling):
     fs = frequency_sampling.rescale('Hz').magnitude
     chunk_size = int(chunk_duration.rescale('s').magnitude * fs)
     total_length = int(total_duration.rescale('s').magnitude * fs)
-    
-    print('fs', fs, 'chunk_size', chunk_size, 'total_length', )
     
     if chunk_size == 0:
         chunk_indexes = [(0, total_length), ]
