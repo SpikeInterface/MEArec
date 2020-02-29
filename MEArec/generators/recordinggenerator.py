@@ -779,11 +779,18 @@ class RecordingGenerator:
                                                        n_spikes=0)
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
-
-            spike_matrix = resample_spiketrains(spiketrains, fs=fs)
+            
             spike_idxs = []
-            for spike_bin in spike_matrix:
-                spike_idxs.append(np.where(spike_bin == 1)[0])
+            for st in spiketrains:
+                if fs != spike_fs:
+                    if self.verbose:
+                        print('Resampling spike trains')
+                    # spike_matrix = resample_spiketrains(spiketrains, fs=fs)
+                        spike_bin = resample_spiketrains([st], fs=fs)
+                        spike_idxs.append(np.where(spike_bin == 1)[0])
+                        del spike_bin
+                else:
+                    spike_idxs.append((st.times * fs).magnitude.astype('int'))
 
             # divide in chunks
             chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
