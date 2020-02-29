@@ -913,19 +913,16 @@ class RecordingGenerator:
                 # removing mean
                 for i, m in enumerate(np.mean(additive_noise, axis=0)):
                     additive_noise[:, i] -= m
-
                 # adding noise floor
                 for i, s in enumerate(np.std(additive_noise, axis=0)):
                     additive_noise[:, i] += far_neurons_noise_floor * s * \
                                                 np.random.randn(additive_noise.shape[0])
-
                 # scaling noise
                 noise_scale = noise_level / np.std(additive_noise, axis=0)
                 if self._verbose:
                     print('Scaling to reach desired level')
-
                 for i, n in enumerate(noise_scale):
-                    additive_noise[i, :] *= n
+                    additive_noise[:, i] *= n
 
             # Add it to recordings
             recordings += additive_noise
