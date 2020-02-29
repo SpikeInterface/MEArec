@@ -19,7 +19,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-local_temp = True
+local_temp = False
 
 
 class TestGenerators(unittest.TestCase):
@@ -665,8 +665,8 @@ class TestGenerators(unittest.TestCase):
         cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
                                        save=False, return_vi=True, **params)
         c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
-        assert len(v) >= target_spikes[0] and len(v) <= target_spikes[1]
-        assert len(i) >= target_spikes[0] and len(i) <= target_spikes[1]
+        assert target_spikes[0] <= len(v) <= target_spikes[1]
+        assert target_spikes[0] <= len(i) <= target_spikes[1]
         assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
 
 

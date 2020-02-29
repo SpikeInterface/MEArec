@@ -782,15 +782,7 @@ class RecordingGenerator:
 
             spike_idxs = []
             for st in spiketrains:
-                if fs != spike_fs:
-                    if verbose:
-                        print('Resampling spike trains')
-                    # spike_matrix = resample_spiketrains(spiketrains, fs=fs)
-                        spike_bin = resample_spiketrains([st], fs=fs)
-                        spike_idxs.append(np.where(spike_bin == 1)[0])
-                        del spike_bin
-                else:
-                    spike_idxs.append((st.times * fs).magnitude.astype('int'))
+                spike_idxs.append((st.times * fs).magnitude.astype('int'))
 
             # divide in chunks
             chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
@@ -893,7 +885,7 @@ class RecordingGenerator:
                 if self._verbose:
                     print('Elapsed pad time:', time.time() - t_pad)
 
-                # resample spikes
+                # resample templates
                 t_rs = time.time()
                 up = fs
                 down = spike_fs
@@ -926,10 +918,10 @@ class RecordingGenerator:
                 spgen_noise.generate_spikes()
                 spiketrains_noise = spgen_noise.spiketrains
 
-                spike_matrix_noise = resample_spiketrains(spiketrains_noise, fs=fs)
                 spike_idxs_noise = []
-                for spike_bin in spike_matrix_noise:
-                    spike_idxs_noise.append(np.where(spike_bin == 1)[0])
+                for st in spiketrains_noise:
+                    spike_idxs_noise.append((st.times * fs).magnitude.astype('int'))
+
                 if self._verbose:
                     print('Convolving noisy spike trains')
                 templates_noise = templates_noise.reshape((templates_noise.shape[0], 1, templates_noise.shape[1],
