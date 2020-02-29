@@ -2156,7 +2156,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
     return temp_filt
 
 
-def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
+def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False, mod_array=None,
                              bursting=False, sigmoid_range=None):
     """Convolve single template with spike train. Used to compute 'spike_traces'.
 
@@ -2164,10 +2164,12 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     ----------
     spike_id : int
         Index of spike trains - template.
-    spike_bin : np.array
-        Binary array with spike times
+    st_idx : np.array
+        Spike times
     template : np.array
-        Array with template on single electrode (n_samples)
+        Array with single template
+    n_samples : int
+        Number of samples in chunk
     cut_out : list
         Number of samples before and after the peak
     modulation : bool
@@ -2189,14 +2191,13 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
         len_spike = template.shape[1]
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
-    spike_pos = np.where(spike_bin == 1)[0]
-    n_samples = len(spike_bin)
+
     spike_trace = np.zeros(n_samples)
 
     if len(template.shape) == 2:
         rand_idx = np.random.randint(njitt)
         temp_jitt = template[rand_idx]
-        for pos, spos in enumerate(spike_pos):
+        for pos, spos in enumerate(st_idx):
             if not modulation:
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += temp_jitt
@@ -2237,8 +2238,8 @@ def convolve_single_template(spike_id, spike_bin, template, cut_out=None, modula
     return spike_trace
 
 
-def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False, bursting=False, sigmoid_range=None, recordings=None):
+def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
+                                   mod_array=None, verbose=False, bursting=False, sigmoid_range=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -2246,10 +2247,12 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     ----------
     spike_id : int
         Index of spike trains - template.
-    spike_bin : np.array
-        Binary array with spike times
+    st_idx : np.array
+        Spike times
     template : np.array
-        Array with template on single electrode (n_samples)
+        Array with template
+    n_samples : int
+        Number of samples in chunk
     cut_out : list
         Number of samples before and after the peak
     modulation : bool
@@ -2276,7 +2279,6 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     n_jitt = template.shape[0]
     n_elec = template.shape[1]
     len_spike = template.shape[2]
-    n_samples = len(spike_bin)
 
     if recordings is None:
         recordings = np.zeros((n_elec, n_samples))
@@ -2286,15 +2288,13 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
 
-    spike_pos = np.where(spike_bin == 1)[0]
-
     if not modulation:
         # No modulation
-        mod_array = np.ones_like(spike_pos)
+        mod_array = np.ones_like(st_idx)
     else:
         assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
-    for pos, spos in enumerate(spike_pos):
+    for pos, spos in enumerate(st_idx):
         rand_idx = np.random.randint(n_jitt)
         temp_jitt = template[rand_idx]
 
@@ -2356,7 +2356,7 @@ def convolve_templates_spiketrains(spike_id, spike_bin, template, cut_out=None, 
     return recordings
 
 
-def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, loc, t_start_drift,
+def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_samples, fs, loc, t_start_drift,
                                             drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
                                             fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
                                             modulation=False, mod_array=None,
@@ -2369,10 +2369,12 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     ----------
     spike_id : int
         Index of spike trains - template
-    spike_bin : np.array
-        Binary array with spike times
+    st_idx : np.array
+        Spike times
     template : np.array
-        Array with template on single electrode (n_samples)
+        Array with drifting template
+    n_samples : int
+        Number of samples in chunk
     fs : Quantity
         Sampling frequency
     loc : np.array
@@ -2424,7 +2426,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     n_jitt = template.shape[1]
     n_elec = template.shape[2]
     len_spike = template.shape[3]
-    n_samples = len(spike_bin)
+    # n_samples = len(spike_bin)
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
@@ -2441,8 +2443,7 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
     drift_direction /= np.linalg.norm(drift_direction)
     v_drift_mag = np.linalg.norm(slow_drift_velocity)
 
-    spike_pos = np.where(spike_bin == 1)[0]
-    template_idxs = np.zeros(len(spike_pos), dtype='int')
+    template_idxs = np.zeros(len(st_idx), dtype='int')
 
     # set states for fast drifts
     temp_jitt = template[0, 0]
@@ -2457,18 +2458,18 @@ def convolve_drifting_templates_spiketrains(spike_id, spike_bin, template, fs, l
 
     if not modulation:
         # No modulation
-        mod_array = np.ones_like(spike_pos)
+        mod_array = np.ones_like(st_idx)
     else:
         assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
-    for pos, spos in enumerate(spike_pos):
+    for pos, spos in enumerate(st_idx):
         rand_idx = np.random.randint(n_jitt)
         sp_time = chunk_start + spos / fs
         if sp_time < t_start_drift:
             temp_idx = 0
             temp_jitt = template[temp_idx, rand_idx]
         else:
-            temp_jitt, temp_idx, drift_state = _find_new_drift_template(drift_mode, spike_pos, sp_time, pos,
+            temp_jitt, temp_idx, drift_state = _find_new_drift_template(drift_mode, st_idx, sp_time, pos,
                                                                         template, template_idxs, loc,
                                                                         chunk_start, t_start_drift, fs,
                                                                         rand_idx, drift_params, drift_state,
@@ -3354,7 +3355,7 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
 
 ######### HELPER FUNCTIONS #########
 
-def _find_new_drift_template(drift_mode, spike_pos, sp_time, pos, template, template_idxs, loc,
+def _find_new_drift_template(drift_mode, st_idx, sp_time, pos, template, template_idxs, loc,
                              chunk_start, t_start_drift, fs, rand_idx, drift_params, drift_state, verbose):
     """Helper function to find drifting template"""
     # extract state
@@ -3382,13 +3383,13 @@ def _find_new_drift_template(drift_mode, spike_pos, sp_time, pos, template, temp
             if template_idxs[pos - 1] == len(loc) - 1 and direction_sign == 1:
                 direction_sign = -1
                 loc_start = loc[-1]
-                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                t_start_drift = chunk_start + st_idx[pos - 1] / fs
                 if verbose:
                     print('Reversing drift direction', direction_sign, sp_time)
             elif template_idxs[pos - 1] == 0 and direction_sign == -1:
                 direction_sign = 1
                 loc_start = loc[0]
-                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                t_start_drift = chunk_start + st_idx[pos - 1] / fs
                 if verbose:
                     print('Reversing drift direction', direction_sign, sp_time)
         else:
@@ -3432,13 +3433,13 @@ def _find_new_drift_template(drift_mode, spike_pos, sp_time, pos, template, temp
             if template_idxs[pos - 1] == len(loc) - 1 and direction_sign == 1:
                 direction_sign = -1
                 loc_start = loc[-1]
-                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                t_start_drift = chunk_start + st_idx[pos - 1] / fs
                 if verbose:
                     print('Reversing drift direction', direction_sign)
             elif template_idxs[pos - 1] == 0 and direction_sign == -1:
                 direction_sign = 1
                 loc_start = loc[0]
-                t_start_drift = chunk_start + spike_pos[pos - 1] / fs
+                t_start_drift = chunk_start + st_idx[pos - 1] / fs
                 if verbose:
                     print('Reversing drift direction', direction_sign)
             else:
