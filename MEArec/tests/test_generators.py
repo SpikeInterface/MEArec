@@ -169,6 +169,7 @@ class TestGenerators(unittest.TestCase):
 
         for (st, st_) in zip(spgen.spiketrains, recgen.spiketrains):
             assert np.allclose(st.times.magnitude, st_.times.magnitude)
+        del recgen
 
     def test_gen_recordings_modulations(self):
         print('Test recording generation - modulation')
@@ -251,6 +252,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_burst.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
         assert recgen_burst.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_burst.spike_traces) == n_neurons
+        del recgen_burst
 
         rec_params['recordings']['modulation'] = 'template'
         rec_params['recordings']['n_bursting'] = 2
@@ -264,6 +266,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_burst.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
         assert recgen_burst.voltage_peaks.shape == (n_neurons, num_chan)
         assert len(recgen_burst.spike_traces) == n_neurons
+        del recgen_burst
 
     def test_gen_recordings_noise(self):
         print('Test recording generation - noise')
@@ -342,6 +345,7 @@ class TestGenerators(unittest.TestCase):
         assert len(recgen_noise.spiketrains) == n_neurons
         assert len(recgen_noise.spike_traces) == n_neurons
         assert np.isclose(np.std(recgen_noise.recordings), noise_level, atol=1)
+        del recgen_noise
 
         rec_params['recordings']['chunk_conv_duration'] = 1
         recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
@@ -353,6 +357,7 @@ class TestGenerators(unittest.TestCase):
         assert len(recgen_noise.spiketrains) == n_neurons
         assert len(recgen_noise.spike_traces) == n_neurons
         assert np.isclose(np.std(recgen_noise.recordings), noise_level, atol=1)
+        del recgen_noise
 
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
@@ -440,6 +445,7 @@ class TestGenerators(unittest.TestCase):
         assert recgen_loaded.recordings.shape[0] == self.num_chan
         assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
         assert len(recgen_empty.recordings) == 0
+        del recgen, recgen_empty
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
@@ -524,6 +530,7 @@ class TestGenerators(unittest.TestCase):
         assert len(recgen_rs.spiketrains) == n_neurons
         assert len(recgen_rs.spiketrains) == n_neurons
         assert len(recgen_rs.spike_traces) == n_neurons
+        del recgen_rs
 
     def test_recordings_backend(self):
         print('Test recording generation - backend')
@@ -556,18 +563,21 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
         assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
         assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
+        del recgen_h5, recgen_memmap, recgen_np
 
-        # TODO add chunk seeds
-        # n_jobs = 2
-        #
-        # recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False, n_jobs=n_jobs)
-        # recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False, n_jobs=n_jobs)
-        # recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False, n_jobs=n_jobs)
-        #
-        # # ALL FAILS
-        # assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
-        # assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
-        # assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
+        n_jobs = 2
+
+        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False,
+                                      n_jobs=n_jobs)
+        recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
+                                          n_jobs=n_jobs)
+        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
+                                      n_jobs=n_jobs)
+
+        assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
+        assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
+        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
+        del recgen_h5, recgen_memmap, recgen_np
 
     def test_recordings_dtype(self):
         print('Test recording generation - dtype')
@@ -587,9 +597,10 @@ class TestGenerators(unittest.TestCase):
         for i, dt in enumerate(dtypes):
             print('Dtype:', dt)
             rec_params['recordings']['dtype'] = dt
-            recgen_rs = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+            recgen_dt = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
 
-            assert recgen_rs.recordings[0, 0].dtype == dt
+            assert recgen_dt.recordings[0, 0].dtype == dt
+            del recgen_dt
 
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()

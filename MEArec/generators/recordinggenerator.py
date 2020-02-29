@@ -13,7 +13,7 @@ import string
 import MEAutility as mu
 import yaml
 import os
-from pprint import pprint
+import shutil
 import h5py
 import quantities as pq
 from distutils.version import StrictVersion
@@ -139,17 +139,29 @@ class RecordingGenerator:
         self.overlapping = []
         # temp file that should remove on delete
         self._to_remove_on_delete = []
+        self.tmp_folder = None
+        self._is_tmp_folder_local = False
 
     def __del__(self):
         self.recordings = None
         self.spike_traces = None
-        for fname in self._to_remove_on_delete:
+
+        if not self._is_tmp_folder_local:
             if self._verbose:
-                try:
-                    os.remove(fname)
-                    print('Deleted', fname)
-                except:
-                    print('Impossible to delete temp file:', fname)
+                if self.tmp_folder is not None:
+                    try:
+                        shutil.rmtree(self.tmp_folder)
+                        print('Deleted', self.tmp_folder)
+                    except Exception as e:
+                        print('Impossible to delete temp file:', self.tmp_folder, 'Error', e)
+        else:
+            for fname in self._to_remove_on_delete:
+                if self._verbose:
+                    try:
+                        os.remove(fname)
+                        print('Deleted', fname)
+                    except Exception as e:
+                        print('Impossible to delete temp file:', fname, 'Error', e)
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
@@ -171,12 +183,15 @@ class RecordingGenerator:
 
         if tmp_mode is not None:
             tmp_prefix = ''.join([random.choice(string.ascii_letters) for i in range(5)]) + '_'
-
         if self.tmp_mode is not None:
             if self.tmp_folder is None:
                 self.tmp_folder = Path(tempfile.mkdtemp())
+                self._is_tmp_folder_local = False
             else:
                 self.tmp_folder = Path(self.tmp_folder)
+                self._is_tmp_folder_local = True
+        else:
+            self._is_tmp_folder_local = False
 
         if verbose is not None and isinstance(verbose, bool) or isinstance(verbose, int):
             self._verbose = verbose
@@ -766,17 +781,21 @@ class RecordingGenerator:
                         cons_spikes.append(cons)
 
             spike_matrix = resample_spiketrains(spiketrains, fs=fs)
+            spike_idxs = []
+            for spike_bin in spike_matrix:
+                spike_idxs.append(np.where(spike_bin == 1)[0])
 
             # divide in chunks
             chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
+            seed_list_conv = [np.random.randint(1000) for i in np.arange(len(chunk_indexes))]
 
             verbose = self._verbose >= 2
             # call the loop on chunks
-            args = (spike_matrix, modulation, drifting, drift_mode, drifting_units, templates,
+            args = (spike_idxs, modulation, drifting, drift_mode, drifting_units, templates,
                     cut_outs_samples, template_locs, velocity_vector, fast_drift_period,
                     fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, verbose,
                     amp_mod, bursting_units, shape_mod, shape_stretch,
-                    True, voltage_peaks, dtype,)
+                    True, voltage_peaks, dtype, seed_list_conv,)
             assignment_dict = {
                 'recordings': recordings,
                 'spike_traces': spike_traces}
@@ -798,13 +817,14 @@ class RecordingGenerator:
 
         np.random.seed(noise_seed)
 
-        # divide in chunks
-        chunk_indexes = make_chunk_indexes(duration, chunk_noise_duration, fs)
-
         if noise_level == 0:
             if self._verbose:
                 print('Noise level is set to 0')
         else:
+            # divide in chunks
+            chunk_indexes = make_chunk_indexes(duration, chunk_noise_duration, fs)
+            seed_list_noise = [np.random.randint(1000) for i in np.arange(len(chunk_indexes))]
+
             if self.tmp_mode == 'h5':
                 tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.h5")
                 tmp_noise_rec = h5py.File(tmp_path_noise, mode='w')
@@ -822,7 +842,7 @@ class RecordingGenerator:
                 func = chunk_uncorrelated_noise
                 num_chan = recordings.shape[0]
                 args = (num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor,
-                        fs.rescale('Hz').magnitude, dtype)
+                        fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
@@ -839,7 +859,7 @@ class RecordingGenerator:
 
                 func = chunk_distance_correlated_noise
                 args = (noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
-                        fs.rescale('Hz').magnitude, dtype)
+                        fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, timestamps, args,
@@ -900,18 +920,19 @@ class RecordingGenerator:
                 spiketrains_noise = spgen_noise.spiketrains
 
                 spike_matrix_noise = resample_spiketrains(spiketrains_noise, fs=fs)
+                spike_idxs_noise = []
+                for spike_bin in spike_matrix_noise:
+                    spike_idxs_noise.append(np.where(spike_bin == 1)[0])
                 if self._verbose:
                     print('Convolving noisy spike trains')
                 templates_noise = templates_noise.reshape((templates_noise.shape[0], 1, templates_noise.shape[1],
                                                            templates_noise.shape[2]))
 
-                chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
-
                 # call the loop on chunks
                 verbose = self._verbose >= 2
-                args = (spike_matrix_noise, 'none', False, None, None, templates_noise,
+                args = (spike_idxs_noise, 'none', False, None, None, templates_noise,
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
-                        verbose, None, None, False, None, False, None, dtype,)
+                        verbose, None, None, False, None, False, None, dtype, seed_list_noise,)
                 assignment_dict = {'recordings': additive_noise}
                 run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
@@ -1155,6 +1176,7 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
 
         if tmp_mode == 'h5':
             for ch, arg_task in enumerate(arg_tasks):
+                i_start, i_stop = chunk_indexes[ch]
                 tmp_file = karg_tasks[ch]['tmp_file']
                 with h5py.File(tmp_file, 'r') as f:
                     for key, full_arr in assignment_dict.items():
