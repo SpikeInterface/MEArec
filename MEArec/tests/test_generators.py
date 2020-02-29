@@ -594,72 +594,72 @@ class TestGenerators(unittest.TestCase):
             assert recgen_dt.recordings[0, 0].dtype == dt
             del recgen_dt
 
-    # def test_cli(self):
-    #     default_config, mearec_home = mr.get_default_config()
-    #
-    #     runner = CliRunner()
-    #     result = runner.invoke(cli, ["--help"])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["default-config"])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["available-probes"])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
-    #                                  '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
-    #                                  '-drst', '10', '-v'])
-    #     print(result.output)
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
-    #                                  '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
-    #                                  '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
-    #                                  '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
-    #                                  '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
-    #                                  '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
-    #                                  '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
-    #                                  '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])
-    #     print(result.output)
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-templates-params", '.'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-templates-params", default_config['templates_params']])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-recordings-params", '.'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-recordings-params", default_config['recordings_params']])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-cell-models-folder", './cell_models'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-cell-models-folder", default_config['cell_models_folder']])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-templates-folder", '.'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-recordings-folder", '.'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-templates-folder", './templates', '--create'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-recordings-folder", './recordings', '--create'])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-templates-folder", default_config['templates_folder']])
-    #     assert result.exit_code == 0
-    #     result = runner.invoke(cli, ["set-recordings-folder", default_config['recordings_folder']])
-    #     assert result.exit_code == 0
-    #
-    # def test_simulate_cell(self):
-    #     cell_folder = mr.get_default_cell_models_folder()
-    #     params = mr.get_default_templates_params()
-    #
-    #     target_spikes = [3, 50]
-    #     params['target_spikes'] = target_spikes
-    #     cells = os.listdir(cell_folder)
-    #     cell_name = [c for c in cells if 'TTPC1' in c][0]
-    #     cell_path = os.path.join(cell_folder, cell_name)
-    #
-    #     cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
-    #                                    save=False, return_vi=True, **params)
-    #     c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
-    #     assert target_spikes[0] <= len(v) <= target_spikes[1]
-    #     assert target_spikes[0] <= len(i) <= target_spikes[1]
-    #     assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
+    def test_cli(self):
+        default_config, mearec_home = mr.get_default_config()
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["default-config"])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["available-probes"])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
+                                     '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
+                                     '-drst', '10', '-v'])
+        print(result.output)
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
+                                     '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
+                                     '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
+                                     '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
+                                     '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
+                                     '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
+                                     '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
+                                     '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])
+        print(result.output)
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-params", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-params", default_config['templates_params']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-params", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-params", default_config['recordings_params']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-cell-models-folder", './cell_models'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-cell-models-folder", default_config['cell_models_folder']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", '.'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", './templates', '--create'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", './recordings', '--create'])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-templates-folder", default_config['templates_folder']])
+        assert result.exit_code == 0
+        result = runner.invoke(cli, ["set-recordings-folder", default_config['recordings_folder']])
+        assert result.exit_code == 0
+
+    def test_simulate_cell(self):
+        cell_folder = mr.get_default_cell_models_folder()
+        params = mr.get_default_templates_params()
+
+        target_spikes = [3, 50]
+        params['target_spikes'] = target_spikes
+        cells = os.listdir(cell_folder)
+        cell_name = [c for c in cells if 'TTPC1' in c][0]
+        cell_path = os.path.join(cell_folder, cell_name)
+
+        cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
+                                       save=False, return_vi=True, **params)
+        c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
+        assert target_spikes[0] <= len(v) <= target_spikes[1]
+        assert target_spikes[0] <= len(i) <= target_spikes[1]
+        assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
 
 
 if __name__ == '__main__':
