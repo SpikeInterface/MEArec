@@ -9,8 +9,6 @@ Important:
 When tmp_mode=='memmap' : theses functions must assign and add directly the buffer.
 When tmp_mode is Noe : theses functions return the buffer and the assignament is done externally.
 
-
-
 """
 import h5py
 import numpy as np
@@ -20,38 +18,11 @@ from MEArec.tools import (filter_analog_signals, convolve_templates_spiketrains,
                           convolve_single_template, convolve_drifting_templates_spiketrains)
 
 
-class FuncThenAddChunk:
-    """
-    Helper for functions that do chunk to assign one or several chunks at the 
-    good place.
-    """
-
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, *args, **kargs):
-        return_dict = self.func(*args)
-
-        ch, i_start, i_stop, = args[:3]
-        
-        assignment_dict = kargs['assignment_dict']
-        tmp_mode = kargs['tmp_mode']
-
-        if tmp_mode is None:
-            pass
-        elif tmp_mode == 'memmap':
-            for key, full_arr in assignment_dict.items():
-                out_chunk = return_dict.pop(key)
-                full_arr[i_start:i_stop] += out_chunk
-
-        return return_dict
-
-
-def chunk_convolution_(ch, i_start, i_stop, chunk_start,
-                       st_idxs, modulation, drifting, drift_mode, drifting_units, templates,
-                       cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
-                       fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
-                       shape_stretch, extract_spike_traces, voltage_peaks, dtype, seed_list):
+def chunk_convolution(ch, i_start, i_stop, chunk_start,
+                      st_idxs, modulation, drifting, drift_mode, drifting_units, templates,
+                      cut_outs_samples, template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
+                      fast_drift_max_jump, t_start_drift, fs, verbose, amp_mod, bursting_units, shape_mod,
+                      shape_stretch, extract_spike_traces, voltage_peaks, dtype, seed_list):
     """
     Perform full convolution for all spike trains by chunk.
 
@@ -65,11 +36,6 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         last index of chunk (exclude)
     chunk_start: quantity
         Start time for current chunk
-    tmp_mearec_file
-        temp file:
-            None : in memmory return results in out dict
-            str = h5 mode put out chunk in tmp h5 file
-            dict = memmap mode
     st_idxs: list
         list of spike indexes for each spike train
     modulation: str
@@ -112,7 +78,6 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         If True (default), spike traces are extracted
     voltage_peaks: np.array
         Array containing the voltage values at the peak
-    
     """
     # set seed
     np.random.seed(seed_list[ch])
@@ -181,13 +146,13 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[:, st] = convolve_single_template(st, st_idx_in_chunk,
-                                                                templates[st, 0, :, max_electrode],
-                                                                n_samples=n_samples,
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=mod_bool,
-                                                                mod_array=mod_array,
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
+                                                                   templates[st, 0, :, max_electrode],
+                                                                   n_samples=n_samples,
+                                                                   cut_out=cut_outs_samples,
+                                                                   modulation=mod_bool,
+                                                                   mod_array=mod_array,
+                                                                   bursting=unit_burst,
+                                                                   sigmoid_range=shape_stretch)
             else:
                 if drifting:
                     template = templates[st, 0]
@@ -231,12 +196,9 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
     return return_dict
 
 
-chunk_convolution = FuncThenAddChunk(chunk_convolution_)
-
-
-def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start,
-                              num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype,
-                              seed_list):
+def chunk_uncorrelated_noise(ch, i_start, i_stop, chunk_start,
+                             num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype,
+                             seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
     additive_noise = noise_level * np.random.randn(length, num_chan).astype(dtype)
@@ -256,12 +218,9 @@ def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start,
     return return_dict
 
 
-chunk_uncorrelated_noise = FuncThenAddChunk(chunk_uncorrelated_noise_)
-
-
-def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
-                                     noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
-                                     fs, dtype, seed_list):
+def chunk_distance_correlated_noise(ch, i_start, i_stop, chunk_start,
+                                    noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
+                                    fs, dtype, seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
 
@@ -282,21 +241,17 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
     return return_dict
 
 
-chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noise_)
-
-
-def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
-                        recordings, cutoff, order, fs, dtype):
-    # TODO add padding
+def chunk_apply_filter(ch, i_start, i_stop, chunk_start,
+                       recordings, cutoff, order, fs, dtype):
     if cutoff.size == 1:
-        filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff, fs=fs,
+        filtered_chunk = filter_analog_signals(recordings[i_start:i_stop], freq=cutoff, fs=fs,
                                                filter_type='highpass', order=order)
     elif cutoff.size == 2:
         if fs / 2. < cutoff[1]:
-            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff[0], fs=fs,
+            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop], freq=cutoff[0], fs=fs,
                                                    filter_type='highpass', order=order)
         else:
-            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff, fs=fs)
+            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop], freq=cutoff, fs=fs)
 
     filtered_chunk = filtered_chunk.astype(dtype)
 
@@ -304,6 +259,3 @@ def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
     return_dict['filtered_chunk'] = filtered_chunk
 
     return return_dict
-
-
-chunk_apply_filter = FuncThenAddChunk(chunk_apply_filter_)

@@ -778,8 +778,8 @@ class RecordingGenerator:
             assignment_dict = {
                 'recordings': recordings,
                 'spike_traces': spike_traces}
-            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
-                                             self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, n_samples, args,
+                                             self.n_jobs, pad=100, pad_mode='keep', assignment_dict=assignment_dict)
 
             # if drift then propagate annoations to spikestrains
             for st in np.arange(n_neurons):
@@ -818,8 +818,8 @@ class RecordingGenerator:
                         fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
-                run_several_chunks(func, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(func, chunk_indexes, fs, n_samples, args,
+                                   self.n_jobs, pad=0, pad_mode='keep', assignment_dict=assignment_dict)
 
             elif noise_mode == 'distance-correlated':
                 cov_dist = np.zeros((n_elec, n_elec))
@@ -835,8 +835,8 @@ class RecordingGenerator:
                         fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
-                run_several_chunks(func, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(func, chunk_indexes, fs, n_samples, args,
+                                   self.n_jobs, pad=0, pad_mode='keep', assignment_dict=assignment_dict)
 
             elif noise_mode == 'far-neurons':
                 idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
@@ -907,8 +907,8 @@ class RecordingGenerator:
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
                         verbose, None, None, False, None, False, None, dtype, seed_list_noise,)
                 assignment_dict = {'recordings': additive_noise}
-                run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(chunk_convolution, chunk_indexes, fs, n_samples, args,
+                                   self.n_jobs, pad=100, pad_mode='keep', assignment_dict=assignment_dict)
 
                 # removing mean
                 for i, m in enumerate(np.mean(additive_noise, axis=0)):
@@ -946,8 +946,8 @@ class RecordingGenerator:
                 'filtered_chunk': recordings,
             }
             # Done in loop (as before) : this cannot be done in parralel because of bug transpose in joblib!!!!!!!!!!!!!
-            run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args,
-                               self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+            run_several_chunks(chunk_apply_filter, chunk_indexes, fs, n_samples, args,
+                               self.n_jobs, pad=100, pad_mode='discard', assignment_dict=assignment_dict)
 
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
@@ -1058,7 +1058,8 @@ def make_chunk_indexes(total_duration, chunk_duration, fs):
     return chunk_indexes
 
 
-def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignment_dict):
+def run_several_chunks(func, chunk_indexes, fs, n_samples, args, n_jobs, pad,
+                       pad_mode, assignment_dict):
     """
     Run a function on a list of chunks.
     
@@ -1073,44 +1074,69 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
     # create task list
     arg_tasks = []
     karg_tasks = []
+    chunk_indexes_padded = []
+    pad_samples = []
+
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
+        if pad > 0:
+            if i_start > pad:
+                i_start_pad = i_start - pad
+                pad_start_samples = pad
+            else:
+                i_start_pad = 0
+                pad_start_samples = i_start
+            if n_samples - i_stop > pad:
+                i_stop_pad = i_stop + pad
+                pad_stop_samples = pad
+            else:
+                i_stop_pad = n_samples
+                pad_stop_samples = n_samples - i_stop
+        else:
+            i_start_pad = i_start
+            i_stop_pad = i_stop
+            pad_start_samples = 0
+            pad_stop_samples = 0
 
-        chunk_start = (i_start / fs).rescale('s')
+        chunk_indexes_padded.append([i_start_pad, i_stop_pad])
+        pad_samples.append([pad_start_samples, pad_stop_samples])
 
-        arg_task = (ch, i_start, i_stop, chunk_start,) + args
+        chunk_start = (i_start_pad / fs).rescale('s')
+        # print(i_start, i_stop, i_start_pad, i_stop_pad, pad_start_samples, pad_stop_samples)
+
+        arg_task = (ch, i_start_pad, i_stop_pad, chunk_start,) + args
         arg_tasks.append(arg_task)
-
-        karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode)
-        karg_tasks.append(karg_task)
 
     # run chunks
     if n_jobs in (0, 1):
         # simple loop
         output_list = []
         for ch, (i_start, i_stop) in enumerate(chunk_indexes):
-            out = func(*arg_tasks[ch], **karg_tasks[ch])
+            out = func(*arg_tasks[ch])
             output_list.append(out)
 
-            if tmp_mode is None:
-                for key, full_arr in assignment_dict.items():
-                    out_chunk = out[key]
+            for key, full_arr in assignment_dict.items():
+                out_chunk = out.pop(key)
+                if pad == 0:
                     full_arr[i_start:i_stop] += out_chunk
-            elif tmp_mode == 'memmap':
-                pass
+                else:
+                    if pad_mode == 'discard':
+                        full_arr[i_start:i_stop] += out_chunk[pad_samples[ch][0]:out_chunk.shape[0]-pad_samples[ch][1]]
+                    elif pad_mode == 'keep':
+                        full_arr[i_start-pad_samples[ch][0]:i_stop+pad_samples[ch][1]] += out_chunk
                 # Nothing to do here because done inside the func with FuncThenAddChunk
-
     else:
         # parallel
         output_list = Parallel(n_jobs=n_jobs)(
-            delayed(func)(*arg_task, **karg_task) for arg_task, karg_task in zip(arg_tasks, karg_tasks))
-
-        if tmp_mode == 'memmap':
-            pass
-            # Nothing to do here because done inside the func
-        else:
-            # This case is very unefficient because it double the memory usage!!!!!!!
-            for ch, (i_start, i_stop) in enumerate(chunk_indexes):
-                for key, full_arr in assignment_dict.items():
-                    full_arr[i_start:i_stop] += output_list[ch][key]
+            delayed(func)(*arg_task, ) for arg_task in arg_tasks)
+        for ch, (i_start, i_stop) in enumerate(chunk_indexes):
+            for key, full_arr in assignment_dict.items():
+                out_chunk = output_list[ch].pop(key)
+                if pad == 0:
+                    full_arr[i_start:i_stop] += out_chunk
+                else:
+                    if pad_mode == 'discard':
+                        full_arr[i_start:i_stop] += out_chunk[pad_samples[ch][0]:out_chunk.shape[0]-pad_samples[ch][1]]
+                    elif pad_mode == 'keep':
+                        full_arr[i_start - pad_samples[ch][0]:i_stop + pad_samples[ch][1]] += out_chunk
 
     return output_list
