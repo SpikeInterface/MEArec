@@ -779,11 +779,11 @@ class RecordingGenerator:
                                                        n_spikes=0)
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
-            
+
             spike_idxs = []
             for st in spiketrains:
                 if fs != spike_fs:
-                    if self.verbose:
+                    if verbose:
                         print('Resampling spike trains')
                     # spike_matrix = resample_spiketrains(spiketrains, fs=fs)
                         spike_bin = resample_spiketrains([st], fs=fs)
