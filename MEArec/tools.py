@@ -2281,9 +2281,9 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
     len_spike = template.shape[2]
 
     if recordings is None:
-        recordings = np.zeros((n_elec, n_samples))
+        recordings = np.zeros((n_samples, n_elec))
     else:
-        assert recordings.shape == (n_elec, n_samples), "'recordings' has the wrong shape"
+        assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
@@ -2302,53 +2302,53 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
+                    recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
+                    recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
+                    recordings[:spos + cut_out[1]] += \
+                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
+                    recordings[spos - cut_out[0]:] += \
+                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
 
     if verbose:
         print('Done convolution with spike ', spike_id)
@@ -2426,7 +2426,6 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
     n_jitt = template.shape[1]
     n_elec = template.shape[2]
     len_spike = template.shape[3]
-    # n_samples = len(spike_bin)
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
@@ -2434,9 +2433,9 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
         chunk_start = 0 * pq.s
 
     if recordings is None:
-        recordings = np.zeros((n_elec, n_samples))
+        recordings = np.zeros((n_samples, n_elec))
     else:
-        assert recordings.shape == (n_elec, n_samples), "'recordings' has the wrong shape"
+        assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
 
     # find drift direction and magnitude
     drift_direction = loc[-1] - loc[0]
@@ -2480,60 +2479,58 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, :spos + cut_out[1]] += temp_filt[:, diff:]
+                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:, spos - cut_out[0]:] += temp_filt[:, :diff]
+                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:]
+                    recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff]
+                    recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[:, spos - cut_out[0]:spos + cut_out[1]] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt)]
+                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:, :spos + cut_out[1]] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]
+                    recordings[:spos + cut_out[1]] += \
+                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[:, spos - cut_out[0]:] += \
-                        [a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]
+                    recordings[spos - cut_out[0]:] += \
+                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
 
     if verbose:
         print('Done drifting convolution with spike ', spike_id)
 
     return recordings, template_idxs
-
-
 
 
 ### RECORDING OPERATION ###
@@ -2578,16 +2575,11 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
                 idx = len(timestamps) - 1
             # find single waveforms crossing thresholds
             if idx - n_pad[0] > 0 and idx + n_pad[1] < n_samples:
-                t_spike = timestamps[idx - n_pad[0]:idx + n_pad[1]]
                 spike_rec = recordings[:, idx - n_pad[0]:idx + n_pad[1]]
             elif idx - n_pad[0] < 0:
-                t_spike = timestamps[:idx + n_pad[1]]
-                t_spike = np.pad(t_spike, (np.abs(idx - n_pad[0]), 0), 'constant') * unit
                 spike_rec = recordings[:, :idx + n_pad[1]]
                 spike_rec = np.pad(spike_rec, ((0, 0), (np.abs(idx - n_pad[0]), 0)), 'constant')
             elif idx + n_pad[1] > n_samples:
-                t_spike = timestamps[idx - n_pad[0]:]
-                t_spike = np.pad(t_spike, (0, idx + n_pad[1] - n_samples), 'constant') * unit
                 spike_rec = recordings[:, idx - n_pad[0]:]
                 spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad[1] - n_samples)), 'constant')
             sp_rec_wf.append(spike_rec)
@@ -2628,7 +2620,7 @@ def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
     if np.all(np.abs(np.roots(a)) < 1) and np.all(np.abs(np.roots(a)) < 1):
         # print('Filtering signals with ', filter_type, ' filter at ', freq, '...')
         if len(signals.shape) == 2:
-            signals_filt = filtfilt(b, a, signals, axis=1)
+            signals_filt = filtfilt(b, a, signals, axis=0)
         elif len(signals.shape) == 1:
             signals_filt = filtfilt(b, a, signals)
         return signals_filt
@@ -2989,6 +2981,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
             fs = recgen.info['recordings']['fs'] * pq.Hz
             extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs, cut_out=cut_out)
             wf = recgen.spiketrains[sp].waveforms
+            print(wf.shape)
         waveforms.append(wf)
 
     mea = mu.return_mea(info=recgen.info['electrodes'])

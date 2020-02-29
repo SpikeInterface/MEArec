@@ -50,6 +50,7 @@ recordings:
   extract_waveforms: False # if True, waveforms are extracted from recordings
   sync_rate: null # added synchrony rate for spatially overlapping templates
   sync_jitt: 1 # jitter in ms for added spikes
+  chunk_duration: 0 # chunk duration for convolution, noise, and filter
 
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
@@ -62,7 +63,6 @@ recordings:
   shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
   shape_stretch: 30.  # parameter that controls the amount of shape modulation (higher values -> higher stretch)
   n_bursting: null  # number of bursting units
-  chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
 
   noise_level: 10 # noise standard deviation in uV
   noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
@@ -75,13 +75,11 @@ recordings:
   color_peak: 300 # (color) peak / curoff frequency of resonating filter
   color_q: 2 # (color) quality factor of resonating filter
   color_noise_floor: 1 # (color) additional noise floor
-  chunk_noise_duration: 0 # chunk duration for noise addition
   seed: null # random seed for noise generation
 
   filter: True # if True it filters the recordings
   filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
   filter_order: 3 # filter order
-  chunk_filter_duration: 0 # chunk duration for filtering
 
   drifting: False # if True templates are drifted
   drift_mode: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
