@@ -41,6 +41,8 @@ def cli():
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=50)')
+@click.option('--njobs', '-nj', default=None, type=int,
+              help='number of jobs (default n_jobs=n_cpus)')
 @click.option('--dt', '-dt', default=None, type=float,
               help='time period in ms (default=0.03125)')
 @click.option('--ncontacts', '-nc', default=None, type=int,
@@ -164,6 +166,10 @@ def gen_templates(params, **kwargs):
         parallel = False
     else:
         parallel = True
+    if kwargs['njobs'] is not None:
+        njobs = kwargs['njobs']
+    else:
+        njobs = None
     verbose = kwargs['verbose']
 
     params_dict['templates_folder'] = templates_folder
@@ -172,6 +178,7 @@ def gen_templates(params, **kwargs):
                                params=params_dict,
                                templates_tmp_folder=templates_folder,
                                intraonly=intraonly,
+                               n_jobs = njobs,
                                parallel=parallel,
                                verbose=verbose)
 

@@ -1,15 +1,15 @@
 import numpy as np
 import time
-from copy import copy, deepcopy
+from copy import deepcopy
 from MEArec.tools import *
 import MEAutility as mu
 import shutil
 import yaml
 import os
 from os.path import join
-from pprint import pprint
 from distutils.version import StrictVersion
 from pathlib import Path
+from joblib import Parallel, delayed
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -61,7 +61,7 @@ class TemplateGenerator:
     """
 
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
-                 params=None, intraonly=False, parallel=True, delete_tmp=True, verbose=False):
+                 params=None, intraonly=False, parallel=True, n_jobs=None, delete_tmp=True, verbose=False):
         self._verbose = verbose
         if temp_dict is not None and info is not None:
             if 'templates' in temp_dict.keys():
@@ -84,6 +84,7 @@ class TemplateGenerator:
             else:
                 self.params = deepcopy(params)
             self.cell_model_folder = cell_models_folder
+            self.n_jobs = n_jobs
             self.templates_folder = templates_folder
             self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp}
 
@@ -187,20 +188,18 @@ class TemplateGenerator:
             yaml.dump(self.params, f)
 
         # Simulate neurons and EAP for different cell models separately
-        if parallel:
+        if parallel and self.n_jobs not in (0, 1):
             start_time = time.time()
-            import multiprocessing
-            threads = []
             tot = len(cell_models)
-            for i, cell_model in enumerate(cell_models):
-                p = multiprocessing.Process(target=simulate_cell_templates, args=(i, simulate_script, tot,
-                                                                                  cell_model, cell_models_folder,
-                                                                                  intraonly,
-                                                                                  tmp_params_path, self._verbose,))
-                p.start()
-                threads.append(p)
-            for p in threads:
-                p.join()
+            if self.n_jobs is None:
+                n_jobs = os.cpu_count()
+            else:
+                n_jobs = self.n_jobs
+
+            Parallel(n_jobs=n_jobs)(delayed(simulate_cell_templates)(i, simulate_script, tot, cell_model,
+                                                                     cell_models_folder, intraonly, tmp_params_path,
+                                                                     self._verbose, )
+                                    for i, cell_model in enumerate(cell_models))
             print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
         else:
             # TODO try without subprocess

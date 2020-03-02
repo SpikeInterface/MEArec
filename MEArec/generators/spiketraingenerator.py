@@ -2,9 +2,8 @@ import numpy as np
 import neo
 import elephant.spike_train_generation as stg
 import elephant.statistics as stat
-from copy import copy, deepcopy
+from copy import deepcopy
 from MEArec.tools import *
-from pprint import pprint
 import quantities as pq
 
 
@@ -97,13 +96,11 @@ class SpikeTrainGenerator:
                 self.params['types'] = types
                 self.n_neurons = len(self.params['rates'])
 
-            self.changing = False
-            self.intermittent = False
-
             self.info = params
             self.spiketrains = False
         else:
             self.spiketrains = spiketrains
+            self.info = {}
             self._has_spiketrains = True
             if params is not None:
                 self.params = deepcopy(params)
@@ -131,23 +128,20 @@ class SpikeTrainGenerator:
             self.spiketrains = []
             idx = 0
             for n in np.arange(self.n_neurons):
-                if not self.changing and not self.intermittent:
-                    rate = self.params['rates'][n]
-                    if self.params['process'] == 'poisson':
-                        st = stg.homogeneous_poisson_process(rate,
-                                                             self.params['t_start'], self.params['t_stop'])
-                    elif self.params['process'] == 'gamma':
-                        st = stg.homogeneous_gamma_process(self.params['gamma_shape'], rate,
-                                                           self.params['t_start'], self.params['t_stop'])
-                else:
-                    raise NotImplementedError('Changing and intermittent spiketrains are not impleented yet')
+                rate = self.params['rates'][n]
+                if self.params['process'] == 'poisson':
+                    st = stg.homogeneous_poisson_process(rate,
+                                                         self.params['t_start'], self.params['t_stop'])
+                elif self.params['process'] == 'gamma':
+                    st = stg.homogeneous_gamma_process(self.params['gamma_shape'], rate,
+                                                       self.params['t_start'], self.params['t_stop'])
                 self.spiketrains.append(st)
                 self.spiketrains[-1].annotate(fr=rate)
                 if 'n_exc' in self.params.keys() and 'n_inh' in self.params.keys():
                     if idx < self.params['n_exc']:
-                        self.spiketrains[-1].annotate(type='E')
+                        self.spiketrains[-1].annotate(cell_type='E')
                     else:
-                        self.spiketrains[-1].annotate(type='I')
+                        self.spiketrains[-1].annotate(cell_type='I')
                 idx += 1
 
             # check consistency and remove spikes below refractory period

@@ -446,7 +446,7 @@ class TestGenerators(unittest.TestCase):
     def test_plots(self):
         _ = mr.plot_rasters(self.recgen.spiketrains)
         _ = mr.plot_rasters(self.recgen.spiketrains, overlap=True)
-        _ = mr.plot_rasters(self.recgen.spiketrains, bintype=True)
+        _ = mr.plot_rasters(self.recgen.spiketrains, cell_type=True)
         _ = mr.plot_rasters(self.recgen.spiketrains, color='g')
         _ = mr.plot_rasters(self.recgen.spiketrains, color=['g'] * len(self.recgen.spiketrains))
         _ = mr.plot_recordings(self.recgen)
@@ -526,7 +526,7 @@ class TestGenerators(unittest.TestCase):
         recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                       n_jobs=n_jobs)
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
+        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
         del recgen_memmap, recgen_np
 
         n_jobs = 2
@@ -536,7 +536,7 @@ class TestGenerators(unittest.TestCase):
         recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                       n_jobs=n_jobs)
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
+        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
         del recgen_memmap, recgen_np
 
     def test_recordings_dtype(self):

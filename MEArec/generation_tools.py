@@ -1,8 +1,11 @@
-from MEArec.tools import *
+from MEArec.tools import load_templates
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
 import yaml
 import os
 from distutils.version import StrictVersion
+import time
+import numpy as np
+import neo
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -151,7 +154,7 @@ def gen_spiketrains(params=None, spiketrains=None, verbose=False):
 
 
 def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
-                  intraonly=False, parallel=True, delete_tmp=True, verbose=True):
+                  intraonly=False, parallel=True, n_jobs=None, delete_tmp=True, verbose=True):
     """
 
     Parameters
@@ -198,6 +201,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
                                 templates_folder=templates_tmp_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
+                                n_jobs=n_jobs,
                                 delete_tmp=delete_tmp,
                                 verbose=verbose)
     tempgen.generate_templates()

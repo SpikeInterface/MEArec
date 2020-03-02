@@ -3,7 +3,7 @@ import time
 from copy import deepcopy
 from MEArec.tools import (select_templates, find_overlapping_templates, get_binary_cat,
                           resample_templates, jitter_templates, pad_templates, get_templates_features,
-                          resample_spiketrains, compute_modulation, annotate_overlapping_spikes, extract_wf)
+                          compute_modulation, annotate_overlapping_spikes, extract_wf)
 
 from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
                           chunk_distance_correlated_noise, chunk_apply_filter)
@@ -218,12 +218,6 @@ class RecordingGenerator:
             celltype_params = self.params['cell_types']
         else:
             celltype_params = {}
-
-        if 'rates' in st_params.keys():
-            assert st_params['types'] is not None, "If 'rates' are provided as spiketrains parameters, " \
-                                                   "corresponding 'types' ('E'-'I') must be provided"
-            n_exc = st_params['types'].count('E')
-            n_inh = st_params['types'].count('I')
 
         tempgen = self.tempgen
         spgen = self.spgen
@@ -535,11 +529,18 @@ class RecordingGenerator:
                 spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
                 spike_traces[:] = 0
                 # spike_traces = spike_traces.transpose()
-
-            self._to_remove_on_delete.extend([tmp_path_0, tmp_path_1])
+            # file names for templates
+            tmp_templates_pad = self.tmp_folder / (tmp_prefix + "templates_pad.raw")
+            tmp_templates_rs = self.tmp_folder / (tmp_prefix + "templates_resample.raw")
+            tmp_templates_jit = self.tmp_folder / (tmp_prefix + "templates_jitter.raw")
+            self._to_remove_on_delete.extend([tmp_path_0, tmp_path_1,
+                                              tmp_templates_pad, tmp_templates_rs, tmp_templates_jit])
         else:
             recordings = np.zeros((n_samples, n_elec), dtype=dtype)
             spike_traces = np.zeros((n_samples, n_neurons), dtype=dtype)
+            tmp_templates_pad = None
+            tmp_templates_rs = None
+            tmp_templates_jit = None
 
         timestamps = np.arange(recordings.shape[1]) / fs
 
@@ -567,9 +568,20 @@ class RecordingGenerator:
                 else:
                     bin_cat = np.array(['U'] * len(celltypes))
 
-                if 'type' in spiketrains[0].annotations.keys():
-                    n_exc = [st.annotations['type'] for st in spiketrains].count('E')
+                if 'cell_type' in spiketrains[0].annotations.keys():
+                    n_exc = [st.annotations['cell_type'] for st in spiketrains].count('E')
                     n_inh = n_neurons - n_exc
+                elif 'rates' in st_params.keys():
+                    assert st_params['types'] is not None, "If 'rates' are provided as spiketrains parameters, " \
+                                                           "corresponding 'types' ('E'-'I') must be provided"
+                    n_exc = st_params['types'].count('E')
+                    n_inh = st_params['types'].count('I')
+                else:
+                    if self._verbose:
+                        print('Setting random number of excitatory and inhibitory neurons as cell_type info is missing')
+                    n_exc = np.random.randint(n_neurons)
+                    n_inh = n_neurons - n_exc
+
                 if verbose_1:
                     print('Templates selection seed: ', temp_seed)
                 np.random.seed(temp_seed)
@@ -592,6 +604,11 @@ class RecordingGenerator:
                     preferred_dir = None
                     velocity_vector = None
                     n_elec = eaps.shape[1]
+
+                if n_neurons > 100:
+                    parallel_templates = True
+                else:
+                    parallel_templates = False
 
                 if verbose_1:
                     print('Selecting cells')
@@ -630,8 +647,8 @@ class RecordingGenerator:
                 if verbose_1:
                     print('Padding template edges')
                 t_pad = time.time()
-                templates_pad = pad_templates(templates, pad_samples, drifting, verbose_2,
-                                              parallel=True)
+                templates_pad = pad_templates(templates, pad_samples, drifting, dtype, verbose_2,
+                                              tmp_file=tmp_templates_pad, parallel=parallel_templates)
 
                 if verbose_1:
                     print('Elapsed pad time:', time.time() - t_pad)
@@ -643,8 +660,9 @@ class RecordingGenerator:
                 spike_duration_pad = templates_pad.shape[-1]
                 if up != down:
                     n_resample = int(spike_duration_pad * (up / down))
-                    templates_rs = resample_templates(templates_pad, n_resample, up, down,
-                                                      drifting, verbose_2)
+                    templates_rs = resample_templates(templates_pad, n_resample, up, down, drifting, dtype,
+                                                      verbose_2, tmp_file=tmp_templates_rs,
+                                                      parallel=parallel_templates)
                     if verbose_1:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
@@ -654,8 +672,8 @@ class RecordingGenerator:
                     print('Creating time jittering')
                 jitter = 1. / fs
                 t_j = time.time()
-                templates = jitter_templates(templates_rs, upsample, fs, n_jitters, jitter,
-                                             drifting, verbose_2, parallel=True)
+                templates = jitter_templates(templates_rs, upsample, fs, n_jitters, jitter, drifting, dtype,
+                                             verbose_2, tmp_file=tmp_templates_jit, parallel=parallel_templates)
                 if verbose_1:
                     print('Elapsed jitter time:', time.time() - t_j)
 
@@ -856,6 +874,14 @@ class RecordingGenerator:
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
 
             elif noise_mode == 'far-neurons':
+                if self.tmp_mode == 'memmap':
+                    # file names for templates
+                    tmp_templates_noise_pad = self.tmp_folder / (tmp_prefix + "templates_noise_pad.raw")
+                    tmp_templates_noise_rs = self.tmp_folder / (tmp_prefix + "templates_noise_resample.raw")
+                    self._to_remove_on_delete.extend([tmp_templates_noise_pad, tmp_templates_noise_rs])
+                else:
+                    tmp_templates_noise_pad = None
+                    tmp_templates_noise_rs = None
                 idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat=None, n_exc=far_neurons_n, n_inh=0,
                                                             x_lim=x_lim, y_lim=y_lim, z_lim=z_lim, min_amp=0,
                                                             max_amp=far_neurons_max_amp, min_dist=1,
@@ -871,8 +897,8 @@ class RecordingGenerator:
                 if verbose_1:
                     print('Padding noisy template edges')
                 t_pad = time.time()
-                templates_noise_pad = pad_templates(templates_noise, pad_samples, drifting, verbose_2,
-                                                    parallel=True)
+                templates_noise_pad = pad_templates(templates_noise, pad_samples, drifting, dtype, verbose_2,
+                                                    tmp_file=tmp_templates_noise_pad, parallel=True)
                 if verbose_1:
                     print('Elapsed pad time:', time.time() - t_pad)
 
@@ -884,7 +910,8 @@ class RecordingGenerator:
                 if up != down:
                     n_resample = int(spike_duration_pad * (up / down))
                     templates_noise = resample_templates(templates_noise_pad, n_resample, up, down,
-                                                         drifting, verbose_2)
+                                                         drifting, dtype, verbose_2,
+                                                         tmp_file=tmp_templates_noise_rs)
                     if verbose_1:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
