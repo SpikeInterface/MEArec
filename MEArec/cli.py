@@ -61,6 +61,8 @@ def cli():
               help='only run intracellular simulations')
 @click.option('--no-parallel', '-nopar', is_flag=True,
               help='run without multiprocessing tool')
+@click.option('--recompile', '-rc', is_flag=True,
+              help='recompile models')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting templates')
 @click.option('--min-amp', '-mamp', type=float,
@@ -170,6 +172,7 @@ def gen_templates(params, **kwargs):
         njobs = kwargs['njobs']
     else:
         njobs = None
+    recompile = kwargs['recompile']
     verbose = kwargs['verbose']
 
     params_dict['templates_folder'] = templates_folder
@@ -178,7 +181,8 @@ def gen_templates(params, **kwargs):
                                params=params_dict,
                                templates_tmp_folder=templates_folder,
                                intraonly=intraonly,
-                               n_jobs = njobs,
+                               n_jobs=njobs,
+                               recompile=recompile,
                                parallel=parallel,
                                verbose=verbose)
 

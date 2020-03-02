@@ -22,7 +22,7 @@ spiketrains:
   duration: 10 # duration in s
 
 cell_types:
-  # excitatory and inhibitory cell names
+  # excitatory and inhibitory cell names (overwrite if using custom models)
   excitatory: ['PC', 'SS', 'SP']
   inhibitory: ['AC', 'BP', 'BC', 'BTC', 'ChC', 'DBC', 'MC', 'NGC']
 

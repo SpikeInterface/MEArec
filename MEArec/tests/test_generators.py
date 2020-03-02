@@ -639,10 +639,9 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["available-probes"])
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
-                                     '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '--recompile', '-r', '3drot',
+                                     '-nc', '2', '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
-        print(result.output)
         assert result.exit_code == 0
         result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',

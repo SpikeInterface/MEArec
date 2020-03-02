@@ -54,6 +54,10 @@ class TemplateGenerator:
         If True, only intracellular simulations are performed
     parallel : bool
         If True, cell models are run in parallel
+    recompile: bool
+        If True, cell models are recompiled (suggested if new models are added)
+    n_jobs: int
+        If None, all cpus are used
     delete_tmp : bool
         If True, temporary files are removed
     verbose : bool
@@ -61,7 +65,8 @@ class TemplateGenerator:
     """
 
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
-                 params=None, intraonly=False, parallel=True, n_jobs=None, delete_tmp=True, verbose=False):
+                 params=None, intraonly=False, parallel=True, recompile=False, n_jobs=None, delete_tmp=True,
+                 verbose=False):
         self._verbose = verbose
         if temp_dict is not None and info is not None:
             if 'templates' in temp_dict.keys():
@@ -86,7 +91,8 @@ class TemplateGenerator:
             self.cell_model_folder = cell_models_folder
             self.n_jobs = n_jobs
             self.templates_folder = templates_folder
-            self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp}
+            self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp,
+                                      'recompile': recompile}
 
     def generate_templates(self):
         """
@@ -96,6 +102,7 @@ class TemplateGenerator:
         templates_folder = self.templates_folder
         intraonly = self.simulation_params['intraonly']
         parallel = self.simulation_params['parallel']
+        recompile = self.simulation_params['recompile']
         delete_tmp = self.simulation_params['delete_tmp']
 
         if os.path.isdir(cell_models_folder):
@@ -111,7 +118,7 @@ class TemplateGenerator:
         self.params['templates_folder'] = templates_folder
 
         # Compile NEURON models (nrnivmodl)
-        if not os.path.isdir(join(cell_models_folder, 'mods')):
+        if not os.path.isdir(join(cell_models_folder, 'mods')) or recompile:
             if self._verbose:
                 print('Compiling NEURON models')
             os.system('python %s compile %s' % (simulate_script, cell_models_folder))

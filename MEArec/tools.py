@@ -614,11 +614,23 @@ def get_binary_cat(celltypes, excit, inhib):
 
     """
     binary_cat = []
+    sample_type = celltypes[0]
+    # Find if bbp or custom models
+    if sample_type.startswith('L') and len(sample_type.split('_')) == 4:
+        models = 'bbp'
+    else:
+        models = 'custom'
     for i, cat in enumerate(celltypes):
-        if np.any([ex in str(cat) for ex in excit]):
+        if models == 'bbp':
+            cell_str = str(cat).split('_')[1]
+        else:
+            cell_str = str(cat)
+        if np.any([ex in cell_str for ex in excit]):
             binary_cat.append('E')
         elif np.any([inh in str(cat) for inh in inhib]):
             binary_cat.append('I')
+        else:
+            binary_cat.append('U')
     return np.array(binary_cat, dtype=str)
 
 

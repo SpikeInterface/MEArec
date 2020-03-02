@@ -131,7 +131,7 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
     spiketrains : list
         List of neo.SpikeTrains (alternative to params definition)
     verbose : bool
-        If True output is verbose
+        If True, the output is verbose
 
     Returns
     -------
@@ -164,7 +164,7 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
 
 
 def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
-                  intraonly=False, parallel=True, n_jobs=None, delete_tmp=True, verbose=True):
+                  intraonly=False, parallel=True, n_jobs=None, recompile=False, delete_tmp=True, verbose=True):
     """
 
     Parameters
@@ -176,13 +176,17 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
     templates_tmp_folder: str
         Path to temporary folder where templates are temporarily saved
     intraonly : bool
-        if True only intracellular simulation is run
+        if True, only intracellular simulation is run
     parallel : bool
-        if True multi-threading is used
+        if True, multi-threading is used
+    n_jobs: int
+        Number of jobs to run in parallel (If None all cpus are used)
+    recompile: bool
+        If True, cell models are recompiled
     delete_tmp :
-        if True the temporary files are deleted
+        if True, the temporary files are deleted
     verbose : bool
-        If True output is verbose
+        If True, the output is verbose
 
     Returns
     -------

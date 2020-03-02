@@ -20,7 +20,7 @@ xlim: [10,80] # limits ( low high ) for neuron locations in the x-axis (depth)
 ylim: null # limits ( low high ) for neuron locations in the y-axis
 zlim: null # limits ( low high ) for neuron locations in the z-axis
 min_amp: 30 # minimum amplitude for detection
-n: 10 # number of EAPs per cell model
+n: 50 # number of EAPs per cell model
 seed: null # random seed for positions and rotations
 
 drifting: False # if True, drifting templates are simulated
