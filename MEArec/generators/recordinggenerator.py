@@ -146,20 +146,22 @@ class RecordingGenerator:
         self.spike_traces = None
 
         if not self._is_tmp_folder_local:
-            if self._verbose >= 1:
-                if self.tmp_folder is not None:
-                    try:
-                        shutil.rmtree(self.tmp_folder)
+            if self.tmp_folder is not None:
+                try:
+                    shutil.rmtree(self.tmp_folder)
+                    if self._verbose >= 1:
                         print('Deleted', self.tmp_folder)
-                    except Exception as e:
+                except Exception as e:
+                    if self._verbose >= 1:
                         print('Impossible to delete temp file:', self.tmp_folder, 'Error', e)
         else:
             for fname in self._to_remove_on_delete:
-                if self._verbose >= 1:
-                    try:
-                        os.remove(fname)
+                try:
+                    os.remove(fname)
+                    if self._verbose >= 1:
                         print('Deleted', fname)
-                    except Exception as e:
+                except Exception as e:
+                    if self._verbose >= 1:
                         print('Impossible to delete temp file:', fname, 'Error', e)
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):

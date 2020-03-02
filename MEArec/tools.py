@@ -2081,11 +2081,11 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
     return spike_trace
 
 
-def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
-                                   mod_array=None, verbose=False, bursting=False, shape_stretch=None, recordings=None):
+def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples,cut_out=None, modulation=False, mod_array=None,
+                                   verbose=False, bursting=False, shape_stretch=None, template_idxs=None,
+                                   max_channels_per_template=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
-
     Parameters
     ----------
     spike_id : int
@@ -2108,9 +2108,12 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         If True templates are modulated in shape
     shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
+    template_idxs : np.array
+        Array of template indices (used for drifting templates)
+    max_channels_per_template : np.array
+        Maximum number of channels to be convolved
     recordings :  np.arrays
         Array to use for recordings. If None it is created
-
     Returns
     -------
     recordings: np.array
@@ -2118,10 +2121,16 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
     """
     if verbose:
         print('Convolution with spike:', spike_id)
-    assert len(template.shape) == 3, "For non-drifting len(template.shape) should be 4"
-    n_jitt = template.shape[0]
-    n_elec = template.shape[1]
-    len_spike = template.shape[2]
+    if len(template.shape) == 3:
+        n_jitt = template.shape[0]
+        n_elec = template.shape[1]
+        len_spike = template.shape[2]
+    else:
+        assert template_idxs is not None, "For drifting templates, pass the 'template_idxs' argument to select the " \
+                                          "right template for each spike"
+        n_jitt = template.shape[1]
+        n_elec = template.shape[2]
+        len_spike = template.shape[3]
 
     if recordings is None:
         recordings = np.zeros((n_samples, n_elec))
@@ -2139,59 +2148,72 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 
     for pos, spos in enumerate(st_idx):
         rand_idx = np.random.randint(n_jitt)
-        temp_jitt = template[rand_idx]
+        if template_idxs is not None:
+            temp_jitt = template[template_idxs[pos], rand_idx]
+        else:
+            temp_jitt = template[rand_idx]
+
+        if max_channels_per_template is None:
+            elec_idxs = np.arange(n_elec)
+        else:
+            # find max channels
+            peak_idx = np.unravel_index(np.argmax(np.abs(temp_jitt)), temp_jitt.shape)[1]
+            elec_idxs = np.argsort(np.abs(temp_jitt[:, peak_idx]))[::-1][:max_channels_per_template]
+            temp_jitt = temp_jitt[elec_idxs]
 
         if bursting:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
                         compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
             else:
                 # electrode
+                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
                         compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
                     temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt.T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += mod_array[pos] * temp_jitt[:, :diff].T
             else:
                 # electrode
+                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
                         np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
+                    recordings[:spos + cut_out[1], elec_idxs] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
+                    recordings[spos - cut_out[0]:, elec_idxs] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
 
     return recordings
 
@@ -2699,10 +2721,9 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
 
 
 def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_templates=False, n_templates=None,
-                    cmap=None, **kwargs):
+                    max_channels_per_template=16, cmap=None, templates_lw=1, **kwargs):
     """
     Plot recordings.
-
     Parameters
     ----------
     recgen : RecordingGenerator
@@ -2717,14 +2738,14 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         If True, templates are overlaid on the recordings
     n_templates : int
         Number of templates to overlay (if overlay_templates is True)
+    max_channels_per_template : int
+        Number of maximum channels in which the template is overlaid
     cmap : matplotlib colormap
         Colormap to be used
-
     Returns
     -------
     ax : axis
         Matplotlib axis
-
     """
     import matplotlib.pylab as plt
 
@@ -2743,12 +2764,17 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     else:
         end_frame = int(end_time * fs)
 
+    if max_channels_per_template is None:
+        max_channels_per_template = len(recordings)
+
     mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
 
     if 'vscale' not in kwargs.keys():
         kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
 
     if overlay_templates:
+        if 'lw' in kwargs.keys():
+            kwargs['lw'] = templates_lw
         fs = recgen.info['recordings']['fs'] * pq.Hz
         if n_templates is None:
             template_ids = np.arange(len(recgen.templates))
@@ -2776,8 +2802,15 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
 
         for i, (sp, t) in enumerate(zip(spike_idxs, recgen.templates)):
             if i in template_ids:
-                rec_t = convolve_templates_spiketrains(i, sp, t, n_samples,
+                template_idxs = None
+                if 'drifting' in recgen.spiketrains[i].annotations.keys():
+                    if recgen.spiketrains[i].annotations['drifting']:
+                        template_idxs = recgen.spiketrains[i].annotations['template_idxs']
+
+                rec_t = convolve_templates_spiketrains(i, sp, t, n_samples, template_idxs=template_idxs,
+                                                       max_channels_per_template=max_channels_per_template,
                                                        cut_out=cut_out_samples).T
+
                 rec_t[np.abs(rec_t) < 1e-4] = np.nan
                 mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,
                                       colors=colors_t[np.mod(i_col, len(colors_t))], **kwargs)

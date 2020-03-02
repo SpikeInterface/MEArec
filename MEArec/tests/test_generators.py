@@ -450,6 +450,8 @@ class TestGenerators(unittest.TestCase):
         _ = mr.plot_rasters(self.recgen.spiketrains, color='g')
         _ = mr.plot_rasters(self.recgen.spiketrains, color=['g'] * len(self.recgen.spiketrains))
         _ = mr.plot_recordings(self.recgen)
+        _ = mr.plot_recordings(self.recgen, overlay_templates=True)
+        _ = mr.plot_recordings(self.recgen, overlay_templates=True, max_channels_per_template=3)
         _ = mr.plot_templates(self.recgen)
         _ = mr.plot_templates(self.recgen, single_axes=True)
         _ = mr.plot_waveforms(self.recgen)
