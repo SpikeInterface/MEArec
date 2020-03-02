@@ -415,38 +415,6 @@ class TestGenerators(unittest.TestCase):
                             assert len(recgen_drift.spike_traces) == n_neurons
                             del recgen_drift
 
-    def test_default_params(self):
-        print('Test default params')
-        info, info_folder = mr.get_default_config()
-        cell_models_folder = info['cell_models_folder']
-        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
-        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5', verbose=False)
-        recgen.params['recordings']['noise_level'] = 0
-        recgen.generate_recordings()
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
-        recgen_loaded.params['recordings']['noise_level'] = 0
-        recgen_loaded.generate_recordings()
-        recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
-
-        n = 2
-        num_cells = self.num_cells
-        templates_params = self.templates_params
-
-        assert tempgen.templates.shape[0] == (n * num_cells)
-        assert len(tempgen.locations) == (n * num_cells)
-        assert len(tempgen.rotations) == (n * num_cells)
-        assert len(tempgen.celltypes) == (n * num_cells)
-        assert len(np.unique(tempgen.celltypes)) == num_cells
-        assert np.min(tempgen.locations[:, 0]) > templates_params['xlim'][0] \
-               and np.max(tempgen.locations[:, 0]) < templates_params['xlim'][1]
-
-        assert recgen.recordings.shape[0] == self.num_chan
-        assert recgen.channel_positions.shape == (self.num_chan, 3)
-        assert recgen_loaded.recordings.shape[0] == self.num_chan
-        assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
-        assert len(recgen_empty.recordings) == 0
-        del recgen, recgen_empty
-
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
         tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
@@ -593,6 +561,38 @@ class TestGenerators(unittest.TestCase):
 
             assert recgen_dt.recordings[0, 0].dtype == dt
             del recgen_dt
+
+    def test_default_params(self):
+        print('Test default params')
+        info, info_folder = mr.get_default_config()
+        cell_models_folder = info['cell_models_folder']
+        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
+        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5', verbose=False)
+        recgen.params['recordings']['noise_level'] = 0
+        recgen.generate_recordings()
+        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
+        recgen_loaded.params['recordings']['noise_level'] = 0
+        recgen_loaded.generate_recordings()
+        recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
+
+        n = 2
+        num_cells = self.num_cells
+        templates_params = self.templates_params
+
+        assert tempgen.templates.shape[0] == (n * num_cells)
+        assert len(tempgen.locations) == (n * num_cells)
+        assert len(tempgen.rotations) == (n * num_cells)
+        assert len(tempgen.celltypes) == (n * num_cells)
+        assert len(np.unique(tempgen.celltypes)) == num_cells
+        assert np.min(tempgen.locations[:, 0]) > templates_params['xlim'][0] \
+               and np.max(tempgen.locations[:, 0]) < templates_params['xlim'][1]
+
+        assert recgen.recordings.shape[0] == self.num_chan
+        assert recgen.channel_positions.shape == (self.num_chan, 3)
+        assert recgen_loaded.recordings.shape[0] == self.num_chan
+        assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
+        assert len(recgen_empty.recordings) == 0
+        del recgen, recgen_empty
 
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()

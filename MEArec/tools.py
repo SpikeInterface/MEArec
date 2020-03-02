@@ -2074,7 +2074,7 @@ def sigmoid(x, b=1):
     return 1 / (1 + np.exp(-b * x)) - 0.5
 
 
-def compute_stretched_template(template, mod, sigmoid_range=30.):
+def compute_stretched_template(template, mod, shape_stretch=30.):
     """
     Compute modulation in shape for a template with low-pass filter.
 
@@ -2084,7 +2084,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         Template to be modulated (num_chan, n_samples) or (n_samples)
     mod : int or np.array
         Amplitude modulation for template or single electrodes
-    sigmoid_range : float
+    shape_stretch : float
         Sigmoid range to stretch the template
 
     Returns
@@ -2108,7 +2108,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.unravel_index(np.argmin(template), template.shape)[1]
         x_centered = np.arange(-min_idx, template.shape[1] - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered = x_centered * sigmoid_range
+        x_centered = x_centered * shape_stretch
 
         if stretch_factor >= 1:
             x_stretch = x_centered
@@ -2116,7 +2116,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
 
         x_stretch = x_stretch / float(np.ptp(x_stretch))
-        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        x_stretch *= shape_stretch + (np.min(x_centered) - np.min(x_stretch))
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
         x_stretch = np.round(x_stretch, 6)
         x_recovered = np.round(x_recovered, 6)
@@ -2126,7 +2126,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
                 f = interp.interp1d(x_stretch, t, kind='cubic')
                 temp_filt[i] = f(x_recovered)
             except Exception as e:
-                raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
+                raise Exception("'shape_stretch' is too large. Try reducing it (default = 30)")
         if mod.size > 1:
             temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
                                   temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
@@ -2136,14 +2136,14 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.argmin(template)
         x_centered = np.arange(-min_idx, len(template) - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered = x_centered * sigmoid_range
+        x_centered = x_centered * shape_stretch
 
         if stretch_factor >= 1:
             x_stretch = x_centered
         else:
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
         x_stretch = x_stretch / float(np.ptp(x_stretch))
-        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        x_stretch *= shape_stretch + (np.min(x_centered) - np.min(x_stretch))
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
         x_stretch = np.round(x_stretch, 6)
         x_recovered = np.round(x_recovered, 6)
@@ -2151,13 +2151,13 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             f = interp.interp1d(x_stretch, template, kind='cubic')
             temp_filt = f(x_recovered)
         except Exception as e:
-            raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
+            raise Exception("'shape_stretch' is too large. Try reducing it (default = 30)")
         temp_filt = (mod_value * np.min(template) / np.min(temp_filt)) * temp_filt
     return temp_filt
 
 
 def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False, mod_array=None,
-                             bursting=False, sigmoid_range=None):
+                             bursting=False, shape_stretch=None):
     """Convolve single template with spike train. Used to compute 'spike_traces'.
 
     Parameters
@@ -2178,7 +2178,7 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
         Array with modulation value for each spike
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
 
     Returns
@@ -2211,14 +2211,14 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
                 if bursting:
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                         spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
-                            compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                            compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                         spike_trace[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                         spike_trace[spos - cut_out[0]:] += temp_filt[:diff]
                 else:
                     if mod_array[pos].size > 1:
@@ -2239,7 +2239,7 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
 
 
 def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
-                                   mod_array=None, verbose=False, bursting=False, sigmoid_range=None, recordings=None):
+                                   mod_array=None, verbose=False, bursting=False, shape_stretch=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
@@ -2263,7 +2263,7 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
     recordings :  np.arrays
         Array to use for recordings. If None it is created
@@ -2303,27 +2303,27 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
@@ -2360,7 +2360,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
                                             drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
                                             fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
                                             modulation=False, mod_array=None,
-                                            verbose=False, bursting=False, sigmoid_range=None,
+                                            verbose=False, bursting=False, shape_stretch=None,
                                             chunk_start=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
@@ -2401,7 +2401,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
     chunk_start : quantity
         Chunk start time used to compute drifting position
@@ -2480,27 +2480,27 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
