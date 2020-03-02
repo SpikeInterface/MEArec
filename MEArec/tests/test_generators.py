@@ -134,7 +134,7 @@ class TestGenerators(unittest.TestCase):
         print('Test spike train generation')
         rec_params = mr.get_default_recordings_params()
         sp_params = rec_params['spiketrains']
-        spgen = mr.SpikeTrainGenerator(sp_params)
+        spgen = mr.SpikeTrainGenerator(sp_params, seed=0)
         spgen.generate_spikes()
 
         # check ref period
@@ -144,14 +144,14 @@ class TestGenerators(unittest.TestCase):
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
         sp_params['process'] = 'gamma'
-        spgen = mr.SpikeTrainGenerator(sp_params)
+        spgen = mr.SpikeTrainGenerator(sp_params, seed=0)
         spgen.generate_spikes()
         for st in spgen.spiketrains:
             isi = stat.isi(st).rescale('ms')
             assert np.all(isi.magnitude > sp_params['ref_per'])
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
-        spgen = mr.gen_spiketrains(sp_params)
+        spgen = mr.gen_spiketrains(sp_params, seed=0)
         spiketrains = spgen.spiketrains
         spgen_st = mr.gen_spiketrains(spiketrains=spiketrains)
         for (st, st_) in zip(spgen.spiketrains, spgen_st.spiketrains):
@@ -515,29 +515,62 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
 
-        rec_params['recordings']['seed'] = 0
-        rec_params['templates']['seed'] = 0
-        rec_params['spiketrains']['seed'] = 0
+        rec_params['seeds']['templates'] = 0
+        rec_params['seeds']['spiketrains'] = 0
+        rec_params['seeds']['convolution'] = 0
+        rec_params['seeds']['noise'] = 0
 
-        n_jobs = 1
+        n_jobs = [1, 2]
+        chunk_durations = [0, 1]
 
-        recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
-                                          n_jobs=n_jobs)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                      n_jobs=n_jobs)
+        for n in n_jobs:
+            for ch in chunk_durations:
+                print('Test recording backend with', n, 'jobs - chunk', ch)
+                rec_params['chunk_duration'] = n
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
-        del recgen_memmap, recgen_np
+                recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
+                                                  verbose=False, n_jobs=n)
+                recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
+                                              n_jobs=n)
 
-        n_jobs = 2
+                assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
+                del recgen_memmap, recgen_np
 
-        recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
-                                          n_jobs=n_jobs)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                      n_jobs=n_jobs)
+    def test_recordings_seeds(self):
+        print('Test recording generation - seeds')
+        ne = 2
+        ni = 1
+        duration = 3
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
-        del recgen_memmap, recgen_np
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = duration
+        n_jitter = 2
+        rec_params['templates']['n_jitters'] = n_jitter
+        rec_params['recordings']['modulation'] = 'none'
+
+        rec_params['seeds']['templates'] = 0
+        rec_params['seeds']['spiketrains'] = 0
+        rec_params['seeds']['convolution'] = 0
+        rec_params['seeds']['noise'] = 0
+
+        n_jobs = [1, 2]
+        chunk_durations = [0, 1]
+
+        for n in n_jobs:
+            for ch in chunk_durations:
+                print('Test recording backend with', n, 'jobs - chunk', ch)
+                rec_params['chunk_duration'] = n
+
+                recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
+                                            verbose=False, n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
+                                            n_jobs=n)
+
+                assert np.allclose(recgen1.recordings, np.array(recgen2.recordings), atol=1e-4)
+                del recgen1, recgen2
 
     def test_recordings_dtype(self):
         print('Test recording generation - dtype')

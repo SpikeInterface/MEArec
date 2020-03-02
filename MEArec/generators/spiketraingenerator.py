@@ -23,7 +23,7 @@ class SpikeTrainGenerator:
         If True, output is verbose
     """
 
-    def __init__(self, params=None, spiketrains=None, verbose=False):
+    def __init__(self, params=None, spiketrains=None, seed=None, verbose=False):
         self._verbose = verbose
         self._has_spiketrains = False
         self.params = {}
@@ -32,8 +32,11 @@ class SpikeTrainGenerator:
                 print("Using default parameters")
         if spiketrains is None:
             self.params = deepcopy(params)
+            if seed is None:
+                seed = np.random.randint(1000)
             if self._verbose:
-                print('Spiketrains seed: ', self.params['seed'])
+                print('Spiketrains seed: ', seed)
+            self.params['seed'] = seed
             np.random.seed(self.params['seed'])
 
             if 't_start' not in self.params.keys():
@@ -125,6 +128,7 @@ class SpikeTrainGenerator:
         self.spiketrains contains the newly generated spike trains
         """
         if not self._has_spiketrains:
+            np.random.seed(self.params['seed'])
             self.spiketrains = []
             idx = 0
             for n in np.arange(self.n_neurons):

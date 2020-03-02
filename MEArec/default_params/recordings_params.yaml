@@ -18,7 +18,6 @@ spiketrains:
   ref_per: 2 # refractory period in ms
   process: poisson # process for spike train simulation (poisson-gamma)
   gamma_shape: 2 # gamma shape (for gamma process)
-  seed: null # random seed for spiketrain generation
   t_start: 0 # start time in s
   duration: 10 # duration in s
 
@@ -26,6 +25,12 @@ cell_types:
   # excitatory and inhibitory cell names
   excitatory: ['PC', 'SS', 'SP']
   inhibitory: ['AC', 'BP', 'BC', 'BTC', 'ChC', 'DBC', 'MC', 'NGC']
+
+seeds:
+  spiketrains: null # random seed for spiketrain generation
+  templates: null # random seed for template selection
+  convolution: null # random seed for jitter selection in convolution
+  noise: null # random seed for noise
 
 templates:
   # recording generation parameters
@@ -41,7 +46,6 @@ templates:
   n_jitters: 10 # number of temporal jittered copies for each eap
   upsample: 8 # upsampling factor to extract jittered copies
   pad_len: [3, 3] # padding of templates in ms
-  seed: null # random seed to draw eap templates
 
 recordings:
   fs: null # sampling frequency in Hz (if null it is computed form the templates)
@@ -75,7 +79,6 @@ recordings:
   color_peak: 300 # (color) peak / curoff frequency of resonating filter
   color_q: 2 # (color) quality factor of resonating filter
   color_noise_floor: 1 # (color) additional noise floor
-  seed: null # random seed for noise generation
 
   filter: True # if True it filters the recordings
   filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz

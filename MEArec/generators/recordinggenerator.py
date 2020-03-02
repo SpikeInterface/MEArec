@@ -128,7 +128,8 @@ class RecordingGenerator:
                 params = {'spiketrains': {},
                           'celltypes': {},
                           'templates': {},
-                          'recordings': {}}
+                          'recordings': {},
+                          'seeds': {}}
             self.params = deepcopy(params)
             self.spgen = spgen
             self.tempgen = tempgen
@@ -214,6 +215,8 @@ class RecordingGenerator:
         temp_params = self.params['templates']
         rec_params = self.params['recordings']
         st_params = self.params['spiketrains']
+        seeds = self.params['seeds']
+
         if 'cell_types' in self.params.keys():
             celltype_params = self.params['cell_types']
         else:
@@ -233,7 +236,6 @@ class RecordingGenerator:
             cut_outs = self.params['templates']['cut_out']
 
         spiketrains = spgen.spiketrains
-
         n_neurons = len(spiketrains)
 
         if len(spiketrains) > 0:
@@ -402,12 +404,6 @@ class RecordingGenerator:
             params['recordings']['extract_waveforms'] = False
         extract_waveforms = params['recordings']['extract_waveforms']
 
-        if 'seed' not in rec_params.keys():
-            params['recordings']['seed'] = np.random.randint(1, 1000)
-        elif params['recordings']['seed'] is None:
-            params['recordings']['seed'] = np.random.randint(1, 1000)
-        noise_seed = params['recordings']['seed']
-
         if 'xlim' not in temp_params.keys():
             params['templates']['xlim'] = None
         x_lim = params['templates']['xlim']
@@ -452,15 +448,31 @@ class RecordingGenerator:
             params['templates']['upsample'] = 8
         upsample = params['templates']['upsample']
 
-        if 'seed' not in temp_params.keys():
-            params['templates']['seed'] = np.random.randint(1, 1000)
-        elif params['templates']['seed'] is None:
-            params['templates']['seed'] = np.random.randint(1, 1000)
-        temp_seed = params['templates']['seed']
-
         if 'drifting' not in rec_params.keys():
             params['recordings']['drifting'] = False
         drifting = params['recordings']['drifting']
+
+        # set seeds
+        if 'templates' not in seeds.keys():
+            temp_seed = np.random.randint(1, 1000)
+        elif seeds['templates'] is None:
+            temp_seed = np.random.randint(1, 1000)
+        else:
+            temp_seed = seeds['templates']
+
+        if 'convolution' not in seeds.keys():
+            conv_seed = np.random.randint(1, 1000)
+        elif seeds['convolution'] is None:
+            conv_seed = np.random.randint(1, 1000)
+        else:
+            conv_seed = seeds['convolution']
+
+        if 'noise' not in seeds.keys():
+            noise_seed = np.random.randint(1, 1000)
+        elif seeds['noise'] is None:
+            noise_seed = np.random.randint(1, 1000)
+        else:
+            noise_seed = seeds['noise']
 
         if drifting:
             if temp_info is not None:
@@ -744,6 +756,10 @@ class RecordingGenerator:
 
             if overlap:
                 annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=verbose_2)
+
+            if verbose_1:
+                print('Convolution seed: ', conv_seed)
+            np.random.seed(conv_seed)
 
             amp_mod = []
             cons_spikes = []
