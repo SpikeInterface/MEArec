@@ -99,8 +99,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
-    recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
-    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs)
+    recgen = RecordingGenerator(spgen, tempgen, params_dict)
+    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs, verbose=verbose)
 
     print('Elapsed time: ', time.perf_counter() - t_start)
 
