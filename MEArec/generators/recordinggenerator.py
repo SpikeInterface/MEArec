@@ -599,15 +599,18 @@ class RecordingGenerator:
                     n_inh = n_neurons - n_exc
                     st_types = np.array(['E'] * n_exc + ['I'] * n_inh)
 
-                if np.any(np.argsort(st_types) != range(n_neurons)):
-                    if verbose_1:
-                        print('Re-arranging spike trains: Excitatory first, Inhibitory last')
-                    order = np.argsort(st_types)
-                    new_spiketrains = []
-                    for idx in order:
-                        new_spiketrains.append(spiketrains[idx])
-                    spgen.spiketrains = new_spiketrains
-                    spiketrains = new_spiketrains
+                e_idx = np.where(st_types == 'E')
+                i_idx = np.where(st_types == 'I')
+                if len(e_idx) > 0 and len(i_idx) > 0:
+                    if not np.all([[e < i for e in e_idx[0]] for i in i_idx[0]]):
+                        if verbose_1:
+                            print('Re-arranging spike trains: Excitatory first, Inhibitory last')
+                        order = np.argsort(st_types)
+                        new_spiketrains = []
+                        for idx in order:
+                            new_spiketrains.append(spiketrains[idx])
+                        spgen.spiketrains = new_spiketrains
+                        spiketrains = new_spiketrains
 
                 if verbose_1:
                     print('Templates selection seed: ', temp_seed)

@@ -199,7 +199,7 @@ def gen_templates(params, **kwargs):
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
-        save_template_generator(tempgen, save_fname, verbose=verbose)
+        save_template_generator(tempgen, save_fname, verbose=True)
 
 
 @cli.command()
@@ -456,6 +456,8 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['t_start_drift'] = kwargs['t_start_drift']
     if kwargs['verbose']:
         verbose = 2
+    else:
+        verbose = kwargs['verbose']
 
     recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
     info = recgen.info
@@ -479,7 +481,7 @@ def gen_recordings(params, **kwargs):
         if not os.path.isdir(recordings_folder):
             os.makedirs(recordings_folder)
     rec_path = join(recordings_folder, fname)
-    save_recording_generator(recgen, rec_path, verbose=verbose)
+    save_recording_generator(recgen, rec_path, verbose=True)
 
 
 @cli.command()
