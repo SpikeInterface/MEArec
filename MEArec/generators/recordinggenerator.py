@@ -556,7 +556,7 @@ class RecordingGenerator:
             tmp_templates_rs = None
             tmp_templates_jit = None
 
-        timestamps = np.arange(recordings.shape[1]) / fs
+        timestamps = np.arange(recordings.shape[0]) / fs
 
         #######################
         # Step 1: convolution #
@@ -651,10 +651,13 @@ class RecordingGenerator:
                                                             overlap_threshold=overlap_threshold,
                                                             verbose=verbose_2)
 
-                assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
+                if not np.any('U' in  selected_cat):
+                    assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
+                    # Reorder templates according to E-I types
+                    reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                else:
+                    reordered_idx_cells = idxs_cells
 
-                # Reorder templates according to E-I types
-                reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
                 template_celltypes = celltypes[reordered_idx_cells]
                 template_locs = np.array(locs)[reordered_idx_cells]
                 template_rots = np.array(rots)[reordered_idx_cells]
