@@ -67,6 +67,8 @@ class RecordingGenerator:
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None):
         self._verbose = False
+        self._verbose_1 = False
+        self._verbose_2 = False
 
         if rec_dict is not None and info is not None:
             if 'recordings' in rec_dict.keys():
@@ -170,6 +172,8 @@ class RecordingGenerator:
         tmp_folder: str or Path
             In case of tmp files, you can specify the folder.
             If None, then it is automatic using tempfile.mkdtemp()
+        verbose: bool or int
+            Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
         n_jobs: int if >1 then use joblib to execute chunk in parralel else in loop
 
         """
@@ -189,20 +193,22 @@ class RecordingGenerator:
         else:
             self._is_tmp_folder_local = False
 
-        if verbose is not None and isinstance(verbose, bool) or isinstance(verbose, int):
-            self._verbose = verbose
+        self._verbose = verbose
+        if self._verbose is not None and isinstance(self._verbose, bool) or isinstance(self._verbose, int):
             verbose_1 = self._verbose >= 1
             verbose_2 = self._verbose >= 2
         elif isinstance(verbose, bool):
-            if verbose:
+            if self._verbose:
                 verbose_1 = True
                 verbose_2 = False
             else:
                 verbose_1 = False
                 verbose_2 = False
-        else:
+        else:  # None
             verbose_1 = False
             verbose_2 = False
+        self._verbose_1 = verbose_1
+        self._verbose_2 = verbose_2
 
         params = deepcopy(self.params)
         temp_params = self.params['templates']
@@ -996,7 +1002,7 @@ class RecordingGenerator:
             If True, spike trains are annotated in parallel
         """
         if self.info['templates']['overlapping'] is None or len(self.info['templates']['overlapping']) == 0:
-            if verbose_1:
+            if self._verbose_1:
                 print('Finding overlapping spikes')
             if len(self.templates.shape) == 3:
                 templates = self.templates
