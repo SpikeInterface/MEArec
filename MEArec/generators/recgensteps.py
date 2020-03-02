@@ -111,6 +111,8 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         Array containing the voltage values at the peak
     
     """
+    if verbose:
+        print('Start convolutions for chunk', ch)
     # set seed
     np.random.seed(seed_list[ch])
 
