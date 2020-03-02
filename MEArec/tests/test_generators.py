@@ -202,7 +202,7 @@ class TestGenerators(unittest.TestCase):
                         rec_params['templates']['n_jitters'] = j
                         rec_params['recordings']['modulation'] = mod
                         rec_params['recordings']['bursting'] = b
-                        rec_params['recordings']['chunk_conv_duration'] = ch
+                        rec_params['recordings']['chunk_duration'] = ch
 
                         if mod == 'electrode' and b is True and j == 5:
                             rec_params['cell_types'] = None
@@ -296,13 +296,13 @@ class TestGenerators(unittest.TestCase):
                 for color in noise_color:
                     print('Noise: mode', mode, 'chunks', ch, 'color', color)
                     rec_params['recordings']['noise_mode'] = mode
-                    rec_params['recordings']['chunk_noise_duration'] = ch
+                    rec_params['recordings']['chunk_duration'] = ch
                     rec_params['recordings']['noise_color'] = color
                     recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
 
                     if mode == 'uncorrelated' and ch == 0 and not noise_color:
                         rec_params['recordings']['fs'] = 30000
-                        rec_params['recordings']['chunk_filter_duration'] = 1
+                        rec_params['recordings']['chunk_duration'] = 1
                     if noise_color:
                         rec_params['recordings']['filter_cutoff'] = 500
 
@@ -347,7 +347,7 @@ class TestGenerators(unittest.TestCase):
         assert np.isclose(np.std(recgen_noise.recordings), noise_level, atol=1)
         del recgen_noise
 
-        rec_params['recordings']['chunk_conv_duration'] = 1
+        rec_params['recordings']['chunk_duration'] = 1
         recgen_noise = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
 
         assert recgen_noise.recordings.shape[0] == num_chan
@@ -391,7 +391,7 @@ class TestGenerators(unittest.TestCase):
                             rec_params['templates']['n_jitters'] = j
                             rec_params['recordings']['modulation'] = mod
                             rec_params['recordings']['bursting'] = b
-                            rec_params['recordings']['chunk_conv_duration'] = ch
+                            rec_params['recordings']['chunk_duration'] = ch
                             rec_params['recordings']['drift_mode'] = dm
 
                             if i == len(modulations) - 1:
@@ -553,31 +553,23 @@ class TestGenerators(unittest.TestCase):
 
         n_jobs = 1
 
-        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False,
-                                      n_jobs=n_jobs)
         recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
                                           n_jobs=n_jobs)
         recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                       n_jobs=n_jobs)
 
-        assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
-        assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
         assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
-        del recgen_h5, recgen_memmap, recgen_np
+        del recgen_memmap, recgen_np
 
         n_jobs = 2
 
-        recgen_h5 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='h5', verbose=False,
-                                      n_jobs=n_jobs)
         recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
                                           n_jobs=n_jobs)
         recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                       n_jobs=n_jobs)
 
-        assert np.allclose(recgen_h5.recordings, np.array(recgen_np.recordings))
-        assert np.allclose(recgen_h5.recordings, np.array(recgen_memmap.recordings))
         assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
-        del recgen_h5, recgen_memmap, recgen_np
+        del recgen_memmap, recgen_np
 
     def test_recordings_dtype(self):
         print('Test recording generation - dtype')

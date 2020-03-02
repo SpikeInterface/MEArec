@@ -114,9 +114,7 @@ class RecordingGenerator:
             if len(self.spiketrains) > 0:
                 self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
             self.tempgen = None
-            if isinstance(self.recordings, h5py.Dataset):
-                self.tmp_mode = 'h5'
-            elif isinstance(self.recordings, np.memmap):
+            if isinstance(self.recordings, np.memmap):
                 self.tmp_mode = 'memmap'
             else:
                 self.tmp_mode = None
@@ -168,7 +166,7 @@ class RecordingGenerator:
         Generates recordings
         Parameters
         ----------
-        tmp_mode : None, 'h5' 'memmap'
+        tmp_mode : None, 'memmap'
             Use temporary file h5 memmap or None
             None is no temporary file and then use memory.
         tmp_folder: str or Path
@@ -373,17 +371,9 @@ class RecordingGenerator:
             shape_stretch = None
             n_bursting = None
 
-        chunk_noise_duration = params['recordings'].get('chunk_noise_duration', 0) * pq.s
-        if chunk_noise_duration == 0 * pq.s:
-            chunk_noise_duration = duration
-
-        chunk_filter_duration = params['recordings'].get('chunk_filter_duration', 0) * pq.s
-        if chunk_filter_duration == 0 * pq.s:
-            chunk_filter_duration = duration
-
-        chunk_conv_duration = params['recordings'].get('chunk_conv_duration', 0) * pq.s
-        if chunk_noise_duration == 0 * pq.s:
-            chunk_filter_duration = duration
+        chunk_duration = params['recordings'].get('chunk_duration', 0) * pq.s
+        if chunk_duration == 0 * pq.s:
+            chunk_duration = duration
 
         if 'mrand' not in rec_params.keys():
             params['recordings']['mrand'] = 1
@@ -518,31 +508,21 @@ class RecordingGenerator:
         params['templates'].update({'cut_out': cut_outs})
 
         # create buffer h5/memmap/memmory
-        if self.tmp_mode == 'h5':
-            tmp_path = self.tmp_folder / (tmp_prefix + "mearec_tmp_file.h5")
-            assert not os.path.exists(tmp_path), 'temporay file already exists'
-            tmp_file = h5py.File(tmp_path, mode='w')
-            recordings = tmp_file.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-            if not only_noise:
-                spike_traces = tmp_file.create_dataset("spike_traces", (n_neurons, n_samples), dtype=dtype)
-
-            self._to_remove_on_delete.append(tmp_path)
-
-        elif self.tmp_mode == 'memmap':
+        if self.tmp_mode == 'memmap':
             tmp_path_0 = self.tmp_folder / (tmp_prefix + "mearec_tmp_file_recordings.raw")
             recordings = np.memmap(tmp_path_0, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
             recordings[:] = 0
-            recordings = recordings.transpose()
+            # recordings = recordings.transpose()
             tmp_path_1 = self.tmp_folder / (tmp_prefix + "mearec_tmp_file_spike_traces.raw")
             if not only_noise:
                 spike_traces = np.memmap(tmp_path_1, shape=(n_samples, n_neurons), dtype=dtype, mode='w+')
                 spike_traces[:] = 0
-                spike_traces = spike_traces.transpose()
+                # spike_traces = spike_traces.transpose()
 
             self._to_remove_on_delete.extend([tmp_path_0, tmp_path_1])
         else:
-            recordings = np.zeros((n_elec, n_samples), dtype=dtype)
-            spike_traces = np.zeros((n_neurons, n_samples), dtype=dtype)
+            recordings = np.zeros((n_samples, n_elec), dtype=dtype)
+            spike_traces = np.zeros((n_samples, n_neurons), dtype=dtype)
 
         timestamps = np.arange(recordings.shape[1]) / fs
 
@@ -785,7 +765,7 @@ class RecordingGenerator:
                 spike_idxs.append((st.times * fs).magnitude.astype('int'))
 
             # divide in chunks
-            chunk_indexes = make_chunk_indexes(duration, chunk_conv_duration, fs)
+            chunk_indexes = make_chunk_indexes(duration, chunk_duration, fs)
             seed_list_conv = [np.random.randint(1000) for i in np.arange(len(chunk_indexes))]
 
             verbose = self._verbose >= 2
@@ -821,26 +801,20 @@ class RecordingGenerator:
                 print('Noise level is set to 0')
         else:
             # divide in chunks
-            chunk_indexes = make_chunk_indexes(duration, chunk_noise_duration, fs)
+            chunk_indexes = make_chunk_indexes(duration, chunk_duration, fs)
             seed_list_noise = [np.random.randint(1000) for i in np.arange(len(chunk_indexes))]
 
-            if self.tmp_mode == 'h5':
-                tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.h5")
-                tmp_noise_rec = h5py.File(tmp_path_noise, mode='w')
-                additive_noise = tmp_noise_rec.create_dataset("recordings", (n_elec, n_samples), dtype=dtype)
-                self._to_remove_on_delete.append(tmp_path_noise)
-            elif self.tmp_mode == 'memmap':
+            if self.tmp_mode == 'memmap':
                 tmp_path_noise = self.tmp_folder / (tmp_prefix + "mearec_tmp_noise_file.raw")
                 additive_noise = np.memmap(tmp_path_noise, shape=(n_samples, n_elec), dtype=dtype, mode='w+')
-                additive_noise = additive_noise.transpose()
+                # additive_noise = additive_noise.transpose()
                 self._to_remove_on_delete.append(tmp_path_noise)
             else:
-                additive_noise = np.zeros((n_elec, n_samples), dtype=dtype)
+                additive_noise = np.zeros((n_samples, n_elec), dtype=dtype)
 
             if noise_mode == 'uncorrelated':
                 func = chunk_uncorrelated_noise
-                num_chan = recordings.shape[0]
-                args = (num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor,
+                args = (n_elec, noise_level, noise_color, color_peak, color_q, color_noise_floor,
                         fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
@@ -937,46 +911,21 @@ class RecordingGenerator:
                                    self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
 
                 # removing mean
-                for i, m in enumerate(np.mean(additive_noise, axis=1)):
-                    if self.tmp_mode == 'h5':
-                        additive_noise[i, ...] -= m
-                    elif self.tmp_mode == 'memmap':
-                        additive_noise[i, :] -= m
-                    else:
-                        additive_noise[i, :] -= m
-
+                for i, m in enumerate(np.mean(additive_noise, axis=0)):
+                    additive_noise[:, i] -= m
                 # adding noise floor
-                for i, s in enumerate(np.std(additive_noise, axis=1)):
-                    if self.tmp_mode == 'h5':
-                        additive_noise[i, ...] += far_neurons_noise_floor * s * \
-                                                  np.random.randn(additive_noise.shape[1])
-                    elif self.tmp_mode == 'memmap':
-                        additive_noise[i, :] += far_neurons_noise_floor * s * \
-                                                np.random.randn(additive_noise.shape[1])
-                    else:
-                        additive_noise[i, :] += far_neurons_noise_floor * s * \
-                                                np.random.randn(additive_noise.shape[1])
-
+                for i, s in enumerate(np.std(additive_noise, axis=0)):
+                    additive_noise[:, i] += far_neurons_noise_floor * s * \
+                                                np.random.randn(additive_noise.shape[0])
                 # scaling noise
-                noise_scale = noise_level / np.std(additive_noise, axis=1)
+                noise_scale = noise_level / np.std(additive_noise, axis=0)
                 if self._verbose:
                     print('Scaling to reach desired level')
-
                 for i, n in enumerate(noise_scale):
-                    if self.tmp_mode == 'h5':
-                        additive_noise[i, ...] *= n
-                    elif self.tmp_mode == 'memmap':
-                        additive_noise[i, :] *= n
-                    else:
-                        additive_noise[i, :] *= n
+                    additive_noise[:, i] *= n
 
             # Add it to recordings
-            if self.tmp_mode == 'h5':
-                recordings[...] += additive_noise
-            elif self.tmp_mode == 'memmap':
-                recordings += additive_noise
-            else:
-                recordings += additive_noise
+            recordings += additive_noise
 
         ##################
         # Step 3: filter #
@@ -989,7 +938,7 @@ class RecordingGenerator:
                 elif cutoff.size == 2:
                     print('Band-pass cutoff', cutoff)
 
-            chunk_indexes = make_chunk_indexes(duration, chunk_filter_duration, fs)
+            chunk_indexes = make_chunk_indexes(duration, chunk_duration, fs)
 
             # call the loop on chunks
             args = (recordings, cutoff, order, fs, dtype,)
@@ -997,21 +946,12 @@ class RecordingGenerator:
                 'filtered_chunk': recordings,
             }
             # Done in loop (as before) : this cannot be done in parralel because of bug transpose in joblib!!!!!!!!!!!!!
-            output_list = run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args,
-                                             # ~ self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
-                                             1, None, None, assignment_dict)
+            run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args,
+                               self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
 
-        #############################
-        # Step 4: extract waveforms #
-        #############################
-        if not only_noise:
-            if extract_waveforms:
-                if self._verbose:
-                    print('Extracting spike waveforms')
-                extract_wf(spiketrains, recordings, fs=fs, timestamps=timestamps)
-
+        # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
-        self.recordings = recordings
+        self.recordings = recordings.transpose()
         self.timestamps = timestamps
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
@@ -1020,8 +960,17 @@ class RecordingGenerator:
         self.template_celltypes = template_celltypes
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
-        self.spike_traces = spike_traces
+        self.spike_traces = spike_traces.transpose()
         self.info = params
+
+        #############################
+        # Step 4: extract waveforms #
+        #############################
+        if not only_noise:
+            if extract_waveforms:
+                if self._verbose:
+                    print('Extracting spike waveforms')
+                self.extract_waveforms()
 
     def annotate_overlapping_spikes(self, parallel=True):
         """
@@ -1121,7 +1070,6 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
     
     """
 
-    parallel_job = not n_jobs in (0, 1)
     # create task list
     arg_tasks = []
     karg_tasks = []
@@ -1132,17 +1080,7 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
         arg_task = (ch, i_start, i_stop, chunk_start,) + args
         arg_tasks.append(arg_task)
 
-        karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode, parallel_job=parallel_job)
-        if tmp_mode is None:
-            pass
-        elif tmp_mode == 'h5':
-            tmp_file = str(tmp_folder / ('tmp_chunk_' + str(ch) + '.h5'))
-            if os.path.exists(tmp_file):
-                os.remove(tmp_file)
-            karg_task['tmp_file'] = tmp_file
-            karg_task['assignment_dict'] = {k: None for k in assignment_dict}  #  trick to not transmit the file
-        elif tmp_mode == 'memmap':
-            pass
+        karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode)
         karg_tasks.append(karg_task)
 
     # run chunks
@@ -1156,14 +1094,7 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
             if tmp_mode is None:
                 for key, full_arr in assignment_dict.items():
                     out_chunk = out[key]
-                    full_arr[:, i_start:i_stop] += out_chunk
-            elif tmp_mode == 'h5':
-                tmp_file = karg_tasks[ch]['tmp_file']
-                with h5py.File(tmp_file, 'r') as f:
-                    for key, full_arr in assignment_dict.items():
-                        out_chunk = f[key]
-                        full_arr[:, i_start:i_stop] = out_chunk
-                os.remove(tmp_file)
+                    full_arr[i_start:i_stop] += out_chunk
             elif tmp_mode == 'memmap':
                 pass
                 # Nothing to do here because done inside the func with FuncThenAddChunk
@@ -1173,22 +1104,13 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
         output_list = Parallel(n_jobs=n_jobs)(
             delayed(func)(*arg_task, **karg_task) for arg_task, karg_task in zip(arg_tasks, karg_tasks))
 
-        if tmp_mode == 'h5':
-            for ch, arg_task in enumerate(arg_tasks):
-                i_start, i_stop = chunk_indexes[ch]
-                tmp_file = karg_tasks[ch]['tmp_file']
-                with h5py.File(tmp_file, 'r') as f:
-                    for key, full_arr in assignment_dict.items():
-                        out_chunk = f[key]
-                        full_arr[..., i_start:i_stop] += out_chunk
-                os.remove(tmp_file)
-        elif tmp_mode == 'memmap':
+        if tmp_mode == 'memmap':
             pass
             # Nothing to do here because done inside the func
         else:
             # This case is very unefficient because it double the memory usage!!!!!!!
             for ch, (i_start, i_stop) in enumerate(chunk_indexes):
                 for key, full_arr in assignment_dict.items():
-                    full_arr[:, i_start:i_stop] += output_list[ch][key]
+                    full_arr[i_start:i_stop] += output_list[ch][key]
 
     return output_list

@@ -39,25 +39,10 @@ class FuncThenAddChunk:
 
         if tmp_mode is None:
             pass
-        elif tmp_mode == 'h5':
-            tmp_file = kargs['tmp_file']
-
-            with h5py.File(tmp_file, mode='w') as f:
-                for key, full_arr in assignment_dict.items():
-                    # full_arr is None in that case
-                    out_chunk = return_dict.pop(key)
-                    f.create_dataset(key, data=out_chunk)
         elif tmp_mode == 'memmap':
             for key, full_arr in assignment_dict.items():
                 out_chunk = return_dict.pop(key)
-                if kargs['parallel_job']:
-                    # there is a bug in joblib the do no strides in correct way
-                    # see https://github.com/joblib/joblib/issues/1019
-                    # if joblib fix this then we MUST remove this two lines
-                    rev_shape = tuple(full_arr.shape[::-1])
-                    full_arr = np.memmap(full_arr.filename, mode='r+', shape=rev_shape,
-                                         dtype=full_arr.dtype).transpose()
-                full_arr[:, i_start:i_stop] += out_chunk
+                full_arr[i_start:i_stop] += out_chunk
 
         return return_dict
 
@@ -85,7 +70,6 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
             None : in memmory return results in out dict
             str = h5 mode put out chunk in tmp h5 file
             dict = memmap mode
-    
     st_idxs: list
         list of spike indexes for each spike train
     modulation: str
@@ -136,7 +120,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
 
     template_idxs = []
     if extract_spike_traces:
-        spike_traces = np.zeros((len(st_idxs), length), dtype=dtype)
+        spike_traces = np.zeros((length, len(st_idxs)), dtype=dtype)
     if len(templates.shape) == 4:
         n_elec = templates.shape[2]
     elif len(templates.shape) == 5:
@@ -144,7 +128,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
     else:
         raise AttributeError("Wrong 'templates' shape!")
 
-    recordings = np.zeros((n_elec, length), dtype=dtype)
+    recordings = np.zeros((length, n_elec), dtype=dtype)
 
     for st, st_idx in enumerate(st_idxs):
         if extract_spike_traces:
@@ -196,7 +180,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                                                                                    recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, st_idx_in_chunk,
+                    spike_traces[:, st] = convolve_single_template(st, st_idx_in_chunk,
                                                                 templates[st, 0, :, max_electrode],
                                                                 n_samples=n_samples,
                                                                 cut_out=cut_outs_samples,
@@ -220,14 +204,14 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                                                             recordings=recordings)
                 np.random.seed(seed)
                 if extract_spike_traces:
-                    spike_traces[st] = convolve_single_template(st, st_idx_in_chunk,
-                                                                template[:, max_electrode],
-                                                                n_samples=n_samples,
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=mod_bool,
-                                                                mod_array=mod_array,
-                                                                bursting=unit_burst,
-                                                                sigmoid_range=shape_stretch)
+                    spike_traces[:, st] = convolve_single_template(st, st_idx_in_chunk,
+                                                                   template[:, max_electrode],
+                                                                   n_samples=n_samples,
+                                                                   cut_out=cut_outs_samples,
+                                                                   modulation=mod_bool,
+                                                                   mod_array=mod_array,
+                                                                   bursting=unit_burst,
+                                                                   sigmoid_range=shape_stretch)
                 template_idx = np.array([])
         else:
             if verbose:
@@ -255,12 +239,12 @@ def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start,
                               seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
-    additive_noise = noise_level * np.random.randn(num_chan, length).astype(dtype)
+    additive_noise = noise_level * np.random.randn(length, num_chan).astype(dtype)
 
     if noise_color:
         # iir peak filter
         b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
-        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=1, padlen=1000)
+        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=0, padlen=1000)
         additive_noise = additive_noise.astype(dtype)
         additive_noise += color_noise_floor * np.std(additive_noise) * \
                           np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
@@ -282,14 +266,14 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
     length = i_stop - i_start
 
     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                 size=(length)).astype(dtype).T
+                                                                 size=length).astype(dtype)
     if noise_color:
         # iir peak filter
         b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
-        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=1)
+        additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=0, padlen=1000)
         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * \
                          np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                       size=(length)).T
+                                                       size=length)
     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
     return_dict = {}
@@ -303,15 +287,16 @@ chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noi
 
 def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
                         recordings, cutoff, order, fs, dtype):
+    # TODO add padding
     if cutoff.size == 1:
-        filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff, fs=fs,
+        filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff, fs=fs,
                                                filter_type='highpass', order=order)
     elif cutoff.size == 2:
         if fs / 2. < cutoff[1]:
-            filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff[0], fs=fs,
+            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff[0], fs=fs,
                                                    filter_type='highpass', order=order)
         else:
-            filtered_chunk = filter_analog_signals(recordings[:, i_start:i_stop], freq=cutoff, fs=fs)
+            filtered_chunk = filter_analog_signals(recordings[i_start:i_stop, :], freq=cutoff, fs=fs)
 
     filtered_chunk = filtered_chunk.astype(dtype)
 
