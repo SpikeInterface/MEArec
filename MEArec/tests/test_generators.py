@@ -647,7 +647,7 @@ class TestGenerators(unittest.TestCase):
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
                                      '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
-                                     '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
+                                     '-chd', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
                                      '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
                                      '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
                                      '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])
