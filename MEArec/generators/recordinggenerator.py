@@ -585,16 +585,29 @@ class RecordingGenerator:
                 if 'cell_type' in spiketrains[0].annotations.keys():
                     n_exc = [st.annotations['cell_type'] for st in spiketrains].count('E')
                     n_inh = n_neurons - n_exc
+                    st_types = np.array([st.annotations['cell_type'] for st in spiketrains])
                 elif 'rates' in st_params.keys():
                     assert st_params['types'] is not None, "If 'rates' are provided as spiketrains parameters, " \
                                                            "corresponding 'types' ('E'-'I') must be provided"
                     n_exc = st_params['types'].count('E')
                     n_inh = st_params['types'].count('I')
+                    st_types = np.array(st_params['types'])
                 else:
                     if self._verbose:
                         print('Setting random number of excitatory and inhibitory neurons as cell_type info is missing')
                     n_exc = np.random.randint(n_neurons)
                     n_inh = n_neurons - n_exc
+                    st_types = np.array(['E'] * n_exc + ['I'] * n_inh)
+
+                if np.any(np.argsort(st_types) != range(n_neurons)):
+                    if verbose_1:
+                        print('Re-arranging spike trains: Excitatory first, Inhibitory last')
+                    order = np.argsort(st_types)
+                    new_spiketrains = []
+                    for idx in order:
+                        new_spiketrains.append(spiketrains[idx])
+                    spgen.spiketrains = new_spiketrains
+                    spiketrains = new_spiketrains
 
                 if verbose_1:
                     print('Templates selection seed: ', temp_seed)
@@ -635,12 +648,15 @@ class RecordingGenerator:
                                                             overlap_threshold=overlap_threshold,
                                                             verbose=verbose_2)
 
-                idxs_cells = sorted(idxs_cells)  # [np.argsort(selected_cat)]
-                template_celltypes = celltypes[idxs_cells]
-                template_locs = locs[idxs_cells]
-                template_rots = rots[idxs_cells]
-                templates_bin = bin_cat[idxs_cells]
-                templates = eaps[idxs_cells]
+                assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
+
+                # Reorder templates according to E-I types
+                reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                template_celltypes = celltypes[reordered_idx_cells]
+                template_locs = np.array(locs)[reordered_idx_cells]
+                template_rots = np.array(rots)[reordered_idx_cells]
+                template_bin = np.array(bin_cat)[reordered_idx_cells]
+                templates = np.array(eaps)[reordered_idx_cells]
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
@@ -712,11 +728,11 @@ class RecordingGenerator:
                     if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
                         exc_categories = celltype_params['excitatory']
                         inh_categories = celltype_params['inhibitory']
-                        templates_bin = get_binary_cat(template_celltypes, exc_categories, inh_categories)
+                        template_bin = get_binary_cat(template_celltypes, exc_categories, inh_categories)
                     else:
-                        templates_bin = np.array(['U'] * len(celltypes))
+                        template_bin = np.array(['U'] * len(celltypes))
                 else:
-                    templates_bin = np.array(['U'] * len(celltypes))
+                    template_bin = np.array(['U'] * len(celltypes))
                 voltage_peaks = self.voltage_peaks
                 overlapping = np.array([])
                 if not drifting:
@@ -754,7 +770,7 @@ class RecordingGenerator:
             if verbose_1:
                 print('Adding spiketrain annotations')
             for i, st in enumerate(spiketrains):
-                st.annotate(bintype=templates_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
+                st.annotate(bintype=template_bin[i], mtype=template_celltypes[i], soma_position=template_locs[i])
 
             if overlap:
                 annotate_overlapping_spikes(spiketrains, overlapping_pairs=overlapping, verbose=verbose_2)

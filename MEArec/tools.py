@@ -634,8 +634,7 @@ def get_binary_cat(celltypes, excit, inhib):
     return np.array(binary_cat, dtype=str)
 
 
-def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False,
-                           reference_mode='t0'):
+def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0):
     """
     Computes several templates features.
 
@@ -1553,7 +1552,7 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
     """
     Annotate spike trains with temporal and spatio-temporal overlapping labels.
     NO - Non overlap
-    O - Temporal overlap
+    TO - Temporal overlap
     SO - Spatio-temporal overlap
 
     Parameters
@@ -2878,7 +2877,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
             fs = recgen.info['recordings']['fs'] * pq.Hz
             extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs, cut_out=cut_out)
             wf = recgen.spiketrains[sp].waveforms
-            print(wf.shape)
         waveforms.append(wf)
 
     mea = mu.return_mea(info=recgen.info['electrodes'])

@@ -128,7 +128,6 @@ class SpikeTrainGenerator:
         self.spiketrains contains the newly generated spike trains
         """
         if not self._has_spiketrains:
-            np.random.seed(self.params['seed'])
             self.spiketrains = []
             idx = 0
             for n in np.arange(self.n_neurons):
