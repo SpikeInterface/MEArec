@@ -190,7 +190,14 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                                                                 bursting=unit_burst,
                                                                 shape_stretch=shape_stretch)
                 # only keep template idxs inside the chunk
-                # TODO fix this
+                if len(spike_idx_in_chunk) > 0:
+                    if len(spike_idx_in_chunk_pad[0]) != len(spike_idx_in_chunk[0]):
+                        common_idxs = [i for i, idx in enumerate(spike_idx_in_chunk_pad[0])
+                                       if idx in spike_idx_in_chunk[0]]
+                        template_idx = template_idx[common_idxs]
+                        assert len(template_idx) == len(spike_idx_in_chunk[0])
+                else:
+                    template_idx = np.array([])
             else:
                 if drifting:
                     template = templates[st, 0]
