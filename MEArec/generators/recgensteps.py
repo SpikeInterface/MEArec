@@ -191,6 +191,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                                                                    mod_array=mod_array,
                                                                    bursting=unit_burst,
                                                                    shape_stretch=shape_stretch)
+
                 # only keep template idxs inside the chunk
                 if len(spike_idx_in_chunk) > 0:
                     if len(spike_idx_in_chunk_pad[0]) != len(spike_idx_in_chunk[0]):

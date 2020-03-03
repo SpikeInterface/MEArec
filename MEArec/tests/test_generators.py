@@ -134,7 +134,7 @@ class TestGenerators(unittest.TestCase):
         print('Test spike train generation')
         rec_params = mr.get_default_recordings_params()
         sp_params = rec_params['spiketrains']
-        spgen = mr.SpikeTrainGenerator(sp_params)
+        spgen = mr.SpikeTrainGenerator(sp_params, seed=0)
         spgen.generate_spikes()
 
         # check ref period
@@ -144,14 +144,14 @@ class TestGenerators(unittest.TestCase):
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
         sp_params['process'] = 'gamma'
-        spgen = mr.SpikeTrainGenerator(sp_params)
+        spgen = mr.SpikeTrainGenerator(sp_params, seed=0)
         spgen.generate_spikes()
         for st in spgen.spiketrains:
             isi = stat.isi(st).rescale('ms')
             assert np.all(isi.magnitude > sp_params['ref_per'])
             assert (1 / np.mean(isi.rescale('s'))) > sp_params['min_rate']
 
-        spgen = mr.gen_spiketrains(sp_params)
+        spgen = mr.gen_spiketrains(sp_params, seed=0)
         spiketrains = spgen.spiketrains
         spgen_st = mr.gen_spiketrains(spiketrains=spiketrains)
         for (st, st_) in zip(spgen.spiketrains, spgen_st.spiketrains):
@@ -415,38 +415,6 @@ class TestGenerators(unittest.TestCase):
                             assert len(recgen_drift.spike_traces) == n_neurons
                             del recgen_drift
 
-    def test_default_params(self):
-        print('Test default params')
-        info, info_folder = mr.get_default_config()
-        cell_models_folder = info['cell_models_folder']
-        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
-        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5', verbose=False)
-        recgen.params['recordings']['noise_level'] = 0
-        recgen.generate_recordings()
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
-        recgen_loaded.params['recordings']['noise_level'] = 0
-        recgen_loaded.generate_recordings()
-        recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
-
-        n = 2
-        num_cells = self.num_cells
-        templates_params = self.templates_params
-
-        assert tempgen.templates.shape[0] == (n * num_cells)
-        assert len(tempgen.locations) == (n * num_cells)
-        assert len(tempgen.rotations) == (n * num_cells)
-        assert len(tempgen.celltypes) == (n * num_cells)
-        assert len(np.unique(tempgen.celltypes)) == num_cells
-        assert np.min(tempgen.locations[:, 0]) > templates_params['xlim'][0] \
-               and np.max(tempgen.locations[:, 0]) < templates_params['xlim'][1]
-
-        assert recgen.recordings.shape[0] == self.num_chan
-        assert recgen.channel_positions.shape == (self.num_chan, 3)
-        assert recgen_loaded.recordings.shape[0] == self.num_chan
-        assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
-        assert len(recgen_empty.recordings) == 0
-        del recgen, recgen_empty
-
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
         tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
@@ -478,10 +446,12 @@ class TestGenerators(unittest.TestCase):
     def test_plots(self):
         _ = mr.plot_rasters(self.recgen.spiketrains)
         _ = mr.plot_rasters(self.recgen.spiketrains, overlap=True)
-        _ = mr.plot_rasters(self.recgen.spiketrains, bintype=True)
+        _ = mr.plot_rasters(self.recgen.spiketrains, cell_type=True)
         _ = mr.plot_rasters(self.recgen.spiketrains, color='g')
         _ = mr.plot_rasters(self.recgen.spiketrains, color=['g'] * len(self.recgen.spiketrains))
         _ = mr.plot_recordings(self.recgen)
+        _ = mr.plot_recordings(self.recgen, overlay_templates=True)
+        _ = mr.plot_recordings(self.recgen, overlay_templates=True, max_channels_per_template=3)
         _ = mr.plot_templates(self.recgen)
         _ = mr.plot_templates(self.recgen, single_axes=True)
         _ = mr.plot_waveforms(self.recgen)
@@ -547,29 +517,62 @@ class TestGenerators(unittest.TestCase):
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
 
-        rec_params['recordings']['seed'] = 0
-        rec_params['templates']['seed'] = 0
-        rec_params['spiketrains']['seed'] = 0
+        rec_params['seeds']['templates'] = 0
+        rec_params['seeds']['spiketrains'] = 0
+        rec_params['seeds']['convolution'] = 0
+        rec_params['seeds']['noise'] = 0
 
-        n_jobs = 1
+        n_jobs = [1, 2]
+        chunk_durations = [0, 1]
 
-        recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
-                                          n_jobs=n_jobs)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                      n_jobs=n_jobs)
+        for n in n_jobs:
+            for ch in chunk_durations:
+                print('Test recording backend with', n, 'jobs - chunk', ch)
+                rec_params['chunk_duration'] = n
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
-        del recgen_memmap, recgen_np
+                recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
+                                                  verbose=False, n_jobs=n)
+                recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
+                                              n_jobs=n)
 
-        n_jobs = 2
+                assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
+                del recgen_memmap, recgen_np
 
-        recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', verbose=False,
-                                          n_jobs=n_jobs)
-        recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                      n_jobs=n_jobs)
+    def test_recordings_seeds(self):
+        print('Test recording generation - seeds')
+        ne = 2
+        ni = 1
+        duration = 3
 
-        assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings))
-        del recgen_memmap, recgen_np
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = duration
+        n_jitter = 2
+        rec_params['templates']['n_jitters'] = n_jitter
+        rec_params['recordings']['modulation'] = 'none'
+
+        rec_params['seeds']['templates'] = 0
+        rec_params['seeds']['spiketrains'] = 0
+        rec_params['seeds']['convolution'] = 0
+        rec_params['seeds']['noise'] = 0
+
+        n_jobs = [1, 2]
+        chunk_durations = [0, 1]
+
+        for n in n_jobs:
+            for ch in chunk_durations:
+                print('Test recording backend with', n, 'jobs - chunk', ch)
+                rec_params['chunk_duration'] = n
+
+                recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
+                                            verbose=False, n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
+                                            n_jobs=n)
+
+                assert np.allclose(recgen1.recordings, np.array(recgen2.recordings), atol=1e-4)
+                del recgen1, recgen2
 
     def test_recordings_dtype(self):
         print('Test recording generation - dtype')
@@ -594,6 +597,38 @@ class TestGenerators(unittest.TestCase):
             assert recgen_dt.recordings[0, 0].dtype == dt
             del recgen_dt
 
+    def test_default_params(self):
+        print('Test default params')
+        info, info_folder = mr.get_default_config()
+        cell_models_folder = info['cell_models_folder']
+        tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
+        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5', verbose=False)
+        recgen.params['recordings']['noise_level'] = 0
+        recgen.generate_recordings()
+        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
+        recgen_loaded.params['recordings']['noise_level'] = 0
+        recgen_loaded.generate_recordings()
+        recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
+
+        n = 2
+        num_cells = self.num_cells
+        templates_params = self.templates_params
+
+        assert tempgen.templates.shape[0] == (n * num_cells)
+        assert len(tempgen.locations) == (n * num_cells)
+        assert len(tempgen.rotations) == (n * num_cells)
+        assert len(tempgen.celltypes) == (n * num_cells)
+        assert len(np.unique(tempgen.celltypes)) == num_cells
+        assert np.min(tempgen.locations[:, 0]) > templates_params['xlim'][0] \
+               and np.max(tempgen.locations[:, 0]) < templates_params['xlim'][1]
+
+        assert recgen.recordings.shape[0] == self.num_chan
+        assert recgen.channel_positions.shape == (self.num_chan, 3)
+        assert recgen_loaded.recordings.shape[0] == self.num_chan
+        assert recgen_loaded.channel_positions.shape == (self.num_chan, 3)
+        assert len(recgen_empty.recordings) == 0
+        del recgen, recgen_empty
+
     def test_cli(self):
         default_config, mearec_home = mr.get_default_config()
 
@@ -604,16 +639,15 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(cli, ["available-probes"])
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '-r', '3drot', '-nc', '2',
-                                     '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
+        result = runner.invoke(cli, ["gen-templates", '-n', '2', '--no-parallel', '--recompile', '-r', '3drot',
+                                     '-nc', '2', '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
-        print(result.output)
         assert result.exit_code == 0
         result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
                                      '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
-                                     '-chn', '0', '-chf', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
+                                     '-chd', '0', '-nseed', '10', '-hd', '30', '-cn', '-cp', '500',
                                      '-cq', '1', '-rnf', '1', '-stseed', '100', '-tseed', '10',
                                      '--filter', '-fc', '500', '-fo', '3', '--overlap', '-ot', '0.8', '--extract-wf',
                                      '-angt', '15', '-drvel', '10', '-tsd', '1', '-v'])

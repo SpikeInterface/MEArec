@@ -41,6 +41,8 @@ def cli():
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=50)')
+@click.option('--njobs', '-nj', default=None, type=int,
+              help='number of jobs (default n_jobs=n_cpus)')
 @click.option('--dt', '-dt', default=None, type=float,
               help='time period in ms (default=0.03125)')
 @click.option('--ncontacts', '-nc', default=None, type=int,
@@ -59,6 +61,8 @@ def cli():
               help='only run intracellular simulations')
 @click.option('--no-parallel', '-nopar', is_flag=True,
               help='run without multiprocessing tool')
+@click.option('--recompile', '-rc', is_flag=True,
+              help='recompile models')
 @click.option('--drifting', '-dr', is_flag=True,
               help='generate drifting templates')
 @click.option('--min-amp', '-mamp', type=float,
@@ -164,6 +168,11 @@ def gen_templates(params, **kwargs):
         parallel = False
     else:
         parallel = True
+    if kwargs['njobs'] is not None:
+        njobs = kwargs['njobs']
+    else:
+        njobs = None
+    recompile = kwargs['recompile']
     verbose = kwargs['verbose']
 
     params_dict['templates_folder'] = templates_folder
@@ -172,6 +181,8 @@ def gen_templates(params, **kwargs):
                                params=params_dict,
                                templates_tmp_folder=templates_folder,
                                intraonly=intraonly,
+                               n_jobs=njobs,
+                               recompile=recompile,
                                parallel=parallel,
                                verbose=verbose)
 
@@ -188,7 +199,7 @@ def gen_templates(params, **kwargs):
         else:
             fname = kwargs['fname']
         save_fname = join(templates_folder, rot, fname)
-        save_template_generator(tempgen, save_fname)
+        save_template_generator(tempgen, save_fname, verbose=True)
 
 
 @cli.command()
@@ -241,10 +252,14 @@ def gen_templates(params, **kwargs):
               help='noise level in uV (default=10)')
 @click.option('--modulation', '-m', default=None, type=click.Choice(['none', 'template', 'electrode']),
               help='modulation type')
-@click.option('--chunk-noise', '-chn', default=None, type=float,
-              help='chunk duration in s for chunk noise (default 0)')
-@click.option('--chunk-filt', '-chf', default=None, type=float,
-              help='chunk duration in s for chunk filter (default 0)')
+@click.option('--chunk-duration', '-chd', default=None, type=float,
+              help='chunk duration in s (default 0)')
+@click.option('--st-seed', '-stseed', default=None, type=int,
+              help='random seed for spike trains')
+@click.option('--temp-seed', '-tseed', default=None, type=int,
+              help='random seed for template selection')
+@click.option('--conv-seed', '-cseed', default=None, type=int,
+              help='random seed for convolution')
 @click.option('--noise-seed', '-nseed', default=None, type=int,
               help='random seed for noise')
 @click.option('--half-dist', '-hd', default=None, type=float,
@@ -257,10 +272,6 @@ def gen_templates(params, **kwargs):
               help='quality factor for noise filter (default=1)')
 @click.option('--random-noise-floor', '-rnf', default=None, type=float,
               help='noise floor in std of additive noide (default 1)')
-@click.option('--st-seed', '-stseed', default=None, type=int,
-              help='random seed for spike trains')
-@click.option('--temp-seed', '-tseed', default=None, type=int,
-              help='random seed for template selection')
 @click.option('--filter', is_flag=True,
               help='if True filter is applied')
 @click.option('--filt-cutoff', '-fc', default=None, type=float, multiple=True,
@@ -353,17 +364,12 @@ def gen_recordings(params, **kwargs):
         params_dict['spiketrains']['duration'] = kwargs['duration']
     if kwargs['tstart'] is not None:
         params_dict['spiketrains']['t_start'] = kwargs['t_start']
-    if kwargs['st_seed'] is not None:
-        params_dict['spiketrains']['seed'] = kwargs['st_seed']
-
     if kwargs['min_dist'] is not None:
         params_dict['templates']['min_dist'] = kwargs['min_dist']
     if kwargs['min_amp'] is not None:
         params_dict['templates']['min_amp'] = kwargs['min_amp']
     if kwargs['max_amp'] is not None:
         params_dict['templates']['max_amp'] = kwargs['max_amp']
-    if kwargs['temp_seed'] is not None:
-        params_dict['templates']['seed'] = kwargs['temp_seed']
     if kwargs['overlap_thresh'] is not None:
         params_dict['templates']['overlap_threshold'] = kwargs['overlap_thresh']
 
@@ -372,10 +378,8 @@ def gen_recordings(params, **kwargs):
     if kwargs['modulation'] is not None:
         params_dict['recordings']['modulation'] = kwargs['modulation']
 
-    if kwargs['chunk_noise'] is not None:
-        params_dict['recordings']['chunk_noise_duration'] = kwargs['chunk_noise']
-    if kwargs['chunk_filt'] is not None:
-        params_dict['recordings']['chunk_filter_duration'] = kwargs['chunk_filt']
+    if kwargs['chunk_duration'] is not None:
+        params_dict['recordings']['chunk_duration'] = kwargs['chunk_duration']
     if kwargs['filter']:
         params_dict['recordings']['filter'] = True
     else:
@@ -399,7 +403,13 @@ def gen_recordings(params, **kwargs):
     else:
         params_dict['recordings']['sync_jitt'] = 1
     if kwargs['noise_seed'] is not None:
-        params_dict['recordings']['seed'] = kwargs['noise_seed']
+        params_dict['seeds']['noise'] = kwargs['noise_seed']
+    if kwargs['temp_seed'] is not None:
+        params_dict['seeds']['templates'] = kwargs['temp_seed']
+    if kwargs['st_seed'] is not None:
+        params_dict['seeds']['spiketrains'] = kwargs['st_seed']
+    if kwargs['conv_seed'] is not None:
+        params_dict['seeds']['convolution'] = kwargs['conv_seed']
     if kwargs['overlap']:
         params_dict['recordings']['overlap'] = True
     elif 'overlap' not in params_dict['recordings'].keys():
@@ -444,7 +454,10 @@ def gen_recordings(params, **kwargs):
         params_dict['recordings']['drift_velocity'] = kwargs['drift_velocity']
     if kwargs['t_start_drift']:
         params_dict['recordings']['t_start_drift'] = kwargs['t_start_drift']
-    verbose = kwargs['verbose']
+    if kwargs['verbose']:
+        verbose = 2
+    else:
+        verbose = kwargs['verbose']
 
     recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
     info = recgen.info
@@ -468,7 +481,7 @@ def gen_recordings(params, **kwargs):
         if not os.path.isdir(recordings_folder):
             os.makedirs(recordings_folder)
     rec_path = join(recordings_folder, fname)
-    save_recording_generator(recgen, rec_path)
+    save_recording_generator(recgen, rec_path, verbose=True)
 
 
 @cli.command()

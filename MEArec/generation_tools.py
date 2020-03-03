@@ -1,8 +1,11 @@
-from MEArec.tools import *
+from MEArec.tools import load_templates
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
 import yaml
 import os
 from distutils.version import StrictVersion
+import time
+import numpy as np
+import neo
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -25,8 +28,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Template generator object
     spgen : SpikeTrainGenerator
         Spike train generator object. If None spike trains are created from params['spiketrains']
-    verbose : bool
-        If True output is verbose
+    verbose: bool or int
+        Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
     tmp_mode : None, 'h5' 'memmap'
         Use temporary file h5 memmap or None
         None is no temporary file.
@@ -60,6 +63,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         params_dict['recordings'] = {}
     if 'cell_types' not in params_dict:
         params_dict['cell_types'] = {}
+    if 'seeds' not in params_dict:
+        params_dict['seeds'] = {}
 
     if tempgen is None and templates is None:
         raise AttributeError("Provide either 'templates' or 'tempgen' TemplateGenerator object")
@@ -72,42 +77,50 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         else:
             raise AttributeError("'templates' is not a folder or an hdf5 file")
 
-    if 'seed' in params_dict['spiketrains']:
-        if params_dict['spiketrains']['seed'] is None:
-            params_dict['spiketrains']['seed'] = np.random.randint(1, 10000)
+    if 'spiketrains' in params_dict['seeds']:
+        if params_dict['seeds']['spiketrains'] is None:
+            params_dict['seeds']['spiketrains'] = np.random.randint(1, 10000)
     else:
-        params_dict['spiketrains'].update({'seed': np.random.randint(1, 10000)})
+        params_dict['seeds']['spiketrains'] = np.random.randint(1, 10000)
 
-    if 'seed' in params_dict['templates']:
-        if params_dict['templates']['seed'] is None:
-            params_dict['templates']['seed'] = np.random.randint(1, 10000)
+    if 'templates' in params_dict['seeds']:
+        if params_dict['seeds']['templates'] is None:
+            params_dict['seeds']['templates'] = np.random.randint(1, 10000)
     else:
-        params_dict['templates'].update({'seed': np.random.randint(1, 10000)})
+        params_dict['seeds']['templates'] = np.random.randint(1, 10000)
 
-    if 'seed' in params_dict['recordings']:
-        if params_dict['recordings']['seed'] is None:
-            params_dict['recordings']['seed'] = np.random.randint(1, 10000)
+    if 'convolution' in params_dict['seeds']:
+        if params_dict['seeds']['convolution'] is None:
+            params_dict['seeds']['convolution'] = np.random.randint(1, 10000)
     else:
-        params_dict['recordings'].update({'recordings': np.random.randint(1, 10000)})
+        params_dict['seeds']['convolution'] = np.random.randint(1, 10000)
+
+    if 'noise' in params_dict['seeds']:
+        if params_dict['seeds']['noise'] is None:
+            params_dict['seeds']['noise'] = np.random.randint(1, 10000)
+    else:
+        params_dict['seeds']['noise'] = np.random.randint(1, 10000)
 
     # Generate spike trains
     if spgen is None:
-        spgen = SpikeTrainGenerator(params_dict['spiketrains'], verbose=verbose)
+        spgen = SpikeTrainGenerator(params_dict['spiketrains'], verbose=verbose,
+                                    seed=params_dict['seeds']['spiketrains'])
         spgen.generate_spikes()
     else:
         assert isinstance(spgen, SpikeTrainGenerator), "'spgen' should be a SpikeTrainGenerator object"
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
-    recgen = RecordingGenerator(spgen, tempgen, params_dict, verbose=verbose)
-    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs)
+    recgen = RecordingGenerator(spgen, tempgen, params_dict)
+    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs, verbose=verbose)
 
-    print('Elapsed time: ', time.perf_counter() - t_start)
+    if verbose >= 1:
+        print('Elapsed time: ', time.perf_counter() - t_start)
 
     return recgen
 
 
-def gen_spiketrains(params=None, spiketrains=None, verbose=False):
+def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
     """
     Generates spike trains.
 
@@ -118,7 +131,7 @@ def gen_spiketrains(params=None, spiketrains=None, verbose=False):
     spiketrains : list
         List of neo.SpikeTrains (alternative to params definition)
     verbose : bool
-        If True output is verbose
+        If True, the output is verbose
 
     Returns
     -------
@@ -144,14 +157,14 @@ def gen_spiketrains(params=None, spiketrains=None, verbose=False):
             params_dict = {}
         spiketrains = None
 
-    spgen = SpikeTrainGenerator(params=params_dict, spiketrains=spiketrains, verbose=verbose)
+    spgen = SpikeTrainGenerator(params=params_dict, spiketrains=spiketrains, seed=seed, verbose=verbose)
     spgen.generate_spikes()
 
     return spgen
 
 
 def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
-                  intraonly=False, parallel=True, delete_tmp=True, verbose=True):
+                  intraonly=False, parallel=True, n_jobs=None, recompile=False, delete_tmp=True, verbose=True):
     """
 
     Parameters
@@ -163,13 +176,17 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
     templates_tmp_folder: str
         Path to temporary folder where templates are temporarily saved
     intraonly : bool
-        if True only intracellular simulation is run
+        if True, only intracellular simulation is run
     parallel : bool
-        if True multi-threading is used
+        if True, multi-threading is used
+    n_jobs: int
+        Number of jobs to run in parallel (If None all cpus are used)
+    recompile: bool
+        If True, cell models are recompiled
     delete_tmp :
-        if True the temporary files are deleted
+        if True, the temporary files are deleted
     verbose : bool
-        If True output is verbose
+        If True, the output is verbose
 
     Returns
     -------
@@ -198,6 +215,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
                                 templates_folder=templates_tmp_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
+                                n_jobs=n_jobs,
                                 delete_tmp=delete_tmp,
                                 verbose=verbose)
     tempgen.generate_templates()
