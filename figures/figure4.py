@@ -90,14 +90,14 @@ if plot_burst:
     for i, t in enumerate(templates):
         rand_jitt = np.random.randint(0, t.shape[0])
         temp_max = t[rand_jitt, np.unravel_index(np.argmin(t), t.shape)[1]]
-        templates_burst_10.append(np.array([mr.tools.compute_stretched_template(temp_max, m, sigmoid_range=10)
+        templates_burst_10.append(np.array([mr.tools.compute_stretched_template(temp_max, m, shape_stretch=10)
                                             for m in mod_array[i]]))
 
     templates_burst_10f = []
     for i, t in enumerate(templates):
         rand_jitt = np.random.randint(0, t.shape[0])
         temp_max = t[rand_jitt, np.unravel_index(np.argmin(t), t.shape)[1]]
-        templates_burst_10f.append(np.array([mr.tools.compute_stretched_template(temp_max, m, sigmoid_range=30)
+        templates_burst_10f.append(np.array([mr.tools.compute_stretched_template(temp_max, m, shape_stretch=30)
                                              for m in mod_array[i]]))
     fig2 = plt.figure(figsize=(7, 6))
     ax3 = fig2.add_subplot(1, 1, 1)
@@ -122,12 +122,12 @@ if plot_burst:
     cut_out_temp = recgen_noburst.info['templates']['cut_out']
     pad = recgen_noburst.info['templates']['pad_len']
     cut_outs = [int((c + p) * recgen_noburst.info['recordings']['fs'] / 1000.) for (c, p) in zip(cut_out_temp, pad)]
-    spike_bin = mr.tools.resample_spiketrains(recgen_noburst.spiketrains,
-                                              fs=recgen_noburst.info['recordings']['fs'] * pq.Hz)
-    spike_trace = mr.tools.convolve_single_template(template_id, spike_bin[template_id], templates[template_id, 0],
-                                                    cut_out=cut_out_temp, modulation=True, mod_array=modulations,
-                                                    bursting=True, sigmoid_range=30)
-
+    fs = recgen_noburst.info['recordings']['fs'] * pq.Hz
+    spike_idxs = [(st * fs).magnitude.astype(int) for st in recgen_noburst.spiketrains]
+    n_samples = recgen_noburst.recordings.shape[1]
+    spike_trace = mr.tools.convolve_single_template(template_id, spike_idxs[template_id], templates[template_id, 0],
+                                                    n_samples=n_samples, cut_out=cut_out_temp, modulation=True,
+                                                    mod_array=modulations, bursting=True, shape_stretch=30)
     time_interval = [5, 6] * pq.s
     idxs_st = np.where((spiketrain > time_interval[0]) & (spiketrain < time_interval[1]))
     idxs_rec = np.where((ts > time_interval[0]) & (ts < time_interval[1]))

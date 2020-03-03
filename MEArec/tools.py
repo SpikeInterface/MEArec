@@ -2,10 +2,7 @@ import numpy as np
 import quantities as pq
 from quantities import Quantity
 import yaml
-import json
 import neo
-import elephant
-import time
 import scipy.signal as ss
 import shutil
 import os
@@ -13,8 +10,9 @@ from os.path import join
 import MEAutility as mu
 import h5py
 from pathlib import Path
-from copy import copy, deepcopy
+from copy import deepcopy
 from distutils.version import StrictVersion
+from joblib import Parallel, delayed
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -616,16 +614,27 @@ def get_binary_cat(celltypes, excit, inhib):
 
     """
     binary_cat = []
+    sample_type = celltypes[0]
+    # Find if bbp or custom models
+    if sample_type.startswith('L') and len(sample_type.split('_')) == 4:
+        models = 'bbp'
+    else:
+        models = 'custom'
     for i, cat in enumerate(celltypes):
-        if np.any([ex in str(cat) for ex in excit]):
+        if models == 'bbp':
+            cell_str = str(cat).split('_')[1]
+        else:
+            cell_str = str(cat)
+        if np.any([ex in cell_str for ex in excit]):
             binary_cat.append('E')
         elif np.any([inh in str(cat) for inh in inhib]):
             binary_cat.append('I')
+        else:
+            binary_cat.append('U')
     return np.array(binary_cat, dtype=str)
 
 
-def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0, normalize=False,
-                           reference_mode='t0'):
+def get_templates_features(templates, feat_list, dt=None, templates_times=None, threshold_detect=0):
     """
     Computes several templates features.
 
@@ -672,8 +681,8 @@ def get_templates_features(templates, feat_list, dt=None, templates_times=None, 
         features['ratio'] = np.zeros((templates.shape[0], templates.shape[1]))
     if 'speed' in feat_list:
         features['speed'] = np.zeros((templates.shape[0], templates.shape[1]))
-    if 'na' in feat_list:
-        features['na'] = np.zeros((templates.shape[0], templates.shape[1]))
+    if 'neg' in feat_list:
+        features['neg'] = np.zeros((templates.shape[0], templates.shape[1]))
     if 'pos' in feat_list:
         features['pos'] = np.zeros((templates.shape[0], templates.shape[1]))
 
@@ -884,8 +893,8 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) \
+                                    and min_amp < amp < max_amp:
                                 # save cell
                                 if n_overlap_pairs is None:
                                     pos_sel.append(loc[id_cell])
@@ -933,8 +942,8 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) \
+                                    and min_amp < amp < max_amp:
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
@@ -999,8 +1008,8 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     else:
                         amp = np.max(np.abs(np.min(templates[id_cell])))
                         if not drifting:
-                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) \
+                                    and min_amp < amp < max_amp:
                                 # save cell
                                 if n_overlap_pairs is None:
                                     pos_sel.append(loc[id_cell])
@@ -1048,8 +1057,8 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                                     print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                         else:
                             # drifting
-                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
-                                    amp < max_amp:
+                            if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) \
+                                    and min_amp < amp < max_amp:
                                 # save cell
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
@@ -1112,8 +1121,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
             else:
                 amp = np.max(np.abs(np.min(templates[id_cell])))
                 if not drifting:
-                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and amp > min_amp and \
-                            amp < max_amp:
+                    if is_position_within_boundaries(loc[id_cell], x_lim, y_lim, z_lim) and min_amp < amp < max_amp:
                         if n_overlap_pairs is None:
                             # save cell
                             pos_sel.append(loc[id_cell])
@@ -1161,8 +1169,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             print('Amplitude or boundary violation', amp, loc[id_cell], iter)
                 else:
                     # drifting
-                    if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and amp > min_amp and \
-                            amp < max_amp:
+                    if is_position_within_boundaries(loc[id_cell, 0], x_lim, y_lim, z_lim) and min_amp < amp < max_amp:
                         # save cell
                         drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                         if drift_angle - angle_tol <= 0:
@@ -1202,10 +1209,10 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
     return selected_idxs, selected_cat
 
 
-def resample_templates(templates, n_resample, up, down, drifting, verbose, parallel=False):
+def resample_templates(templates, n_resample, up, down, drifting, dtype, verbose, n_jobs=None,
+                       tmp_file=None, parallel=False):
     """
     Resamples the templates to a specified sampling frequency.
-
     Parameters
     ----------
     templates : np.array
@@ -1221,108 +1228,81 @@ def resample_templates(templates, n_resample, up, down, drifting, verbose, paral
         If True templates are assumed to be drifting
     verbose : bool
         If True output is verbose
+    n_jobs : int
+        Number of jobs for parallel processing. If None half cpus are used
+    tmp_file : str
+        Path to tmp file to memmap. If None, processing is in memory
     parallel : bool
         If True each template is resampled in parellel
-
     Returns
     -------
     template_rs : np.array
         Array with resampled templates (n_neurons, n_channels, n_resample)
         or (n_neurons, n_drift, n_channels, n_resample) if drifting
     """
-    if parallel:
-        import multiprocessing
-        threads = []
-        manager = multiprocessing.Manager()
-        templates_dict = manager.dict()
-        for i, tem in enumerate(templates):
-            p = multiprocessing.Process(target=resample_parallel, args=(i, tem, up, down, drifting, templates_dict,))
-            p.start()
-            threads.append(p)
-        for p in threads:
-            p.join()
-        # retrieve resampled templates
-        if not drifting:
-            templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
+    # create resampled templates
+    if not drifting:
+        if tmp_file is not None:
+            templates_rs = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1], n_resample),
+                                     dtype=dtype, mode='w+')
         else:
-            templates_rs = np.zeros(
-                (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
-        for i, tem in enumerate(templates_rs):
-            if templates_dict[i].shape[-1] < templates_rs.shape[-1]:
-                if not drifting:
-                    templates_rs[i, :, :len(templates_dict[i])] = templates_dict[i]
-                else:
-                    templates_rs[i, :, :, :len(templates_dict[i])] = templates_dict[i]
-            elif templates_dict[i].shape[-1] < templates_rs.shape[-1]:
-                if not drifting:
-                    templates_rs[i] = templates_dict[i][:, :templates_rs.shape[-1]]
-                else:
-                    templates_rs[i] = templates_dict[i][:, :, :templates_rs.shape[-1]]
-            else:
-                templates_rs[i] = templates_dict[i]
+            templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
     else:
-        if not drifting:
-            templates_rs = np.zeros((templates.shape[0], templates.shape[1], n_resample))
-            if verbose:
-                print('Resampling spikes')
-            for t, tem in enumerate(templates):
-                tem_poly = ss.resample_poly(tem, up, down, axis=1)
-                if tem_poly.shape[-1] < templates_rs.shape[-1]:
-                    templates_rs[t, :, :len(tem_poly)] = tem_poly
-                elif tem_poly.shape[-1] > templates_rs.shape[-1]:
-                    templates_rs[t] = tem_poly[:, :templates_rs.shape[-1]]
-                else:
-                    templates_rs[t] = tem_poly
+        if tmp_file is not None:
+            templates_rs = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1],
+                                                      templates.shape[2], n_resample),
+                                     dtype=dtype, mode='w+')
         else:
             templates_rs = np.zeros(
                 (templates.shape[0], templates.shape[1], templates.shape[2], n_resample))
-            if verbose:
-                print('Resampling spikes')
-            for t, tem in enumerate(templates):
-                tem_poly = ss.resample_poly(tem, up, down, axis=2)
-                if tem_poly.shape[-1] < templates_rs.shape[-1]:
-                    templates_rs[t, :, :, :len(tem_poly)] = tem_poly
-                elif tem_poly.shape[-1] > templates_rs.shape[-1]:
-                    templates_rs[t] = tem_poly[:, :, :templates_rs.shape[-1]]
+
+    if parallel:
+        if n_jobs is None:
+            n_jobs = os.cpu_count() // 2
+
+        if verbose:
+            print('Resampling with', n_jobs, 'jobs')
+
+        output_list = Parallel(n_jobs=n_jobs)(
+            delayed(_resample_parallel)(i, tem, up, down, drifting,) for i, tem in enumerate(templates))
+
+        for i, tem in enumerate(templates):
+            template_rs = output_list[i]
+            if template_rs.shape[-1] < templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i, :, :len(template_rs)] = template_rs
                 else:
-                    templates_rs[t] = tem_poly
+                    templates_rs[i, :, :, :len(template_rs)] =template_rs
+            elif template_rs.shape[-1] > templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i] = template_rs[:, :templates_rs.shape[-1]]
+                else:
+                    templates_rs[i] = template_rs[:, :, :templates_rs.shape[-1]]
+            else:
+                templates_rs[i] = template_rs
+    else:
+        for i, tem in enumerate(templates):
+            template_rs = _resample_parallel(i, tem, up, down, drifting)
+            if template_rs.shape[-1] < templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i, :, :len(template_rs)] = template_rs
+                else:
+                    templates_rs[i, :, :, :len(template_rs)] =template_rs
+            elif template_rs.shape[-1] > templates_rs.shape[-1]:
+                if not drifting:
+                    templates_rs[i] = template_rs[:, :templates_rs.shape[-1]]
+                else:
+                    templates_rs[i] = template_rs[:, :, :templates_rs.shape[-1]]
+            else:
+                templates_rs[i] = template_rs
+
     return templates_rs
 
 
-def resample_parallel(i, template, up, down, drifting, templates_dict):
-    """
-    Resamples a template to a specified sampling frequency.
-
-    Parameters
-    ----------
-    template : np.array
-        Array with one template (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
-    up : float
-        The original sampling frequency in Hz
-    down : float
-        The new sampling frequency in Hz
-    drifting : bool
-        If True templates are assumed to be drifting
-    templates_dict : manager.dict
-        Shared dictionary from multiprocessing.manager
-
-    Returns
-    -------
-    template_rs : np.array
-        Array with resampled template (n_channels, n_resample)
-        or (n_drift, n_channels, n_resample)
-    """
-    if not drifting:
-        tem_poly = ss.resample_poly(template, up, down, axis=1)
-    else:
-        tem_poly = ss.resample_poly(template, up, down, axis=2)
-    templates_dict[i] = tem_poly
-
-
-def pad_templates(templates, pad_samples, drifting, verbose, parallel=False):
+def pad_templates(templates, pad_samples, drifting, dtype, verbose, n_jobs=None,
+                  tmp_file=None, parallel=False):
     """
     Pads the templates on both ends.
-
     Parameters
     ----------
     templates : np.array
@@ -1334,96 +1314,56 @@ def pad_templates(templates, pad_samples, drifting, verbose, parallel=False):
         If True templates are assumed to be drifting
     verbose : bool
         If True output is verbose
+    n_jobs : int
+        Number of jobs for parallel processing. If None half cpus are used
+    tmp_file : str
+        Path to tmp file to memmap. If None, processing is in memory
     parallel : bool
-        If True each template is resampled in parellel
-
+        If True each template is padded in parellel
     Returns
     -------
     template_pad : np.array
         Array with padded templates (n_neurons, n_channels, n_padded_sample)
         or (n_neurons, n_drift, n_channels, n_padded_sample) if drifting
-
     """
     padded_template_samples = templates.shape[-1] + np.sum(pad_samples)
-    if parallel:
-        import multiprocessing
-        threads = []
-        manager = multiprocessing.Manager()
-        templates_dict = manager.dict()
-        for i, tem in enumerate(templates):
-            p = multiprocessing.Process(target=pad_parallel, args=(i, tem, pad_samples, drifting, templates_dict,
-                                                                   verbose,))
-            p.start()
-            threads.append(p)
-        for p in threads:
-            p.join()
-        # retrieve resampled templates
-        if not drifting:
+    # create padded templates
+    if not drifting:
+        if tmp_file is not None:
+            templates_pad = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1],
+                                                       padded_template_samples),
+                                      dtype=dtype, mode='w+')
+        else:
             templates_pad = np.zeros((templates.shape[0], templates.shape[1], padded_template_samples))
+    else:
+        if tmp_file is not None:
+            templates_pad = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1],
+                                                       templates.shape[2], padded_template_samples),
+                                      dtype=dtype, mode='w+')
         else:
             templates_pad = np.zeros(
                 (templates.shape[0], templates.shape[1], templates.shape[2], padded_template_samples))
+    if parallel:
+        if n_jobs is None:
+            n_jobs = os.cpu_count() // 2
+
+        if verbose:
+            print('Padding with', n_jobs, 'jobs')
+        output_list = Parallel(n_jobs=n_jobs)(delayed(_pad_parallel)(i, tem, pad_samples, drifting, verbose,)
+                                                      for i, tem in enumerate(templates))
+
         for i, tem in enumerate(templates_pad):
-            templates_pad[i] = templates_dict[i]
+            templates_pad[i] = output_list[i]
     else:
-        if not drifting:
-            templates_pad = np.zeros((templates.shape[0], templates.shape[1], padded_template_samples))
-            for t, tem in enumerate(templates):
-                tem_pad = cubic_padding(tem, pad_samples)
-                templates_pad[t] = tem_pad
-        else:
-            templates_pad = np.zeros((templates.shape[0], templates.shape[1], templates.shape[2],
-                                      padded_template_samples))
-            for t, tem in enumerate(templates):
-                if verbose:
-                    print('Padding edges: neuron ', t + 1, ' of ', len(templates))
-                for tp, tem_p in enumerate(tem):
-                    tem_pad = cubic_padding(tem_p, pad_samples)
-                    templates_pad[t, tp] = tem_pad
+        for i, tem in enumerate(templates):
+            templates_pad[i] = _pad_parallel(i, tem, pad_samples, drifting, verbose)
     return templates_pad
 
 
-def pad_parallel(i, template, pad_samples, drifting, templates_dict, verbose):
-    """
-    Pads one template on both ends.
-
-    Parameters
-    ----------
-    template : np.array
-        Array with templates (n_channels, n_samples) or (n_drift n_channels, n_samples) if drifting
-    pad_samples : list
-        List of 2 ints with number of samples for padding before and after
-    drifting : bool
-        If True templates are assumed to be drifting
-    templates_dict : manager.dict
-        Shared dictionary from multiprocessing.manager
-    verbose : bool
-        If True output is verbose
-
-    Returns
-    -------
-    template_pad : np.array
-        Array with padded template (n_channels, n_padded_sample)
-        or (n_drift, n_channels, n_padded_sample) if drifting
-
-    """
-    if not drifting:
-        tem_pad = cubic_padding(template, pad_samples)
-    else:
-        if verbose:
-            print('Padding edges: neuron ', i)
-        padded_template_samples = template.shape[-1] + np.sum(pad_samples)
-        tem_pad = np.zeros((template.shape[0], template.shape[1], padded_template_samples))
-        for tp, tem_p in enumerate(template):
-            tem_p = cubic_padding(tem_p, pad_samples)
-            tem_pad[tp] = tem_p
-    templates_dict[i] = tem_pad
-
-
-def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, verbose, parallel=False):
+def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype, verbose, n_jobs=None,
+                     tmp_file=None, parallel=False):
     """
     Adds jittered replicas to the templates.
-
     Parameters
     ----------
     templates : np.array
@@ -1439,138 +1379,52 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, verbo
         If True templates are assumed to be drifting
     verbose : bool
         If True output is verbose
+    n_jobs : int
+        Number of jobs for parallel processing. If None half cpus are used
+    tmp_file : str
+        Path to tmp file to memmap. If None, processing is in memory
     parallel : bool
-        If True each template is resampled in parellel
-
+        If True each template is jittered in parellel
     Returns
     -------
     template_jitt : np.array
         Array with jittered templates (n_neurons, n_jitters, n_channels, n_samples)
         or (n_neurons, n_drift, n_jitters, n_channels, n_samples) if drifting
-
     """
-    if parallel:
-        import multiprocessing
-        threads = []
-        manager = multiprocessing.Manager()
-        templates_dict = manager.dict()
-        for i, tem in enumerate(templates):
-            p = multiprocessing.Process(target=jitter_parallel, args=(i, tem, upsample, fs, n_jitters, jitter,
-                                                                      drifting, templates_dict, verbose,))
-            p.start()
-            threads.append(p)
-        for p in threads:
-            p.join()
-        # retrieve resampled templates
-        if not drifting:
-            templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1], templates.shape[2]))
-        else:
-            templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
-                                         templates.shape[2], templates.shape[3]))
-        for i, tem in enumerate(templates_jitter):
-            templates_jitter[i] = templates_dict[i]
-    else:
-        if not drifting:
-            templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1], templates.shape[2]))
-            for t, temp in enumerate(templates):
-                temp_up = ss.resample_poly(temp, upsample, 1, axis=1)
-                nsamples_up = temp_up.shape[1]
-                for n in np.arange(n_jitters):
-                    # align waveform
-                    shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
-                    if shift > 0:
-                        t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-                    elif shift < 0:
-                        t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-                    else:
-                        t_jitt = temp_up
-                    temp_down = ss.decimate(t_jitt, upsample, axis=1)
-                    templates_jitter[t, n] = temp_down
-        else:
-            templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
-                                         templates.shape[2], templates.shape[3]))
-            for t, temp in enumerate(templates):
-                if verbose:
-                    print('Jittering: neuron ', t + 1, ' of ', len(templates))
-                for tp, tem_p in enumerate(temp):
-                    temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
-                    nsamples_up = temp_up.shape[1]
-                    for n in np.arange(n_jitters):
-                        # align waveform
-                        shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
-                        if shift > 0:
-                            t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-                        elif shift < 0:
-                            t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-                        else:
-                            t_jitt = temp_up
-                        temp_down = ss.decimate(t_jitt, upsample, axis=1)
-                        templates_jitter[t, tp, n] = temp_down
-    return templates_jitter
-
-
-def jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, templates_dict, verbose):
-    """
-    Adds jittered replicas to one template.
-
-    Parameters
-    ----------
-    template : np.array
-        Array with templates (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
-    upsample : int
-        Factor for upsampling the templates
-    n_jitters : int
-        Number of jittered copies for each template
-    jitter : quantity
-        Jitter in time for shifting the template
-    drifting : bool
-        If True templates are assumed to be drifting
-    templates_dict : manager.dict
-        Shared dictionary from multiprocessing.manager
-    verbose : bool
-        If True output is verbose
-
-    Returns
-    -------
-    template_jitt : np.array
-        Array with one jittered template (n_jitters, n_channels, n_samples)
-        or (n_drift, n_jitters, n_channels, n_samples) if drifting
-
-    """
+    # create padded templates
     if not drifting:
-        templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
-        temp_up = ss.resample_poly(template, upsample, 1, axis=1)
-        nsamples_up = temp_up.shape[1]
-        for n in np.arange(n_jitters):
-            # align waveform
-            shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
-            if shift > 0:
-                t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-            elif shift < 0:
-                t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-            else:
-                t_jitt = temp_up
-            temp_down = ss.decimate(t_jitt, upsample, axis=1)
-            templates_jitter[n] = temp_down
+        if tmp_file is not None:
+            templates_jitter = np.memmap(tmp_file, shape=(templates.shape[0], n_jitters, templates.shape[1],
+                                                          templates.shape[2]),
+                                         dtype=dtype, mode='w+')
+        else:
+            templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1],
+                                                          templates.shape[2]))
     else:
+        if tmp_file is not None:
+            templates_jitter = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1], n_jitters,
+                                         templates.shape[2], templates.shape[3]),
+                                      dtype=dtype, mode='w+')
+        else:
+            templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
+                                      templates.shape[2], templates.shape[3]))
+    if parallel:
+        if n_jobs is None:
+            n_jobs = os.cpu_count() // 2
+
         if verbose:
-            print('Jittering: neuron ', i)
-        templates_jitter = np.zeros((template.shape[0], n_jitters, template.shape[1], template.shape[2]))
-        for tp, tem_p in enumerate(template):
-            temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
-            nsamples_up = temp_up.shape[1]
-            for n in np.arange(n_jitters):
-                # align waveform
-                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
-                if shift > 0:
-                    t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
-                elif shift < 0:
-                    t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
-                else:
-                    t_jitt = temp_up
-                temp_down = ss.decimate(t_jitt, upsample, axis=1)
-                templates_jitter[tp, n] = temp_down
-    templates_dict[i] = templates_jitter
+            print('Jittering with', n_jobs)
+
+        output_list = Parallel(n_jobs=n_jobs)(delayed(_jitter_parallel)(i, tem, upsample, fs, n_jitters, jitter,
+                                                                        drifting, verbose,)
+                                                      for i, tem in enumerate(templates))
+        for i, tem in enumerate(templates_jitter):
+            templates_jitter[i] = output_list[i]
+    else:
+        for i, tem in enumerate(templates):
+            templates_jitter[i] = _jitter_parallel(i, tem, upsample, fs, n_jitters, jitter, drifting, verbose,)
+
+    return templates_jitter
 
 
 def cubic_padding(template, pad_samples):
@@ -1599,10 +1453,11 @@ def cubic_padding(template, pad_samples):
 
     for i, sp in enumerate(template):
         # Remove inital offset
+        sp_copy = deepcopy(sp)
         padded_sp = np.zeros(n_pre + len(sp) + n_post)
         padded_t = np.arange(len(padded_sp))
         initial_offset = np.mean(sp[0])
-        sp -= initial_offset
+        sp_copy -= initial_offset
 
         x_pre = float(n_pre)
         x_pre_pad = np.arange(n_pre)
@@ -1610,19 +1465,19 @@ def cubic_padding(template, pad_samples):
         x_post_pad = np.arange(n_post)[::-1]
 
         # fill pre and post intervals with linear values from sp[0] - sp[-1] to 0 for better fit
-        m_pre = sp[0] / x_pre
-        m_post = sp[-1] / x_post
+        m_pre = sp_copy[0] / x_pre
+        m_post = sp_copy[-1] / x_post
 
         padded_sp[:n_pre] = m_pre * x_pre_pad
-        padded_sp[n_pre:-n_post] = sp
+        padded_sp[n_pre:-n_post] = sp_copy
         padded_sp[-n_post:] = m_post * x_post_pad
 
         f = interp.interp1d(padded_t, padded_sp, kind='cubic')
         splines[i] = f(np.arange(len(padded_sp)))
 
         padded_template[i, :n_pre] = f(x_pre_pad)
-        padded_template[i, n_pre:-n_post] = sp
-        padded_template[i, -n_post:] = f(np.arange(n_pre + len(sp), n_pre + len(sp) + n_post))
+        padded_template[i, n_pre:-n_post] = sp_copy
+        padded_template[i, -n_post:] = f(np.arange(n_pre + len(sp_copy), n_pre + len(sp_copy) + n_post))
 
     return padded_template
 
@@ -1698,7 +1553,7 @@ def annotate_overlapping_spikes(spiketrains, t_jitt=1 * pq.ms, overlapping_pairs
     """
     Annotate spike trains with temporal and spatio-temporal overlapping labels.
     NO - Non overlap
-    O - Temporal overlap
+    TO - Temporal overlap
     SO - Spatio-temporal overlap
 
     Parameters
@@ -2074,7 +1929,7 @@ def sigmoid(x, b=1):
     return 1 / (1 + np.exp(-b * x)) - 0.5
 
 
-def compute_stretched_template(template, mod, sigmoid_range=30.):
+def compute_stretched_template(template, mod, shape_stretch=30.):
     """
     Compute modulation in shape for a template with low-pass filter.
 
@@ -2084,7 +1939,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         Template to be modulated (num_chan, n_samples) or (n_samples)
     mod : int or np.array
         Amplitude modulation for template or single electrodes
-    sigmoid_range : float
+    shape_stretch : float
         Sigmoid range to stretch the template
 
     Returns
@@ -2108,7 +1963,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.unravel_index(np.argmin(template), template.shape)[1]
         x_centered = np.arange(-min_idx, template.shape[1] - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered = x_centered * sigmoid_range
+        x_centered = x_centered * shape_stretch
 
         if stretch_factor >= 1:
             x_stretch = x_centered
@@ -2116,7 +1971,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
 
         x_stretch = x_stretch / float(np.ptp(x_stretch))
-        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        x_stretch *= shape_stretch + (np.min(x_centered) - np.min(x_stretch))
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
         x_stretch = np.round(x_stretch, 6)
         x_recovered = np.round(x_recovered, 6)
@@ -2126,7 +1981,7 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
                 f = interp.interp1d(x_stretch, t, kind='cubic')
                 temp_filt[i] = f(x_recovered)
             except Exception as e:
-                raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
+                raise Exception("'shape_stretch' is too large. Try reducing it (default = 30)")
         if mod.size > 1:
             temp_filt = np.array([m * np.min(temp) / np.min(temp_f) *
                                   temp_f for (m, temp, temp_f) in zip(mod, template, temp_filt)])
@@ -2136,14 +1991,14 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
         min_idx = np.argmin(template)
         x_centered = np.arange(-min_idx, len(template) - min_idx)
         x_centered = x_centered / float(np.ptp(x_centered))
-        x_centered = x_centered * sigmoid_range
+        x_centered = x_centered * shape_stretch
 
         if stretch_factor >= 1:
             x_stretch = x_centered
         else:
             x_stretch = sigmoid(x_centered, 1 - stretch_factor)
         x_stretch = x_stretch / float(np.ptp(x_stretch))
-        x_stretch *= sigmoid_range + (np.min(x_centered) - np.min(x_stretch))
+        x_stretch *= shape_stretch + (np.min(x_centered) - np.min(x_stretch))
         x_recovered = np.max(x_stretch) / np.max(x_centered) * x_centered
         x_stretch = np.round(x_stretch, 6)
         x_recovered = np.round(x_recovered, 6)
@@ -2151,13 +2006,13 @@ def compute_stretched_template(template, mod, sigmoid_range=30.):
             f = interp.interp1d(x_stretch, template, kind='cubic')
             temp_filt = f(x_recovered)
         except Exception as e:
-            raise Exception("'sigmoid_range' is too large. Try reducing it (default = 30)")
+            raise Exception("'shape_stretch' is too large. Try reducing it (default = 30)")
         temp_filt = (mod_value * np.min(template) / np.min(temp_filt)) * temp_filt
     return temp_filt
 
 
 def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False, mod_array=None,
-                             bursting=False, sigmoid_range=None):
+                             bursting=False, shape_stretch=None):
     """Convolve single template with spike train. Used to compute 'spike_traces'.
 
     Parameters
@@ -2178,7 +2033,7 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
         Array with modulation value for each spike
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
 
     Returns
@@ -2211,14 +2066,14 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
                 if bursting:
                     if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                         spike_trace[spos - cut_out[0]:spos - cut_out[0] + len_spike] += \
-                            compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                            compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     elif spos - cut_out[0] < 0:
                         diff = -(spos - cut_out[0])
-                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                         spike_trace[:spos - cut_out[0] + len_spike] += temp_filt[diff:]
                     else:
                         diff = n_samples - (spos - cut_out[0])
-                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                        temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                         spike_trace[spos - cut_out[0]:] += temp_filt[:diff]
                 else:
                     if mod_array[pos].size > 1:
@@ -2238,11 +2093,11 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
     return spike_trace
 
 
-def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
-                                   mod_array=None, verbose=False, bursting=False, sigmoid_range=None, recordings=None):
+def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples,cut_out=None, modulation=False, mod_array=None,
+                                   verbose=False, bursting=False, shape_stretch=None, template_idxs=None,
+                                   max_channels_per_template=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
-
     Parameters
     ----------
     spike_id : int
@@ -2263,22 +2118,31 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
+    template_idxs : np.array
+        Array of template indices (used for drifting templates)
+    max_channels_per_template : np.array
+        Maximum number of channels to be convolved
     recordings :  np.arrays
         Array to use for recordings. If None it is created
-
     Returns
     -------
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
     """
     if verbose:
-        print('Starting convolution with spike:', spike_id, 'shape modulation:', bursting)
-    assert len(template.shape) == 3, "For non-drifting len(template.shape) should be 4"
-    n_jitt = template.shape[0]
-    n_elec = template.shape[1]
-    len_spike = template.shape[2]
+        print('Convolution with spike:', spike_id)
+    if len(template.shape) == 3:
+        n_jitt = template.shape[0]
+        n_elec = template.shape[1]
+        len_spike = template.shape[2]
+    else:
+        assert template_idxs is not None, "For drifting templates, pass the 'template_idxs' argument to select the " \
+                                          "right template for each spike"
+        n_jitt = template.shape[1]
+        n_elec = template.shape[2]
+        len_spike = template.shape[3]
 
     if recordings is None:
         recordings = np.zeros((n_samples, n_elec))
@@ -2296,62 +2160,72 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 
     for pos, spos in enumerate(st_idx):
         rand_idx = np.random.randint(n_jitt)
-        temp_jitt = template[rand_idx]
+        if template_idxs is not None:
+            temp_jitt = template[template_idxs[pos], rand_idx]
+        else:
+            temp_jitt = template[rand_idx]
+
+        if max_channels_per_template is None:
+            elec_idxs = np.arange(n_elec)
+        else:
+            # find max channels
+            peak_idx = np.unravel_index(np.argmax(np.abs(temp_jitt)), temp_jitt.shape)[1]
+            elec_idxs = np.argsort(np.abs(temp_jitt[:, peak_idx]))[::-1][:max_channels_per_template]
+            temp_jitt = temp_jitt[elec_idxs]
 
         if bursting:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
             else:
                 # electrode
+                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt.T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += mod_array[pos] * temp_jitt[:, :diff].T
             else:
                 # electrode
+                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
                         np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
+                    recordings[:spos + cut_out[1], elec_idxs] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
-
-    if verbose:
-        print('Done convolution with spike ', spike_id)
+                    recordings[spos - cut_out[0]:, elec_idxs] += \
+                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
 
     return recordings
 
@@ -2360,7 +2234,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
                                             drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
                                             fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
                                             modulation=False, mod_array=None,
-                                            verbose=False, bursting=False, sigmoid_range=None,
+                                            verbose=False, bursting=False, shape_stretch=None,
                                             chunk_start=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
@@ -2401,7 +2275,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
         If True output is verbose
     bursting : bool
         If True templates are modulated in shape
-    sigmoid_range : float
+    shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
     chunk_start : quantity
         Chunk start time used to compute drifting position
@@ -2420,7 +2294,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
         Drifting peak images (n_steps, n_elec)
     """
     if verbose:
-        print('Starting drifting convolution with spike:', spike_id, 'shape modulation:', bursting)
+        print('Drifting convolution with spike:', spike_id)
     assert len(template.shape) == 4, "For drifting len(template.shape) should be 4"
 
     n_jitt = template.shape[1]
@@ -2447,6 +2321,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
     # set states for fast drifts
     temp_jitt = template[0, 0]
     max_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+    # fix multiple chunks fast drift time
     drift_state = {'old_pos': loc[0], 'old_chan': max_chan,
                    'old_amp': np.min(temp_jitt[max_chan]), 'old_idx': 0, 'last_drift_position': loc[0],
                    'direction_sign': 1, 'last_fast_drift': t_start_drift, 'loc_start': loc[0],
@@ -2480,27 +2355,27 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
             else:
                 # electrode
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
                     recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range).T
+                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], sigmoid_range)
+                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
                     recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
@@ -2526,9 +2401,6 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
                     diff = n_samples - (spos - cut_out[0])
                     recordings[spos - cut_out[0]:] += \
                         np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
-
-    if verbose:
-        print('Done drifting convolution with spike ', spike_id)
 
     return recordings, template_idxs
 
@@ -2629,7 +2501,7 @@ def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
 
 
 ### PLOTTING ###
-def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None, fs=10,
+def plot_rasters(spiketrains, cell_type=False, ax=None, overlap=False, color=None, fs=10,
                  marker='|', mew=2, markersize=5):
     """
     Plot raster for spike trains.
@@ -2638,7 +2510,7 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
     ----------
     spiketrains : list
         List of neo spike trains
-    bintype : bool
+    cell_type : bool
         If True and 'bintype' in spike train annotation spike trains are plotted based on their type
     ax : axes
         Plot on the given axes
@@ -2672,11 +2544,22 @@ def plot_rasters(spiketrains, bintype=False, ax=None, overlap=False, color=None,
             raise Exception()
     for i, spiketrain in enumerate(spiketrains):
         t = spiketrain.rescale(pq.s)
-        if bintype:
-            if spiketrain.annotations['bintype'] == 'E':
-                ax.plot(t, i * np.ones_like(t), 'b', marker=marker, mew=mew, markersize=markersize, ls='')
-            elif spiketrain.annotations['bintype'] == 'I':
-                ax.plot(t, i * np.ones_like(t), 'r', marker=marker, mew=mew, markersize=markersize, ls='')
+        if cell_type:
+            if 'cell_type' in spiketrain.annotations.keys():
+                if spiketrain.annotations['cell_type'] == 'E':
+                    ax.plot(t, i * np.ones_like(t), 'b', marker=marker, mew=mew, markersize=markersize, ls='')
+                elif spiketrain.annotations['cell_type'] == 'I':
+                    ax.plot(t, i * np.ones_like(t), 'r', marker=marker, mew=mew, markersize=markersize, ls='')
+            else:
+                if color is not None:
+                    if isinstance(color, list) or isinstance(color, np.ndarray):
+                        ax.plot(t, i * np.ones_like(t), color=color[i], marker=marker, mew=mew, markersize=markersize,
+                                ls='')
+                    else:
+                        ax.plot(t, i * np.ones_like(t), color=color, marker=marker, mew=mew, markersize=markersize,
+                                ls='')
+                else:
+                    ax.plot(t, i * np.ones_like(t), 'k', marker=marker, mew=mew, markersize=markersize, ls='')
         else:
             if not overlap:
                 if color is not None:
@@ -2805,22 +2688,21 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
         else:
             colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-        ax_t = fig.add_subplot(111)
         for n, t in enumerate(templates):
             if n in template_ids:
                 if len(t.shape) == 3:
                     if not drifting:
-                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t,
+                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax,
                                               **kwargs)
                     else:
                         if cmap is None:
                             cmap = 'Reds'
                         cm = plt.get_cmap(cmap)
                         colors = [cm(i / t.shape[0]) for i in np.arange(t.shape[0])]
-                        mu.plot_mea_recording(t, mea, colors=colors, ax=ax_t,
+                        mu.plot_mea_recording(t, mea, colors=colors, ax=ax,
                                               **kwargs)
                 else:
-                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
+                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax, **kwargs)
     else:
         if n_sources > ncols:
             nrows = int(np.ceil(len(template_ids) / ncols))
@@ -2851,10 +2733,9 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
 
 
 def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_templates=False, n_templates=None,
-                    cmap=None, **kwargs):
+                    max_channels_per_template=16, cmap=None, templates_lw=1, **kwargs):
     """
     Plot recordings.
-
     Parameters
     ----------
     recgen : RecordingGenerator
@@ -2869,14 +2750,14 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         If True, templates are overlaid on the recordings
     n_templates : int
         Number of templates to overlay (if overlay_templates is True)
+    max_channels_per_template : int
+        Number of maximum channels in which the template is overlaid
     cmap : matplotlib colormap
         Colormap to be used
-
     Returns
     -------
     ax : axis
         Matplotlib axis
-
     """
     import matplotlib.pylab as plt
 
@@ -2895,12 +2776,17 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     else:
         end_frame = int(end_time * fs)
 
+    if max_channels_per_template is None:
+        max_channels_per_template = len(recordings)
+
     mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
 
     if 'vscale' not in kwargs.keys():
         kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
 
     if overlay_templates:
+        if 'lw' in kwargs.keys():
+            kwargs['lw'] = templates_lw
         fs = recgen.info['recordings']['fs'] * pq.Hz
         if n_templates is None:
             template_ids = np.arange(len(recgen.templates))
@@ -2910,7 +2796,11 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         cut_out_samples = [int((c + p) * fs.rescale('kHz').magnitude)
                            for (c, p) in zip(recgen.info['templates']['cut_out'], recgen.info['templates']['pad_len'])]
 
-        spike_matrix = resample_spiketrains(recgen.spiketrains, fs=fs)
+        spike_idxs = []
+        for st in recgen.spiketrains:
+            spike_idxs.append((st.times * fs).magnitude.astype('int'))
+        n_samples = recordings.shape[1]
+
         if cmap is not None:
             cm = plt.get_cmap(cmap)
             colors_t = [cm(i / len(template_ids)) for i in np.arange(len(template_ids))]
@@ -2922,10 +2812,17 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         if 'colors' in kwargs.keys():
             del kwargs['colors']
 
-        for i, (sp, t) in enumerate(zip(spike_matrix, recgen.templates)):
+        for i, (sp, t) in enumerate(zip(spike_idxs, recgen.templates)):
             if i in template_ids:
-                rec_t = convolve_templates_spiketrains(i, sp, t,
-                                                       cut_out=cut_out_samples)
+                template_idxs = None
+                if 'drifting' in recgen.spiketrains[i].annotations.keys():
+                    if recgen.spiketrains[i].annotations['drifting']:
+                        template_idxs = recgen.spiketrains[i].annotations['template_idxs']
+
+                rec_t = convolve_templates_spiketrains(i, sp, t, n_samples, template_idxs=template_idxs,
+                                                       max_channels_per_template=max_channels_per_template,
+                                                       cut_out=cut_out_samples).T
+
                 rec_t[np.abs(rec_t) < 1e-4] = np.nan
                 mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,
                                       colors=colors_t[np.mod(i_col, len(colors_t))], **kwargs)
@@ -2981,7 +2878,6 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
             fs = recgen.info['recordings']['fs'] * pq.Hz
             extract_wf([recgen.spiketrains[sp]], recgen.recordings, fs, cut_out=cut_out)
             wf = recgen.spiketrains[sp].waveforms
-            print(wf.shape)
         waveforms.append(wf)
 
     mea = mu.return_mea(info=recgen.info['electrodes'])
@@ -3491,3 +3387,162 @@ def _find_new_drift_template(drift_mode, st_idx, sp_time, pos, template, templat
                        'loc_start': loc_start, 't_start_drift': t_start_drift}
 
     return temp_jitt, temp_idx, new_drift_state
+
+def _resample_parallel(i, template, up, down, drifting):
+    """
+    Resamples a template to a specified sampling frequency.
+    Parameters
+    ----------
+    template : np.array
+        Array with one template (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
+    up : float
+        The original sampling frequency in Hz
+    down : float
+        The new sampling frequency in Hz
+    drifting : bool
+        If True templates are assumed to be drifting
+    Returns
+    -------
+    template_rs : np.array
+        Array with resampled template (n_channels, n_resample)
+        or (n_drift, n_channels, n_resample)
+    """
+    if not drifting:
+        tem_poly = ss.resample_poly(template, up, down, axis=1)
+    else:
+        tem_poly = ss.resample_poly(template, up, down, axis=2)
+    return tem_poly
+
+
+def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, verbose):
+    """
+    Adds jittered replicas to one template.
+    Parameters
+    ----------
+    template : np.array
+        Array with templates (n_channels, n_samples) or (n_drift, n_channels, n_samples) if drifting
+    upsample : int
+        Factor for upsampling the templates
+    n_jitters : int
+        Number of jittered copies for each template
+    jitter : quantity
+        Jitter in time for shifting the template
+    drifting : bool
+        If True templates are assumed to be drifting
+    verbose : bool
+        If True output is verbose
+    Returns
+    -------
+    template_jitt : np.array
+        Array with one jittered template (n_jitters, n_channels, n_samples)
+        or (n_drift, n_jitters, n_channels, n_samples) if drifting
+    """
+    if not drifting:
+        templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
+        temp_up = ss.resample_poly(template, upsample, 1, axis=1)
+        nsamples_up = temp_up.shape[1]
+        for n in np.arange(n_jitters):
+            # align waveform
+            shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
+            if shift > 0:
+                t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+            elif shift < 0:
+                t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+            else:
+                t_jitt = temp_up
+            temp_down = ss.decimate(t_jitt, upsample, axis=1)
+            templates_jitter[n] = temp_down
+    else:
+        if verbose:
+            print('Jittering: neuron ', i)
+        templates_jitter = np.zeros((template.shape[0], n_jitters, template.shape[1], template.shape[2]))
+        for tp, tem_p in enumerate(template):
+            temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
+            nsamples_up = temp_up.shape[1]
+            for n in np.arange(n_jitters):
+                # align waveform
+                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                if shift > 0:
+                    t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
+                elif shift < 0:
+                    t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
+                else:
+                    t_jitt = temp_up
+                temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                templates_jitter[tp, n] = temp_down
+    return templates_jitter
+
+
+def _pad_parallel(i, template, pad_samples, drifting, verbose):
+    """
+    Pads one template on both ends.
+    Parameters
+    ----------
+    template : np.array
+        Array with templates (n_channels, n_samples) or (n_drift n_channels, n_samples) if drifting
+    pad_samples : list
+        List of 2 ints with number of samples for padding before and after
+    drifting : bool
+        If True templates are assumed to be drifting
+    verbose : bool
+        If True output is verbose
+    Returns
+    -------
+    template_pad : np.array
+        Array with padded template (n_channels, n_padded_sample)
+        or (n_drift, n_channels, n_padded_sample) if drifting
+    """
+    if not drifting:
+        tem_pad = cubic_padding(template, pad_samples)
+    else:
+        if verbose:
+            print('Padding edges: neuron ', i)
+        padded_template_samples = template.shape[-1] + np.sum(pad_samples)
+        tem_pad = np.zeros((template.shape[0], template.shape[1], padded_template_samples))
+        for tp, tem_p in enumerate(template):
+            tem_pad[tp] = cubic_padding(tem_p, pad_samples)
+    return tem_pad
+
+
+def _annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):
+    """
+    Helper function to annotate spike trains in parallel.
+    Parameters
+    ----------
+    i : int
+        Index of spike train
+    st_i : neo.SpikeTrain
+        Spike train to be processed
+    spiketrains : list
+        List of neo spiketrains
+    t_jitt : Quantity
+        Time jitter to consider overlapping spikes in time (default 1 ms)
+    overlapping_pairs : np.array
+        Array with overlapping information between spike trains (n_spiketrains, 2)
+    verbose : bool
+        If True output is verbose
+    """
+    if verbose:
+        print('Annotating overlapping spike train ', i)
+    over = np.array(['NONE'] * len(st_i))
+    for i_sp, t_i in enumerate(st_i):
+        for j, st_j in enumerate(spiketrains):
+            if i != j:
+                # find overlapping
+                id_over = np.where((st_j > t_i - t_jitt) & (st_j < t_i + t_jitt))[0]
+                if not np.any(overlapping_pairs):
+                    if len(id_over) != 0:
+                        over[i_sp] = 'TO'
+                else:
+                    pair = [i, j]
+                    pair_i = [j, i]
+                    if np.any([np.all(pair == p) for p in overlapping_pairs]) or \
+                            np.any([np.all(pair_i == p) for p in overlapping_pairs]):
+                        if len(id_over) != 0:
+                            over[i_sp] = 'STO'
+                    else:
+                        if len(id_over) != 0:
+                            over[i_sp] = 'TO'
+    over[over == 'NONE'] = 'NO'
+    st_i.annotate(overlap=over)
+    return st_i

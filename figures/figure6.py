@@ -1,8 +1,10 @@
 import MEArec as mr
 import MEAutility as mu
 import matplotlib.pylab as plt
+from matplotlib import gridspec
 from plotting_conventions import *
 import numpy as np
+import yaml
 import os
 
 save_fig = False
@@ -12,6 +14,19 @@ plt.show()
 
 template_file = 'data/templates/templates_30_Neuronexus-32_drift.h5'
 tempgen = mr.load_templates(template_file, return_h5_objects=False)
+max_channels_per_template = 1
+
+with open('figure6_params.yaml') as f:
+    params = yaml.load(f)
+
+fig = plt.figure(figsize=(15, 10))
+gs = gridspec.GridSpec(12, 22)
+
+ax_t = fig.add_subplot(gs[1:-1, :7])
+ax_slow = fig.add_subplot(gs[:8, 9:15])
+ax_fast = fig.add_subplot(gs[:8, 16:])
+ax_amp_slow = fig.add_subplot(gs[8:, 9:15])
+ax_amp_fast = fig.add_subplot(gs[8:, 16:])
 
 # select one drifting template
 template_id = 341
@@ -25,9 +40,7 @@ colors = [cmap(i / n_steps) for i in range(n_steps)]
 
 mea = mu.return_mea(info=tempgen.info['electrodes'])
 
-# plot recordings
-fig1 = plt.figure(figsize=(7, 9))
-ax_t = fig1.add_subplot(111)
+# plot drifting template
 mr.plot_templates(tempgen, template_ids=template_id, drifting=True, single_axes=True, cmap=cm, ax=ax_t)
 for i, t in enumerate(tempgen.locations[template_id]):
     if i == 0 or i == len(tempgen.locations[template_id]) - 1:
@@ -54,55 +67,52 @@ ax_t.text(np.max(x_lim), -7, 'x', alpha=0.5)
 for ch in mea.positions:
     ax_t.plot(ch[1], ch[2], 'o', color='k', markersize=2, alpha=0.5)
 
-recgen = mr.gen_recordings(tempgen=tempgen, params='figure6_params.yaml')
+# slow drifts
+params['recordings']['drifting'] = True
+params['recordings']['drift_mode'] = 'slow'
+params['recordings']['slow_drift_velocity'] = 20
+params['recordings']['modulation'] = 'none'
+recgen_slow = mr.gen_recordings(tempgen=tempgen, params=params)
 
-fig2 = plt.figure(figsize=(7, 4.5))
-ax_wf = fig2.add_subplot(111)
-mr.plot_waveforms(recgen, electrode='max', cmap='rainbow', ax=ax_wf)
-ax_wf.set_ylabel('')
-ax_wf.set_ylabel('voltage ($\mu$V)', fontsize=15)
+ax_amp_slow = mr.plot_amplitudes(recgen_slow, cmap='rainbow', ax=ax_amp_slow)
+simplify_axes([ax_amp_slow])
+ax_amp_slow.set_xlabel('time (s)', fontsize=15)
+ax_amp_slow.set_ylabel('voltage ($\mu$V)', fontsize=15)
 
-# plot recordings
-fig3 = plt.figure(figsize=(7, 9))
-ax_r = fig3.add_subplot(111)
-mr.plot_recordings(recgen, lw=0.1, ax=ax_r)
-cm = plt.get_cmap('rainbow')
-colors = [cm(i / len(recgen.spiketrains)) for i in np.arange(len(recgen.spiketrains))]
-y_lim = ax_r.get_ylim()
-x_lim = ax_r.get_xlim()
+mr.plot_recordings(recgen_slow, lw=0.1, ax=ax_slow, overlay_templates=True,
+                   max_channels_per_template=max_channels_per_template, cmap='rainbow', templates_lw=0.3)
+y_lim = ax_slow.get_ylim()
+x_lim = ax_slow.get_xlim()
 ts_lim = (x_lim[1] - x_lim[0]) // 3
-ax_r.plot([x_lim[0], x_lim[0] + 0.166 * ts_lim],
-          [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
-           np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
-ax_r.text(x_lim[0] + 0.02 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '10 s')
+ax_slow.plot([x_lim[0], x_lim[0] + 0.166 * ts_lim],
+             [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+              np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_slow.text(x_lim[0] + 0.02 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '10 s')
 
-amp = []
-for i, st in enumerate(recgen.spiketrains):
-    dir = st.annotations['final_soma_position'] - st.annotations['initial_soma_position']
-    init = st.annotations['initial_soma_position']
-    ax_r.quiver(init[1], init[2], dir[1], dir[2], width=0.005, color=colors[i])
-    wf = st.waveforms
-    mwf = np.mean(wf, axis=0)
-    t = recgen.templates[i, 0, 0]
-    max_elec = np.unravel_index(np.argmin(t), t.shape)[0]
-    min_amp_time = np.unravel_index(np.argmin(mwf), mwf.shape)[1]
-    amp.append(np.array([(w[max_elec, min_amp_time]) for w in wf]))
+# fast drifts
+params['recordings']['drift_mode'] = 'fast'
+params['recordings']['fast_drift_period'] = 15
+recgen_fast = mr.gen_recordings(tempgen=tempgen, params=params, verbose=2)
 
-fig4 = plt.figure(figsize=(7, 4.5))
-ax_amp = fig4.add_subplot(111)
-for i, st in enumerate(recgen.spiketrains):
-    max_amp = np.max(np.abs(amp[i]))
-    ax_amp.plot(st, amp[i], '*', color=colors[i])
+ax_amp_fast = mr.plot_amplitudes(recgen_fast, cmap='rainbow', ax=ax_amp_fast)
+simplify_axes([ax_amp_fast])
+ax_amp_fast.set_xlabel('time (s)', fontsize=15)
+ax_amp_fast.set_ylabel('voltage ($\mu$V)', fontsize=15)
 
-simplify_axes([ax_amp])
-ax_amp.set_xlabel('time (s)', fontsize=15)
-ax_amp.set_ylabel('voltage ($\mu$V)', fontsize=15)
+mr.plot_recordings(recgen_fast, lw=0.1, ax=ax_fast, overlay_templates=True,
+                   max_channels_per_template=max_channels_per_template, cmap='rainbow', templates_lw=0.3)
+y_lim = ax_fast.get_ylim()
+x_lim = ax_fast.get_xlim()
+ts_lim = (x_lim[1] - x_lim[0]) // 3
+ax_fast.plot([x_lim[0], x_lim[0] + 0.166 * ts_lim],
+             [np.min(y_lim) + 0.12 * np.abs(np.min(y_lim)),
+              np.min(y_lim) + 0.12 * np.abs(np.min(y_lim))], 'k', lw=2)
+ax_fast.text(x_lim[0] + 0.02 * ts_lim, np.min(y_lim) + 0.05 * np.abs(np.min(y_lim)), '10 s')
+
+fig.subplots_adjust(left=0.02, right=0.98, bottom=0.08, top=0.95)
 
 if save_fig:
     if not os.path.isdir('figure6'):
         os.mkdir('figure6')
 
-    fig1.savefig('figure6/templates.pdf')
-    fig2.savefig('figure6/waveforms.png', dpi=600)
-    fig3.savefig('figure6/rec.png', dpi=600)
-    fig4.savefig('figure6/amps.pdf')
+    fig.savefig('figure6/drifting.png', dpi=600)

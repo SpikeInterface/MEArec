@@ -19,15 +19,16 @@ tempgen = mr.load_templates(template_file, return_h5_objects=False)
 with open('figure8_params.yaml', 'r') as f:
     params = yaml.load(f)
 
-params['spiketrains']['seed'] = 0
-params['templates']['seed'] = 1
+params['seeds']['spiketrains'] = 0
+params['seeds']['templates'] = 1
+params['seeds']['noise'] = 2
+params['seeds']['convolution'] = 3
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 recordings_noise = []
 for n in noise_levels:
     print('noise level:', n)
     params['recordings']['noise_level'] = n
-    params['recordings']['seed'] = np.random.randint(1000)
     recgen = mr.gen_recordings(tempgen=tempgen, params=params)
     recordings_noise.append(recgen)
 
@@ -42,7 +43,7 @@ legend_lines = [plt.Line2D([0], [0], color=colors[0], lw=2),
                 plt.Line2D([0], [0], color=colors[2], lw=2),
                 plt.Line2D([0], [0], color=colors[3], lw=2)]
 ax_noise.legend(handles=legend_lines, labels=['30 $\mu$V', '20 $\mu$V', '10 $\mu$V', '5  $\mu$V'],
-                fontsize=15, loc='upper right')
+                fontsize=12, loc='upper right')
 
 y_lim = ax_noise.get_ylim()
 x_lim = ax_noise.get_xlim()
@@ -61,15 +62,14 @@ tempgen_drift = mr.load_templates(template_drift_file, return_h5_objects=False)
 
 params['recordings']['noise_level'] = 10
 params['spiketrains']['duration'] = 60
-params['spiketrains']['seed'] = 1
-params['templates']['seed'] = 2
+params['seeds']['spiketrains'] = 1
+params['seeds']['templates'] = 2
 params['recordings']['drifting'] = True
 
 recordings_drift = []
 for v in drift_velocities:
     print('drift velocity:', v)
-    params['recordings']['drift_velocity'] = v
-    params['recordings']['seed'] = np.random.randint(1000)
+    params['recordings']['slow_drift_velocity'] = v
     recgen = mr.gen_recordings(tempgen=tempgen_drift, params=params)
     recordings_drift.append(recgen)
 
