@@ -13,16 +13,16 @@ template_file = 'data/templates/templates_100_Neuronexus-32.h5'
 
 tempgen = mr.load_templates(template_file, return_h5_objects=False)
 
-recgen_random = mr.gen_recordings(tempgen=tempgen, params='figure5_params.yaml')
+recgen_random = mr.gen_recordings(tempgen=tempgen, params='figure5_params.yaml', verbose=2)
 params = recgen_random.params
 recgen_random.annotate_overlapping_spikes()
 
 params['recordings']['sync_rate'] = 0
-recgen_0 = mr.gen_recordings(tempgen=tempgen, params=params)
+recgen_0 = mr.gen_recordings(tempgen=tempgen, params=params, verbose=2)
 recgen_0.annotate_overlapping_spikes()
 
 params['recordings']['sync_rate'] = 0.05
-recgen_005 = mr.gen_recordings(tempgen=tempgen, params=params)
+recgen_005 = mr.gen_recordings(tempgen=tempgen, params=params, verbose=2)
 recgen_005.annotate_overlapping_spikes()
 
 fig1 = plt.figure(figsize=(7, 9))
@@ -67,7 +67,8 @@ simplify_axes([ax_r, ax_0, ax_005])
 
 fig3 = plt.figure(figsize=(7, 9))
 ax_timeseries = fig3.add_subplot(111)
-mr.plot_recordings(recgen_005, overlay_templates=True, start_time=0, end_time=1, lw=0.1, ax=ax_timeseries)
+mr.plot_recordings(recgen_005, overlay_templates=True, start_time=0, end_time=1, lw=0.1, ax=ax_timeseries,
+                   max_channels_per_template=10)
 y_lim = ax_timeseries.get_ylim()
 x_lim = ax_timeseries.get_xlim()
 

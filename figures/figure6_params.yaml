@@ -18,14 +18,19 @@ spiketrains:
   ref_per: 2 # refractory period in ms
   process: poisson # process for spike train simulation (poisson-gamma)
   gamma_shape: 2 # gamma shape (for gamma process)
-  seed: 7611 # random seed for spiketrain generation
   t_start: 0 # start time in s
   duration: 60 # duration in s
 
 cell_types:
-  # excitatory and inhibitory cell names
-  excitatory: ['STPC', 'TTPC1', 'TTPC2', 'UTPC']
-  inhibitory: ['BP', 'BTC', 'ChC', 'DBC', 'LBC', 'MC', 'NBC', 'NGC', 'SBC']
+  # excitatory and inhibitory cell names (overwrite if using custom models)
+  excitatory: ['PC', 'SS', 'SP']
+  inhibitory: ['AC', 'BP', 'BC', 'BTC', 'ChC', 'DBC', 'MC', 'NGC']
+
+seeds:
+  spiketrains: 7611 # random seed for spiketrain generation
+  templates: 3186 # random seed for template selection
+  convolution: 1 # random seed for jitter selection in convolution
+  noise: 0 # random seed for noise
 
 templates:
   # recording generation parameters
@@ -41,7 +46,6 @@ templates:
   n_jitters: 10 # number of temporal jittered copies for each eap
   upsample: 8 # upsampling factor to extract jittered copies
   pad_len: [3, 3] # padding of templates in ms
-  seed: 3186 # random seed to draw eap templates
 
 recordings:
   fs: null # sampling frequency in Hz (if null it is computed form the templates)
@@ -61,9 +65,9 @@ recordings:
   shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
   bursting_sigmoid: 30.  # min and max frequencies to be mapped to modulation value
   n_bursting: null  # number of bursting units
-  chunk_conv_duration: 20 # chunk duration for convolution (if running into MemoryError)
+  chunk_duration: 0 # chunk duration for convolution (if running into MemoryError)
 
-  noise_level: 10 # noise standard deviation in uV
+  noise_level: 5 # noise standard deviation in uV
   noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
   noise_color: False # if True noise is colored resembling experimental noise
   noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
@@ -74,17 +78,18 @@ recordings:
   color_peak: 500 # (color) peak / curoff frequency of resonating filter
   color_q: 0 # (color) quality factor of resonating filter
   color_noise_floor: 1 # (color) additional noise floor
-  chunk_noise_duration: 0 # chunk duration for noise addition
-  seed: 0 # random seed for noise generation
 
   filter: False # if True it filters the recordings
   filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
   filter_order: 3 # filter order
-  chunk_filter_duration: 0 # chunk duration for filtering
 
-  drifting: True # if True templates are drifted
+  drifting: False # if True templates are drifted
+  drift_mode: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
   n_drifting: null # number of drifting units
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees
-  drift_velocity: 20  # drift velocity in um/min
-  t_start_drift: 0  # tim in s from which drifting starts
+  slow_drift_velocity: 5  # drift velocity in um/min.
+  fast_drift_period: 20  # period between fast drift events
+  fast_drift_max_jump: 30 # maximum 'jump' in um for fast drifts
+  fast_drift_min_jump: 10 # minimum 'jump' in um for fast drifts
+  t_start_drift: 0  # time in s from which drifting starts

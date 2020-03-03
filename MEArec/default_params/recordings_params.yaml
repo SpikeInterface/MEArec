@@ -35,7 +35,7 @@ seeds:
 templates:
   # recording generation parameters
   min_dist: 25 # minimum distance between neurons
-  min_amp: 40 # minimum spike amplitude in uV
+  min_amp: 50 # minimum spike amplitude in uV
   max_amp: 300 # maximum spike amplitude in uV
   n_overlap_pairs: null # number of spatially overlapping templates
   xlim: null # limits for neuron depths (x-coord) in um [min, max]

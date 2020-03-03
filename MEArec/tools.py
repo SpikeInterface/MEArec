@@ -1453,10 +1453,11 @@ def cubic_padding(template, pad_samples):
 
     for i, sp in enumerate(template):
         # Remove inital offset
+        sp_copy = deepcopy(sp)
         padded_sp = np.zeros(n_pre + len(sp) + n_post)
         padded_t = np.arange(len(padded_sp))
         initial_offset = np.mean(sp[0])
-        sp -= initial_offset
+        sp_copy -= initial_offset
 
         x_pre = float(n_pre)
         x_pre_pad = np.arange(n_pre)
@@ -1464,19 +1465,19 @@ def cubic_padding(template, pad_samples):
         x_post_pad = np.arange(n_post)[::-1]
 
         # fill pre and post intervals with linear values from sp[0] - sp[-1] to 0 for better fit
-        m_pre = sp[0] / x_pre
-        m_post = sp[-1] / x_post
+        m_pre = sp_copy[0] / x_pre
+        m_post = sp_copy[-1] / x_post
 
         padded_sp[:n_pre] = m_pre * x_pre_pad
-        padded_sp[n_pre:-n_post] = sp
+        padded_sp[n_pre:-n_post] = sp_copy
         padded_sp[-n_post:] = m_post * x_post_pad
 
         f = interp.interp1d(padded_t, padded_sp, kind='cubic')
         splines[i] = f(np.arange(len(padded_sp)))
 
         padded_template[i, :n_pre] = f(x_pre_pad)
-        padded_template[i, n_pre:-n_post] = sp
-        padded_template[i, -n_post:] = f(np.arange(n_pre + len(sp), n_pre + len(sp) + n_post))
+        padded_template[i, n_pre:-n_post] = sp_copy
+        padded_template[i, -n_post:] = f(np.arange(n_pre + len(sp_copy), n_pre + len(sp_copy) + n_post))
 
     return padded_template
 
@@ -2320,6 +2321,7 @@ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_sample
     # set states for fast drifts
     temp_jitt = template[0, 0]
     max_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+    # fix multiple chunks fast drift time
     drift_state = {'old_pos': loc[0], 'old_chan': max_chan,
                    'old_amp': np.min(temp_jitt[max_chan]), 'old_idx': 0, 'last_drift_position': loc[0],
                    'direction_sign': 1, 'last_fast_drift': t_start_drift, 'loc_start': loc[0],
@@ -2686,22 +2688,21 @@ def plot_templates(gen, template_ids=None, single_jitter=True, ax=None, single_a
         else:
             colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-        ax_t = fig.add_subplot(111)
         for n, t in enumerate(templates):
             if n in template_ids:
                 if len(t.shape) == 3:
                     if not drifting:
-                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax_t,
+                        mu.plot_mea_recording(t.mean(axis=0), mea, colors=colors[np.mod(n, len(colors))], ax=ax,
                                               **kwargs)
                     else:
                         if cmap is None:
                             cmap = 'Reds'
                         cm = plt.get_cmap(cmap)
                         colors = [cm(i / t.shape[0]) for i in np.arange(t.shape[0])]
-                        mu.plot_mea_recording(t, mea, colors=colors, ax=ax_t,
+                        mu.plot_mea_recording(t, mea, colors=colors, ax=ax,
                                               **kwargs)
                 else:
-                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax_t, **kwargs)
+                    mu.plot_mea_recording(t, mea, colors=colors[np.mod(n, len(colors))], ax=ax, **kwargs)
     else:
         if n_sources > ncols:
             nrows = int(np.ceil(len(template_ids) / ncols))
@@ -3499,8 +3500,7 @@ def _pad_parallel(i, template, pad_samples, drifting, verbose):
         padded_template_samples = template.shape[-1] + np.sum(pad_samples)
         tem_pad = np.zeros((template.shape[0], template.shape[1], padded_template_samples))
         for tp, tem_p in enumerate(template):
-            tem_p = cubic_padding(tem_p, pad_samples)
-            tem_pad[tp] = tem_p
+            tem_pad[tp] = cubic_padding(tem_p, pad_samples)
     return tem_pad
 
 

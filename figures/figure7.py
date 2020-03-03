@@ -15,7 +15,7 @@ plt.show()
 
 template_file = 'data/templates/templates_300_tetrode_minamp0.h5'
 tempgen = mr.load_templates(template_file, return_h5_objects=False)
-recgen_u = mr.gen_recordings(tempgen=tempgen, params='figure7_params.yaml', tmp_h5=False)
+recgen_u = mr.gen_recordings(tempgen=tempgen, params='figure7_params.yaml')
 
 recgen_dc = deepcopy(recgen_u)
 recgen_dc.params['recordings']['noise_mode'] = 'distance-correlated'

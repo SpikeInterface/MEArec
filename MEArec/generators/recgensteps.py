@@ -33,7 +33,7 @@ class FuncThenAddChunk:
         return_dict = self.func(*args)
 
         ch, i_start, i_stop, = args[:3]
-        
+
         assignment_dict = kargs['assignment_dict']
         tmp_mode = kargs['tmp_mode']
 
@@ -184,13 +184,14 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                 np.random.seed(seed)
                 if extract_spike_traces:
                     spike_traces[:, st] = convolve_single_template(st, st_idx_in_chunk_pad,
-                                                                templates[st, 0, :, max_electrode],
-                                                                n_samples=n_samples,
-                                                                cut_out=cut_outs_samples,
-                                                                modulation=mod_bool,
-                                                                mod_array=mod_array,
-                                                                bursting=unit_burst,
-                                                                shape_stretch=shape_stretch)
+                                                                   templates[st, 0, :, max_electrode],
+                                                                   n_samples=n_samples,
+                                                                   cut_out=cut_outs_samples,
+                                                                   modulation=mod_bool,
+                                                                   mod_array=mod_array,
+                                                                   bursting=unit_burst,
+                                                                   shape_stretch=shape_stretch)
+
                 # only keep template idxs inside the chunk
                 if len(spike_idx_in_chunk) > 0:
                     if len(spike_idx_in_chunk_pad[0]) != len(spike_idx_in_chunk[0]):
@@ -334,7 +335,7 @@ def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
 
     filtered_chunk = filtered_chunk.astype(dtype)
     if pad_samples > 0:
-        filtered_chunk = filtered_chunk[pad_start_samples:filtered_chunk.shape[0]-pad_stop_samples]
+        filtered_chunk = filtered_chunk[pad_start_samples:filtered_chunk.shape[0] - pad_stop_samples]
 
     return_dict = {}
     return_dict['filtered_chunk'] = filtered_chunk

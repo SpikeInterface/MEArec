@@ -497,6 +497,10 @@ class RecordingGenerator:
                 n_drifting = n_neurons
             else:
                 n_drifting = rec_params['n_drifting']
+            if 'fast' in drift_mode:
+                if chunk_duration > 0 and chunk_duration != duration:
+                    print('Disabling chunking for fast drifts')
+                    chunk_duration = duration
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:
@@ -635,7 +639,7 @@ class RecordingGenerator:
                     velocity_vector = None
                     n_elec = eaps.shape[1]
 
-                if n_neurons > 100:
+                if n_neurons > 100 or drifting:
                     parallel_templates = True
                 else:
                     parallel_templates = False
@@ -860,7 +864,11 @@ class RecordingGenerator:
             for st in np.arange(n_neurons):
                 if drifting and st in drifting_units:
                     spiketrains[st].annotate(drifting=True)
-                    spiketrains[st].annotate(template_idxs=output_list[-1]['template_idxs'][st])
+                    template_idxs = np.array([], dtype='int')
+                    for out in output_list:
+                        template_idxs = np.concatenate((template_idxs, out['template_idxs'][st]))
+                    assert len(template_idxs) == len(spiketrains[st])
+                    spiketrains[st].annotate(template_idxs=template_idxs)
 
         #################
         # Step 2: noise #

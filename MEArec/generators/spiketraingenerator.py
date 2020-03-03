@@ -246,8 +246,8 @@ class SpikeTrainGenerator:
             curr_overlaps = np.floor(sync_rate * (len(times1) + len(times2)))
             remove_overlaps = int(curr_overlaps - max_overlaps)
             if curr_overlaps > max_overlaps:
-                st1_ovrl_idx = np.where(spiketrains[0].annotations['overlap'] == 'O')[0]
-                st2_ovrl_idx = np.where(spiketrains[1].annotations['overlap'] == 'O')[0]
+                st1_ovrl_idx = np.where(spiketrains[0].annotations['overlap'] == 'TO')[0]
+                st2_ovrl_idx = np.where(spiketrains[1].annotations['overlap'] == 'TO')[0]
                 perm = np.random.permutation(len(st1_ovrl_idx))[:remove_overlaps]
                 st1_ovrl_idx = st1_ovrl_idx[perm]
                 st2_ovrl_idx = st2_ovrl_idx[perm]
