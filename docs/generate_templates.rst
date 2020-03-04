@@ -10,7 +10,12 @@ Templates are generated using `NEURON <https://www.neuron.yale.edu/neuron/>`_ an
 The current version (1.0.4) only supports biophysical multi-compartment models from the
 Neocortical Microcircuit Collaboration Portal `(NMC) <https://bbp.epfl.ch/nmc-portal/welcome>`_.
 A set of 13 cell models from layer 5 is included in the basic installation and copied in
-:code:`.config/mearec/cell_models/bbp`.
+:code:`.config/mearec/cell_models/bbp`. In order to add more cell models, you can simply download the zip files from
+the `download <https://bbp.epfl.ch/nmc-portal/downloads>`_ page, move them to the cell model folder (which can be
+retrieved with the :code:`mearec default-config` command or with the Python code:
+:code:`mr.get_default_cell_models_folder()`), and unzip them.
+Note also custom models cane be used. In `this notebook <https://github.com/alejoe91/MEArec/blob/master/notebooks/generate_recordings_with_allen_models.ipynb>`_ we show how to use models from the
+`Allen database <https://celltypes.brain-map.org/>`_ to build templates (and recordings).
 
 Templates are generated in two steps:
 
@@ -146,27 +151,19 @@ Templates can also be generated using a Python script, or a jupyter notebook.
 
     import MEArec as mr
     tempgen = mr.gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, intraonly=False, parallel=True,
-                               delete_tmp=True)
+                               recompile=False, n_jobs=None, delete_tmp=True)
 
 The :code:`cell_models_folder` has to be passed as an argument. The :code:`params` argument can be the path to a .yaml
 file or a dictionary containing the parameters (if None default parameters are used). The :code:`templates_tmp_folder`
 points to the output temporary folder used to save generated templates. If not specified it will use the current directory.
 If :code:`intraonly` is True, only
 the intracellular simulation is run. Simulations are run in parallel if :code:`parallel` is True and the temporary
-processing folder is deleted if :code:`delete_tmp` is True.
+processing folder is deleted if :code:`delete_tmp` is True. If :code:`n_jobs` is None, the function will use as many jobs
+as available cell models (if run in parallel). Finally, the :code:`recompile` argument forces a recompilation of the
+models (use this if you added new cell models in the :code:`cell_models_folder`).
 
 The :code:`gen_templates()` function returns a gen_templates :code:`TemplateGenerator` object (:code:`temogen`).
 
-**WINDOWS** users must place the Python code in the :code:`__main__` function due to a different behavior of the
-multiprocessing package:
-
-.. code-block:: python
-
-    import MEArec as mr
-
-    if __name__ == '__main__':
-        tempgen = mr.gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, intraonly=False, parallel=True,
-                                   delete_tmp=True)
 
 The TemplateGenerator object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

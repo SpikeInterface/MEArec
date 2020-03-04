@@ -90,6 +90,7 @@ You should get the list of available commands:
       --help  Show this message and exit.
 
     Commands:
+      available-probes        Print available probes.
       default-config          Print default configurations.
       gen-recordings          Generates RECORDINGS from TEMPLATES.
       gen-templates           Generates TEMPLATES with biophysical simulation.
