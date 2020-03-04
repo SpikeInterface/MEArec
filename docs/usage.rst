@@ -36,6 +36,9 @@ The :code:`recgen` is a :code:`RecordingGenerator` objects and contains the foll
 * spike_traces: (n_spiketrains, n_samples) clean spike trace for each spike train
 * info: dictionary with parameters used
 
+There are several notebooks available `here <https://github.com/alejoe91/MEArec/tree/master/notebooks>`_
+that show MEArec applications.
+
 Plotting
 --------
 
@@ -60,7 +63,7 @@ templates:
 
 .. image:: images/templates_drift.png
 
-Intergation with SpikeInterface
+Integration with SpikeInterface
 -------------------------------
 
 MEArec is designed to help validating spike sorting algorithms. Hence, its integration
@@ -87,8 +90,10 @@ one can easily load a MEArec generated recording, run several spike sorting algo
     # compare results to ground-truth
     comp_MS = sc.compare_sorter_to_ground_truth(sorting_GT, sorting_MS4)
     comp_KS = sc.compare_sorter_to_ground_truth(sorting_GT, sorting_MS4)
-    # compare spike sorting results
-    comp_MS_KS = sc.compare_two_sorters(sorting_MS4, sorting_KS)
+
+    # get performance
+    comp_MS.get_performance()
+    comp_KS.get_performance()
 
 More information about the SpikeInterface framework in the `docs <https://spikeinterface.readthedocs.io/en/latest/>`_
 and the `manuscript <https://www.biorxiv.org/content/10.1101/796599v1>`_.

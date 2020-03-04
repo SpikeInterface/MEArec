@@ -58,11 +58,6 @@ class RecordingGenerator:
           - spike_traces : float (n_spiketrains, n_samples)
     info :  dict
         Info dictionary to instantiate RecordingGenerator with existing data. Same fields as 'params'
-    verbose : bool or int
-        When verbose is 0 or False: no verbose
-        When verbose is 1 or True: main verbose but no verbose each chunk
-        When verbose is 2 : full verbose even each chunk
-        
     """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None):
@@ -167,6 +162,7 @@ class RecordingGenerator:
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
         Generates recordings
+
         Parameters
         ----------
         tmp_mode : None, 'memmap'
@@ -177,9 +173,9 @@ class RecordingGenerator:
             If None, then it is automatic using tempfile.mkdtemp()
         verbose: bool or int
             Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
-        n_jobs: int if >1 then use joblib to execute chunk in parralel else in loop
-
+        n_jobs: int if >1 then use joblib to execute chunk in parallel else in loop
         """
+
         self.tmp_mode = tmp_mode
         self.tmp_folder = tmp_folder
         self.n_jobs = n_jobs

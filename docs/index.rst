@@ -26,7 +26,9 @@ and plotting functions.
    usage
    api
 
+For further details, please refer to the `MEArec preprint <https://www.biorxiv.org/content/10.1101/691642v1>`_
+
 Contact
 =======
 
-If you have questions or comments, contact Alessio Buccino: alessiob@ifi.uio.no
+If you have questions or comments, contact Alessio Buccino: alessiop.buccino@gmail.com
