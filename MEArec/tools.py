@@ -2736,6 +2736,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
                     max_channels_per_template=16, cmap=None, templates_lw=1, **kwargs):
     """
     Plot recordings.
+
     Parameters
     ----------
     recgen : RecordingGenerator

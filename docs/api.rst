@@ -106,3 +106,11 @@ Module :mod:`MEArec.tools`
     function :class:`plot_waveforms`
     --------------------------------
     .. autofunction:: plot_waveforms
+
+    function :class:`plot_amplitudes`
+    ----------------------------------
+    .. autofunction:: plot_amplitudes
+
+    function :class:`plot_pca_map`
+    --------------------------------
+    .. autofunction:: plot_pca_map
