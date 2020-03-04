@@ -1413,7 +1413,7 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype
             n_jobs = os.cpu_count() // 2
 
         if verbose:
-            print('Jittering with', n_jobs)
+            print('Jittering with', n_jobs, 'jobs')
 
         output_list = Parallel(n_jobs=n_jobs)(delayed(_jitter_parallel)(i, tem, upsample, fs, n_jitters, jitter,
                                                                         drifting, verbose,)

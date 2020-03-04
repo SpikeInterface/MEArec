@@ -215,6 +215,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
                                 templates_folder=templates_tmp_folder,
                                 intraonly=intraonly,
                                 parallel=parallel,
+                                recompile=recompile,
                                 n_jobs=n_jobs,
                                 delete_tmp=delete_tmp,
                                 verbose=verbose)

@@ -216,6 +216,8 @@ def gen_templates(params, **kwargs):
               help='recording output base folder')
 @click.option('--duration', '-d', default=None, type=float,
               help='duration in s (default=10)')
+@click.option('--njobs', '-nj', default=None, type=int,
+              help='number of jobs (default n_jobs=n_cpus)')
 @click.option('--n-exc', '-ne', default=None, type=int,
               help='number of excitatory cells (default=15)')
 @click.option('--n-inh', '-ni', default=None, type=int,
@@ -458,8 +460,12 @@ def gen_recordings(params, **kwargs):
         verbose = 2
     else:
         verbose = kwargs['verbose']
+    if kwargs['njobs'] is not None:
+        njobs = kwargs['njobs']
+    else:
+        njobs = None
 
-    recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose)
+    recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose, n_jobs=njobs)
     info = recgen.info
 
     n_neurons = info['recordings']['n_neurons']

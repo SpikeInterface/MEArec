@@ -199,9 +199,12 @@ class TemplateGenerator:
             start_time = time.time()
             tot = len(cell_models)
             if self.n_jobs is None:
-                n_jobs = os.cpu_count()
+                n_jobs = tot
             else:
                 n_jobs = self.n_jobs
+
+            if self._verbose:
+                print('Running with', n_jobs, 'jobs')
 
             Parallel(n_jobs=n_jobs)(delayed(simulate_cell_templates)(i, simulate_script, tot, cell_model,
                                                                      cell_models_folder, intraonly, tmp_params_path,
