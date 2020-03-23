@@ -805,7 +805,6 @@ class RecordingGenerator:
                     if bursting and i_s in bursting_units:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
-                        print(n_burst_spikes, max_burst_duration)
                         amp, cons = compute_modulation(st, sdrand=sdrand,
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
                                                        max_burst_duration=max_burst_duration)
