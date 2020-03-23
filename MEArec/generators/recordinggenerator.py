@@ -360,7 +360,7 @@ class RecordingGenerator:
             n_burst_spikes = params['recordings']['n_burst_spikes']
             if 'max_burst_duration' not in rec_params.keys():
                 params['recordings']['max_burst_duration'] = 100
-            max_burst_duration = 100 * pq.ms
+            max_burst_duration = params['recordings']['max_burst_duration'] * pq.ms
 
             if rec_params['n_bursting'] is None:
                 n_bursting = n_neurons
@@ -805,9 +805,11 @@ class RecordingGenerator:
                     if bursting and i_s in bursting_units:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
+                        print(n_burst_spikes, max_burst_duration)
                         amp, cons = compute_modulation(st, sdrand=sdrand,
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
                                                        max_burst_duration=max_burst_duration)
+
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
                         st.annotate(bursting=True)
@@ -827,6 +829,7 @@ class RecordingGenerator:
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
                                                        max_burst_duration=max_burst_duration)
                         amp_mod.append(amp)
+
                         cons_spikes.append(cons)
                         st.annotate(bursting=True)
                     else:
