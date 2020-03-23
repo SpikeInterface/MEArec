@@ -109,7 +109,10 @@ class RecordingGenerator:
             self.info = deepcopy(info)
             self.params = deepcopy(info)
             if len(self.spiketrains) > 0:
-                self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
+                if 'spiketrains' in self.info:
+                    self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
+                else:
+                    self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params={'custom': True})
             self.tempgen = None
             if isinstance(self.recordings, np.memmap):
                 self.tmp_mode = 'memmap'
