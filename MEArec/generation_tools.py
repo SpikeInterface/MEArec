@@ -108,6 +108,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         spgen.generate_spikes()
     else:
         assert isinstance(spgen, SpikeTrainGenerator), "'spgen' should be a SpikeTrainGenerator object"
+        spgen.info['custom'] = True
 
     params_dict['spiketrains'] = spgen.info
     # Generate recordings

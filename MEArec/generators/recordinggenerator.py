@@ -109,7 +109,10 @@ class RecordingGenerator:
             self.info = deepcopy(info)
             self.params = deepcopy(info)
             if len(self.spiketrains) > 0:
-                self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
+                if 'spiketrains' in self.info:
+                    self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params=self.info['spiketrains'])
+                else:
+                    self.spgen = SpikeTrainGenerator(spiketrains=self.spiketrains, params={'custom': True})
             self.tempgen = None
             if isinstance(self.recordings, np.memmap):
                 self.tmp_mode = 'memmap'
@@ -360,7 +363,7 @@ class RecordingGenerator:
             n_burst_spikes = params['recordings']['n_burst_spikes']
             if 'max_burst_duration' not in rec_params.keys():
                 params['recordings']['max_burst_duration'] = 100
-            max_burst_duration = 100 * pq.ms
+            max_burst_duration = params['recordings']['max_burst_duration'] * pq.ms
 
             if rec_params['n_bursting'] is None:
                 n_bursting = n_neurons
@@ -808,6 +811,7 @@ class RecordingGenerator:
                         amp, cons = compute_modulation(st, sdrand=sdrand,
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
                                                        max_burst_duration=max_burst_duration)
+
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
                         st.annotate(bursting=True)
@@ -827,6 +831,7 @@ class RecordingGenerator:
                                                        n_spikes=n_burst_spikes, exp=exp_decay,
                                                        max_burst_duration=max_burst_duration)
                         amp_mod.append(amp)
+
                         cons_spikes.append(cons)
                         st.annotate(bursting=True)
                     else:
