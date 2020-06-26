@@ -455,7 +455,10 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     else:
         raise Exception("")
 
-    electrodes = LFPy.RecExtElectrode(cell, probe=mea_obj, n=ncontacts)
+    if ncontacts > 1:
+        electrodes = LFPy.RecExtElectrode(cell, probe=mea_obj, n=ncontacts)
+    else:
+        electrodes = LFPy.RecExtElectrode(cell, probe=mea_obj)
 
     if position is not None:
         assert len(position) == 3, "'position' should be a 3d array"
@@ -570,7 +573,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
     mea = mu.return_mea(MEAname)
-    electrodes = LFPy.RecExtElectrode(cell, probe=mea, n=ncontacts)
+    if ncontacts > 1:
+        electrodes = LFPy.RecExtElectrode(cell, probe=mea, n=ncontacts)
+    else:
+        electrodes = LFPy.RecExtElectrode(cell, probe=mea)
     pos = mea.positions
     elec_x = pos[:, 0]
     elec_y = pos[:, 1]
