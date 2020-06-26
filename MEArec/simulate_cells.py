@@ -51,8 +51,8 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     
     Parameters:
     -----------
-    model : string (optional, default='bbp')
-        Cell model type ('bbp' - Blue Brain Project, i.e. NMC database)
+    cell_folder : str
+        Path to cell folder
     """
 
     if not os.path.isdir(join(cell_folder, 'mods')):
@@ -455,38 +455,7 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     else:
         raise Exception("")
 
-    pos = mea_obj.positions
-    elinfo = mea_obj.info
-
-    elec_x = pos[:, 0]
-    elec_y = pos[:, 1]
-    elec_z = pos[:, 2]
-
-    N = np.empty((pos.shape[0], 3))
-    for i in np.arange(N.shape[0]):
-        N[i] = [1, 0, 0]  # normal vec. of contacts
-
-    # Add square electrodes (instead of circles)
-    if ncontacts > 1:
-        electrode_parameters = {
-            'sigma': 0.3,  # extracellular conductivity
-            'x': elec_x,  # x,y,z-coordinates of contact points
-            'y': elec_y,
-            'z': elec_z,
-            'n': ncontacts,
-            'r': elinfo['size'],
-            'N': N,
-            'contact_shape': elinfo['shape']
-        }
-    else:
-        electrode_parameters = {
-            'sigma': 0.3,  # extracellular conductivity
-            'x': elec_x,  # x,y,z-coordinates of contact points
-            'y': elec_y,
-            'z': elec_z
-        }
-
-    electrodes = LFPy.RecExtElectrode(cell, **electrode_parameters)
+    electrodes = LFPy.RecExtElectrode(cell, probe=mea_obj, n=ncontacts)
 
     if position is not None:
         assert len(position) == 3, "'position' should be a 3d array"
@@ -535,6 +504,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     --------
         nothing, but saves the result
     """
+    import LFPy
     cell_name = os.path.split(cell_model_folder)[-1]
     cell_save_name = cell_name
     np.random.seed(seed)
@@ -542,7 +512,6 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     T = kwargs['sim_time'] * 1000
     dt = kwargs['dt']
     rotation = kwargs['rot']
-    print(rotation)
     nobs = kwargs['n']
     ncontacts = kwargs['ncontacts']
     overhang = kwargs['overhang']
@@ -600,36 +569,12 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     if verbose:
         print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
 
-    mea = mu.return_mea(info=elinfo)
+    mea = mu.return_mea(MEAname)
+    electrodes = LFPy.RecExtElectrode(cell, probe=mea, n=ncontacts)
     pos = mea.positions
-
     elec_x = pos[:, 0]
     elec_y = pos[:, 1]
     elec_z = pos[:, 2]
-
-    N = np.empty((pos.shape[0], 3))
-    for i in np.arange(N.shape[0]):
-        N[i] = [1, 0, 0]  # normal vec. of contacts
-
-    # Add square electrodes (instead of circles)
-    if ncontacts > 1:
-        electrode_parameters = {
-            'sigma': 0.3,  # extracellular conductivity
-            'x': elec_x,  # x,y,z-coordinates of contact points
-            'y': elec_y,
-            'z': elec_z,
-            'n': ncontacts,
-            'r': elinfo['size'],
-            'N': N,
-            'contact_shape': elinfo['shape']
-        }
-    else:
-        electrode_parameters = {
-            'sigma': 0.3,  # extracellular conductivity
-            'x': elec_x,  # x,y,z-coordinates of contact points
-            'y': elec_y,
-            'z': elec_z
-        }
 
     if x_lim is None:
         x_lim = [float(np.min(elec_x) - overhang),
@@ -656,7 +601,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
 
         if not drifting:
             espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
-                                                                 electrode_parameters=electrode_parameters,
+                                                                 electrodes=electrodes,
                                                                  limits=[x_lim, y_lim, z_lim], rotation=rotation,
                                                                  pos=position)
             # Method of Images for semi-infinite planes
@@ -675,8 +620,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                           str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
                 saved += 1
         else:
-            espikes, pos, rot, offs = return_extracellular_spike(cell, cell_name, 'bbp', electrode_parameters,
-                                                                 [x_lim, y_lim, z_lim], rotation, pos=position)
+            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
+                                                                 electrodes=electrodes,
+                                                                 limits=[x_lim, y_lim, z_lim], rotation=rotation,
+                                                                 pos=position)
 
             # Method of Images for semi-infinite planes
             if elinfo['type'] == 'mea':
@@ -705,9 +652,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                                 x_lim[0] < x_rand < x_lim[1] and \
                                 y_lim[0] < y_rand < y_lim[1] and \
                                 z_lim[0] < z_rand < z_lim[1]:
-                            espikes, pos, rot_, offs = return_extracellular_spike(cell, cell_name, model_type,
-                                                                                  electrode_parameters,
-                                                                                  [x_lim, y_lim, z_lim],
+                            espikes, pos, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                                  model_type=model_type,
+                                                                                  electrodes=electrodes,
+                                                                                  limits=[x_lim, y_lim, z_lim],
                                                                                   rotation=None,
                                                                                   pos=final_pos)
                             # check final position spike amplitude
@@ -731,9 +679,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         drift_dir = np.array(final_pos) - np.array(init_pos)
                         for i, dp in enumerate(np.linspace(0, 1, drift_steps)):
                             pos_drift = init_pos + dp * drift_dir
-                            espikes, pos, r_, offs = return_extracellular_spike(cell, cell_name, model_type,
-                                                                                electrode_parameters,
-                                                                                [x_lim, y_lim, z_lim],
+                            espikes, pos, r_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                                model_type=model_type,
+                                                                                electrodes=electrodes,
+                                                                                limits=[x_lim, y_lim, z_lim],
                                                                                 rotation=None,
                                                                                 pos=pos_drift)
                             espikes = center_espike(espikes, cut_out)
@@ -901,7 +850,7 @@ def get_physrot_specs(cell_name, model):
 
 
 def return_extracellular_spike(cell, cell_name, model_type,
-                               electrode_parameters, limits, rotation, pos=None):
+                               electrodes, limits, rotation, pos=None):
     """    Calculate extracellular spike on MEA 
            at random position relative to cell
 
@@ -911,8 +860,8 @@ def return_extracellular_spike(cell, cell_name, model_type,
         cell object from LFPy
     cell_name: string
         name of cell model
-    electrode_parameters: dict
-        parameters to initialize LFPy.RecExtElectrode
+    electrodes: LFPyRecExtElectrode
+        The LFPy electrode object
     limits: array_like
         boundaries for neuron locations, shape=(3,2)
     rotation: string 
@@ -997,9 +946,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
         else:
             return False
 
-    electrodes = LFPy.RecExtElectrode(cell, **electrode_parameters)
-
-    """Rotate neuron"""
+    # rotate neuron
     if rotation == 'norot':
         if model_type == 'bbp':
             # orientate cells in z direction

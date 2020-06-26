@@ -31,6 +31,7 @@ setup(
         'h5py',
         'MEAutility',
         'joblib',
+        'LFPy>=2.0.7'
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )
