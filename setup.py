@@ -31,7 +31,7 @@ setup(
         'h5py',
         'MEAutility',
         'joblib',
-        'LFPy>=2.1'
+        'LFPy>=2.1'  # TODO remove and check in simulate_cell
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )

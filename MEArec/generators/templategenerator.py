@@ -106,7 +106,8 @@ class TemplateGenerator:
         delete_tmp = self.simulation_params['delete_tmp']
 
         if os.path.isdir(cell_models_folder):
-            cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f]
+            cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f
+                           and not f.startswith('.')]
             if len(cell_models) == 0:
                 raise AttributeError(cell_models_folder, ' contains no cell models!')
         else:

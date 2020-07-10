@@ -200,45 +200,70 @@ class SpikeTrainGenerator:
         t_start = st2.t_start
         t_stop = st2.t_stop
         unit = times2.units
-        added_spikes_t1 = 0
-        added_spikes_t2 = 0
 
-        all_times_shuffle = np.concatenate((times1, times2))
-        all_times_shuffle = all_times_shuffle[np.random.permutation(len(all_times_shuffle))] * unit
-
-        sync_rate = compute_sync_rate(st1, st2, time_jitt)
+        sync_rate = compute_sync_rate(times1, times2, time_jitt)
         if sync_rate < rate:
-            for t in all_times_shuffle:
-                if sync_rate <= rate:
-                    # check time difference
+            added_spikes_t1 = 0
+            added_spikes_t2 = 0
+
+            spiketrains = [st1, st2]
+            curr_overlaps = np.floor(sync_rate * (len(times1) + len(times2)))
+            tot_spikes = len(times1) + len(times2)
+
+            # this assumes that: target_overlaps = curr_overlaps + add_overlaps
+            add_overlaps = int(np.round((curr_overlaps - rate * tot_spikes) / (rate - 1)))
+
+            # find non-overlappping spikes
+            annotate_overlapping_spikes(spiketrains)
+            st1_no_idx = np.where(spiketrains[0].annotations['overlap'] == 'NO')[0]
+            st2_no_idx = np.where(spiketrains[1].annotations['overlap'] == 'NO')[0]
+
+            st1_no = times1[st1_no_idx]
+            st2_no = times2[st2_no_idx]
+
+            all_times_no_shuffle = np.concatenate((st1_no, st2_no))
+            all_times_no_shuffle = all_times_no_shuffle[np.random.permutation(len(all_times_no_shuffle))] * unit
+
+            for t in all_times_no_shuffle:
+                if added_spikes_t1 + added_spikes_t2 <= add_overlaps:
+                    # check time difference (since they are NO, they most likely won't violate ref_period)
                     if t in times1:
-                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times2.rescale(pq.ms).magnitude)
-                        if np.all(t_diff > self.params['ref_per']):
-                            t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
-                                unit).magnitude - \
-                                      (time_jitt.rescale(unit) / 2).magnitude
-                            if t1_jitt < t_stop:
-                                times2 = np.sort(np.concatenate((np.array(times2), np.array(t1_jitt))))
-                                times2 = times2 * unit
-                                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                                added_spikes_t1 += 1
+                        t1_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
+                            unit).magnitude - \
+                                  (time_jitt.rescale(unit) / 2).magnitude
+                        if t1_jitt < t_stop:
+                            times2 = np.concatenate((np.array(times2), np.array(t1_jitt)))
+                            times2 = times2 * unit
+                            added_spikes_t1 += 1
                     elif t in times2:
-                        t_diff = np.abs(t.rescale(pq.ms).magnitude - times1.rescale(pq.ms).magnitude)
-                        if np.all(t_diff > self.params['ref_per']):
-                            t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
-                                unit).magnitude - \
-                                      (time_jitt.rescale(unit) / 2).magnitude
-                            if t2_jitt < t_stop:
-                                times1 = np.sort(np.concatenate((np.array(times1), np.array(t2_jitt))))
-                                times1 = times1 * unit
-                                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                                added_spikes_t2 += 1
-                    sync_rate = compute_sync_rate(st1, st2, time_jitt)
+                        t2_jitt = time_jitt.rescale(unit).magnitude * np.random.rand(1) + t.rescale(
+                            unit).magnitude - \
+                                  (time_jitt.rescale(unit) / 2).magnitude
+                        if t2_jitt < t_stop:
+                            times1 = np.concatenate((np.array(times1), np.array(t2_jitt)))
+                            times1 = times1 * unit
+                            added_spikes_t2 += 1
                 else:
                     break
+            times1 = np.sort(times1)
+            times2 = np.sort(times2)
+
+            # remove spike trains violating ref period
+            ref_violations_idxs1 = np.where(np.diff(times1) < self.params['ref_per'])[0]
+            ref_violations_idxs2 = np.where(np.diff(times2) < self.params['ref_per'])[0]
+
+            if len(ref_violations_idxs1) > 0:
+                print(f'Remove {len(ref_violations_idxs1)} violations from times1')
+                times1 = np.delete(times1, ref_violations_idxs1) * unit
+            if len(ref_violations_idxs2) > 0:
+                print(f'Remove {len(ref_violations_idxs2)} violations from times2')
+                times2 = np.delete(times2, ref_violations_idxs2) * unit
+
+            sync_rate = compute_sync_rate(times1, times2, time_jitt)
             if verbose:
                 print("Added", added_spikes_t1, "spikes to spike train", idxs[0],
                       "and", added_spikes_t2, "spikes to spike train", idxs[1], 'Sync rate:', sync_rate)
+            tstop = time.time()
         else:
             spiketrains = [st1, st2]
             annotate_overlapping_spikes(spiketrains)
@@ -246,24 +271,24 @@ class SpikeTrainGenerator:
             curr_overlaps = np.floor(sync_rate * (len(times1) + len(times2)))
             remove_overlaps = int(curr_overlaps - max_overlaps)
             if curr_overlaps > max_overlaps:
-                st1_ovrl_idx = np.where(spiketrains[0].annotations['overlap'] == 'TO')[0]
-                st2_ovrl_idx = np.where(spiketrains[1].annotations['overlap'] == 'TO')[0]
-                perm = np.random.permutation(len(st1_ovrl_idx))[:remove_overlaps]
-                st1_ovrl_idx = st1_ovrl_idx[perm]
-                st2_ovrl_idx = st2_ovrl_idx[perm]
+                st1_to_idx = np.where(spiketrains[0].annotations['overlap'] == 'TO')[0]
+                st2_to_idx = np.where(spiketrains[1].annotations['overlap'] == 'TO')[0]
+                perm = np.random.permutation(len(st1_to_idx))[:remove_overlaps]
+                st1_ovrl_idx = st1_to_idx[perm]
+                st2_ovrl_idx = st2_to_idx[perm]
                 idx_rm_1 = st1_ovrl_idx[:remove_overlaps // 2]
                 idx_rm_2 = st2_ovrl_idx[remove_overlaps // 2:]
                 times1 = np.delete(st1.times, idx_rm_1)
                 times1 = times1 * unit
                 times2 = np.delete(st2.times, idx_rm_2)
                 times2 = times2 * unit
-                st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
-                st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
-                sync_rate = compute_sync_rate(st1, st2, time_jitt)
+                sync_rate = compute_sync_rate(times1, times2, time_jitt)
                 if verbose:
                     print("Removed", len(idx_rm_1), "spikes from spike train", idxs[0],
                           "and", len(idx_rm_2), "spikes from spike train", idxs[1], 'Sync rate:', sync_rate)
 
+        st1 = neo.SpikeTrain(times1, t_start=t_start, t_stop=t_stop)
+        st2 = neo.SpikeTrain(times2, t_start=t_start, t_stop=t_stop)
         st1.annotations = self.spiketrains[idx1].annotations
         st2.annotations = self.spiketrains[idx2].annotations
         self.set_spiketrain(idx1, st1)

@@ -1694,16 +1694,16 @@ def resample_spiketrains(spiketrains, fs=None):
     return np.array(resampled_mat)
 
 
-def compute_sync_rate(st1, st2, time_jitt):
+def compute_sync_rate(times1, times2, time_jitt):
     """
     Compute synchrony rate between two wpike trains.
 
     Parameters
     ----------
-    st1 : neo.SpikeTrain
-        Spike train 1
-    st2 : neo.SpikeTrain
-        Spike train 2
+    times1 : quantity array
+        Spike times 1
+    times2 : quantity array
+        Spike times 2
     time_jitt : quantity
         Maximum time jittering between added spikes
 
@@ -1712,9 +1712,8 @@ def compute_sync_rate(st1, st2, time_jitt):
     rate : float
         Synchrony rate (0-1)
     """
+    # TODO make this faster
     count = 0
-    times1 = st1.times
-    times2 = st2.times
     for t1 in times1:
         if len(np.where(np.abs(times2 - t1) <= time_jitt)[0]) >= 1:
             if len(np.where(np.abs(times2 - t1) <= time_jitt)[0]) > 1:
