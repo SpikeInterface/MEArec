@@ -263,7 +263,6 @@ class SpikeTrainGenerator:
             if verbose:
                 print("Added", added_spikes_t1, "spikes to spike train", idxs[0],
                       "and", added_spikes_t2, "spikes to spike train", idxs[1], 'Sync rate:', sync_rate)
-            tstop = time.time()
         else:
             spiketrains = [st1, st2]
             annotate_overlapping_spikes(spiketrains)
