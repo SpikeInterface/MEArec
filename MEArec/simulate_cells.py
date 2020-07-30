@@ -23,6 +23,23 @@ else:
     use_loader = False
 
 
+def import_LFPy_neuron():
+    try:
+        import LFPy
+    except:
+        raise ModuleNotFoundError("LFPy is not installed. Install it with 'pip install LFPy'")
+
+    try:
+        import neuron
+    except:
+        raise ModuleNotFoundError("NEURON is not installed. Install it from https://www.neuron.yale.edu/neuron/download")
+
+    if StrictVersion(LFPy.__version__) < StrictVersion('2.1'):
+        raise ImportError("LFPy version must be >= 2.1. To use a previouse LFPy version, downgrade MEArec to <= 1.4.1")
+
+    return LFPy, neuron
+
+
 def get_templatename(f):
     """
     Assess from hoc file the templatename being specified within
@@ -99,9 +116,7 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     cell : object
         LFPy cell object
     """
-    import mpi4py.MPI
-    import LFPy
-    import neuron
+    LFPy, neuron = import_LFPy_neuron()
     neuron.h.load_file("stdrun.hoc")
     neuron.h.load_file("import3d.hoc")
 
@@ -179,8 +194,7 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
     cell : object
         LFPy cell object
     """
-    import mpi4py.MPI
-    import LFPy
+    LFPy, neuron = import_LFPy_neuron()
 
     if not os.path.isdir(join(cell_folder, cell_name)):
         raise NotImplementedError('Cell model %s is not found in %s' \
@@ -444,7 +458,7 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     v_ext : np.array
         Extracellular potential computed on the electrodes (n_elec, n_timestamps)
     '''
-    import LFPy
+    LFPy, neuron = import_LFPy_neuron()
 
     if isinstance(mea, str):
         mea_obj = mu.return_mea(mea)
@@ -507,7 +521,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     --------
         nothing, but saves the result
     """
-    import LFPy
+    LFPy, neuron = import_LFPy_neuron()
     cell_name = os.path.split(cell_model_folder)[-1]
     cell_save_name = cell_name
     np.random.seed(seed)
@@ -879,7 +893,6 @@ def return_extracellular_spike(cell, cell_name, model_type,
     --------
     Extracellular spike for each MEA contact site
     """
-    import LFPy
 
     def get_xyz_angles(R):
         """ Get rotation angles for each axis from rotation matrix

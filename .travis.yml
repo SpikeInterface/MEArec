@@ -13,7 +13,7 @@ addons:
 install:
 - source continuous_integration/install.sh
 - pip install matplotlib
-- pip install LFPy
+- pip install LFPy>=2.1
 - pip install .
 - pip install pytest
 - pip install pytest-cov
