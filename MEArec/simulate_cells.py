@@ -35,7 +35,7 @@ def import_LFPy_neuron():
         raise ModuleNotFoundError("NEURON is not installed. Install it from https://www.neuron.yale.edu/neuron/download")
 
     if StrictVersion(LFPy.__version__) < StrictVersion('2.1'):
-        raise ImportError("LFPy version must be >= 2.1. To use a previouse LFPy version, downgrade MEArec to <= 1.4.1")
+        raise ImportError("LFPy version must be >= 2.1. To use a previous LFPy version, downgrade MEArec to <= 1.4.1")
 
     return LFPy, neuron
 
