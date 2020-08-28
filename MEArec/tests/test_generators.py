@@ -40,7 +40,7 @@ class TestGenerators(unittest.TestCase):
         else:
             self.test_dir = Path('./tmp')
 
-        if not (self.test_dir / 'templates.h5').is_file() and (self.test_dir / 'templates_drift.h5').is_file():
+        if not (self.test_dir / 'templates.h5').is_file() and not (self.test_dir / 'templates_drift.h5').is_file():
             templates_params['n'] = self.n
             templates_params['ncontacts'] = 1
             templates_params['probe'] = 'Neuronexus-32'
