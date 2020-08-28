@@ -1,12 +1,10 @@
-import numpy as np
 import time
-from copy import deepcopy
+import numpy as np
 from MEArec.tools import *
 import MEAutility as mu
 import shutil
 import yaml
 import os
-from os.path import join
 from distutils.version import StrictVersion
 from pathlib import Path
 from joblib import Parallel, delayed
@@ -19,11 +17,11 @@ else:
 
 def simulate_cell_templates(i, simulate_script, tot, cell_model,
                             model_folder, intraonly, params, verbose):
-    print("Starting ", i + 1)
-    print('\n\n', cell_model, i + 1, '/', tot, '\n\n')
-    os.system('python %s %s %s %s %s' \
-              % (simulate_script, join(model_folder, cell_model), intraonly, params, verbose))
-    print("Exiting ", i + 1)
+    model_folder = Path(model_folder)
+    print(f"Starting {i + 1}")
+    print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
+    os.system(f'python {simulate_script} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
+    print(f"Exiting {i + 1}")
 
 
 class TemplateGenerator:
@@ -88,9 +86,9 @@ class TemplateGenerator:
                 self.params = {}
             else:
                 self.params = deepcopy(params)
-            self.cell_model_folder = cell_models_folder
+            self.cell_model_folder = Path(cell_models_folder)
             self.n_jobs = n_jobs
-            self.templates_folder = templates_folder
+            self.templates_folder = Path(templates_folder)
             self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp,
                                       'recompile': recompile}
 
@@ -105,9 +103,9 @@ class TemplateGenerator:
         recompile = self.simulation_params['recompile']
         delete_tmp = self.simulation_params['delete_tmp']
 
-        if os.path.isdir(cell_models_folder):
-            cell_models = [f for f in os.listdir(join(cell_models_folder)) if 'mods' not in f
-                           and not f.startswith('.')]
+        if cell_models_folder.is_dir():
+            cell_models = [f for f in cell_models_folder.iterdir() if 'mods' not in f.name
+                           and not f.name.startswith('.')]
             if len(cell_models) == 0:
                 raise AttributeError(cell_models_folder, ' contains no cell models!')
         else:
@@ -121,10 +119,10 @@ class TemplateGenerator:
         self.params['templates_folder'] = templates_folder
 
         # Compile NEURON models (nrnivmodl)
-        if not os.path.isdir(join(cell_models_folder, 'mods')) or recompile:
+        if not (cell_models_folder / 'mods').is_dir() or recompile:
             if self._verbose:
                 print('Compiling NEURON models')
-            os.system('python %s compile %s' % (simulate_script, cell_models_folder))
+            os.system(f'python {simulate_script} compile {cell_models_folder}')
 
         if 'sim_time' not in self.params.keys():
             self.params['sim_time'] = 1
@@ -213,19 +211,17 @@ class TemplateGenerator:
                                                                      cell_models_folder, intraonly, tmp_params_path,
                                                                      self._verbose, )
                                     for i, cell_model in enumerate(cell_models))
-            print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
         else:
-            # TODO try without subprocess
             start_time = time.time()
             for numb, cell_model in enumerate(cell_models):
                 if self._verbose:
-                    print('\n\n', cell_model, numb + 1, '/', len(cell_models), '\n\n')
-                os.system('python %s %s %s %s %s' \
-                          % (simulate_script, join(cell_models_folder, cell_model), intraonly, tmp_params_path,
-                             self._verbose))
-            print('\n\n\nSimulation time: ', time.time() - start_time, '\n\n\n')
+                    print(f'\n\n {cell_model} {numb + 1}/{len(cell_models)}\n\n')
+                os.system(f'python {simulate_script} {str(cell_models_folder / cell_model)} {intraonly} '
+                          f'{tmp_params_path} {self._verbose}')
+            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
 
-        tmp_folder = join(templates_folder, rot, 'tmp_%d_%s' % (n, probe))
+        tmp_folder = templates_folder / rot / f'tmp_{n}_{probe}'
 
         if not Path(tmp_folder).is_dir():
             raise FileNotFoundError(f'{tmp_folder} not found. Something went wrong in the template generation phase.')

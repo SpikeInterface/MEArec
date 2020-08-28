@@ -4,6 +4,7 @@ import os
 import numpy as np
 import unittest
 import MEArec as mr
+from pathlib import Path
 import tempfile
 import shutil
 import yaml
@@ -35,12 +36,11 @@ class TestGenerators(unittest.TestCase):
         rec_params = mr.get_default_recordings_params()
 
         if not local_temp:
-            self.test_dir = tempfile.mkdtemp()
+            self.test_dir = Path(tempfile.mkdtemp())
         else:
-            self.test_dir = './tmp'
+            self.test_dir = Path('./tmp')
 
-        if not (os.path.isfile(self.test_dir + '/templates.h5')
-                and os.path.isfile(self.test_dir + '/templates_drift.h5')):
+        if not (self.test_dir / 'templates.h5').is_file() and (self.test_dir / 'templates_drift.h5').is_file():
             templates_params['n'] = self.n
             templates_params['ncontacts'] = 1
             templates_params['probe'] = 'Neuronexus-32'
@@ -76,7 +76,7 @@ class TestGenerators(unittest.TestCase):
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
             self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
-        if not os.path.isfile(self.test_dir + '/recordings.h5'):
+        if not (self.test_dir / 'recordings.h5').is_file():
             ne = 2
             ni = 1
             rec_params['spiketrains']['n_exc'] = ne
@@ -679,14 +679,13 @@ class TestGenerators(unittest.TestCase):
         assert result.exit_code == 0
 
     def test_simulate_cell(self):
-        cell_folder = mr.get_default_cell_models_folder()
+        cell_folder = Path(mr.get_default_cell_models_folder())
         params = mr.get_default_templates_params()
 
         target_spikes = [3, 50]
         params['target_spikes'] = target_spikes
-        cells = os.listdir(cell_folder)
-        cell_name = [c for c in cells if 'TTPC1' in c][0]
-        cell_path = os.path.join(cell_folder, cell_name)
+        cell_path = [c for c in cell_folder.iterdir() if 'TTPC1' in c][0]
+        cell_name = cell_path.parts[-1]
 
         cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
                                        save=False, return_vi=True, **params)

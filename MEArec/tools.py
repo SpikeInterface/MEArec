@@ -6,7 +6,6 @@ import neo
 import scipy.signal as ss
 import shutil
 import os
-from os.path import join
 import MEAutility as mu
 import h5py
 from pathlib import Path
@@ -141,9 +140,10 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     """
     if verbose:
         print("Loading eap data ...")
-    eaplist = [f for f in os.listdir(templates_folder) if f.startswith('eap')]
-    loclist = [f for f in os.listdir(templates_folder) if f.startswith('pos')]
-    rotlist = [f for f in os.listdir(templates_folder) if f.startswith('rot')]
+    templates_folder = Path(templates_folder)
+    eaplist = [f for f in templates_folder.iterdir() if f.name.startswith('eap')]
+    loclist = [f for f in templates_folder.iterdir() if f.name.startswith('pos')]
+    rotlist = [f for f in templates_folder.iterdir() if f.name.startswith('rot')]
 
     eap_list = []
     loc_list = []
@@ -158,14 +158,14 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     ignored_categories = set()
 
     for idx, f in enumerate(eaplist):
-        celltype = f.split('-')[1][:-4]
+        celltype = f.parts[-1].split('-')[1][:-4]
         if verbose:
             print('loading cell type: ', f)
         if celltypes is not None:
             if celltype in celltypes:
-                eaps = np.load(join(templates_folder, f))
-                locs = np.load(join(templates_folder, loclist[idx]))
-                rots = np.load(join(templates_folder, rotlist[idx]))
+                eaps = np.load(str(eaplist[idx]))
+                locs = np.load(str(loclist[idx]))
+                rots = np.load(str(rotlist[idx]))
 
                 if samples_per_cat is None or samples_per_cat > len(eaps):
                     samples_to_read = len(eaps)
@@ -180,9 +180,9 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             else:
                 ignored_categories.add(celltype)
         else:
-            eaps = np.load(join(templates_folder, f))
-            locs = np.load(join(templates_folder, loclist[idx]))
-            rots = np.load(join(templates_folder, rotlist[idx]))
+            eaps = np.load(str(eaplist[idx]))
+            locs = np.load(str(loclist[idx]))
+            rots = np.load(str(rotlist[idx]))
 
             if samples_per_cat is None or samples_per_cat > len(eaps):
                 samples_to_read = len(eaps)
