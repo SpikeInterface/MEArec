@@ -65,12 +65,12 @@ class TestGenerators(unittest.TestCase):
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
 
             print('Making test recordings to test load functions')
-            mr.save_template_generator(self.tempgen, self.test_dir + '/templates.h5')
-            mr.save_template_generator(self.tempgen_drift, self.test_dir + '/templates_drift.h5')
+            mr.save_template_generator(self.tempgen, self.test_dir / 'templates.h5')
+            mr.save_template_generator(self.tempgen_drift, self.test_dir / 'templates_drift.h5')
         else:
-            print(self.test_dir + '/templates.h5')
-            self.tempgen = mr.load_templates(self.test_dir + '/templates.h5', return_h5_objects=False)
-            self.tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
+            print(self.test_dir / 'templates.h5')
+            self.tempgen = mr.load_templates(self.test_dir / 'templates.h5', return_h5_objects=False)
+            self.tempgen_drift = mr.load_templates(self.test_dir / 'templates_drift.h5')
             self.templates_params = self.tempgen.info['params']
             self.templates_params_drift = self.tempgen_drift.info['params']
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
@@ -90,9 +90,9 @@ class TestGenerators(unittest.TestCase):
 
             self.recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
             self.recgen.annotate_overlapping_spikes(parallel=False)
-            mr.save_recording_generator(self.recgen, self.test_dir + '/recordings.h5')
+            mr.save_recording_generator(self.recgen, self.test_dir / 'recordings.h5')
         else:
-            self.recgen = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5_objects=False)
+            self.recgen = mr.load_recordings(self.test_dir / 'recordings.h5', return_h5_objects=False)
 
     @classmethod
     def tearDownClass(self):
@@ -416,9 +416,9 @@ class TestGenerators(unittest.TestCase):
                             del recgen_drift
 
     def test_save_load_templates(self):
-        tempgen = mr.load_templates(self.test_dir + '/templates.h5', verbose=True)
-        tempgen_drift = mr.load_templates(self.test_dir + '/templates_drift.h5')
-        tempgen_drift_f = mr.load_templates(self.test_dir + '/templates_drift.h5', return_h5_objects=True)
+        tempgen = mr.load_templates(self.test_dir / 'templates.h5', verbose=True)
+        tempgen_drift = mr.load_templates(self.test_dir / 'templates_drift.h5')
+        tempgen_drift_f = mr.load_templates(self.test_dir / 'templates_drift.h5', return_h5_objects=True)
 
         assert np.allclose(tempgen.templates, self.tempgen.templates)
         assert np.allclose(tempgen.locations, self.tempgen.locations)
@@ -429,9 +429,9 @@ class TestGenerators(unittest.TestCase):
         assert np.allclose(tempgen_drift.templates, np.array(tempgen_drift_f.templates))
 
     def test_save_load_recordings(self):
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5_objects=False, verbose=True, )
-        recgen_loaded_f = mr.load_recordings(self.test_dir + '/recordings.h5', return_h5_objects=False, verbose=True)
-        recgen_loaded_r = mr.load_recordings(self.test_dir + '/recordings.h5', load=['recordings'],
+        recgen_loaded = mr.load_recordings(self.test_dir / 'recordings.h5', return_h5_objects=False, verbose=True, )
+        recgen_loaded_f = mr.load_recordings(self.test_dir / 'recordings.h5', return_h5_objects=False, verbose=True)
+        recgen_loaded_r = mr.load_recordings(self.test_dir / 'recordings.h5', load=['recordings'],
                                              return_h5_objects=True, verbose=True)
 
         assert np.allclose(recgen_loaded.templates, self.recgen.templates)
@@ -602,10 +602,10 @@ class TestGenerators(unittest.TestCase):
         info, info_folder = mr.get_default_config()
         cell_models_folder = info['cell_models_folder']
         tempgen = mr.gen_templates(cell_models_folder, params={'n': 2}, templates_tmp_folder=info['templates_folder'])
-        recgen = mr.gen_recordings(templates=self.test_dir + '/templates.h5', verbose=False)
+        recgen = mr.gen_recordings(templates=self.test_dir / 'templates.h5', verbose=False)
         recgen.params['recordings']['noise_level'] = 0
         recgen.generate_recordings()
-        recgen_loaded = mr.load_recordings(self.test_dir + '/recordings.h5', verbose=True)
+        recgen_loaded = mr.load_recordings(self.test_dir / 'recordings.h5', verbose=True)
         recgen_loaded.params['recordings']['noise_level'] = 0
         recgen_loaded.generate_recordings()
         recgen_empty = mr.RecordingGenerator(rec_dict={}, info={})
@@ -643,7 +643,7 @@ class TestGenerators(unittest.TestCase):
                                      '-nc', '2', '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-recordings", '-t', self.test_dir + '/templates.h5', '-ne', '2', '-ni', '1',
+        result = runner.invoke(cli, ["gen-recordings", '-t', str(self.test_dir) + '/templates.h5', '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
                                      '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
