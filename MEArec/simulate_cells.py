@@ -71,13 +71,13 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     cell_folder : str
         Path to cell folder
     """
+    cell_folder = Path(cell_folder)
+    mod_folder = cell_folder / 'mods'
+    if not mod_folder.is_dir():
+        os.makedirs(str(mod_folder))
 
-    if not os.path.isdir(join(cell_folder, 'mods')):
-        os.mkdir(join(cell_folder, 'mods'))
+    neurons = [f for f in cell_folder.iterdir() if 'mods' not in str(f) and not f.name.startswith('.')]
 
-    neurons = [join(cell_folder, f) \
-               for f in os.listdir(join(cell_folder)) \
-               if f != 'mods']
     if verbose:
         print(neurons)
 
@@ -125,7 +125,7 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     if verbose:
         print("Simulating ", cell_folder)
 
-    neuron.load_mechanisms('../mods')
+    neuron.load_mechanisms(str(Path(cell_folder).parent / 'mods'))
 
     f = open("template.hoc", 'r')
     templatename = get_templatename(f)
@@ -196,12 +196,15 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
     """
     LFPy, neuron = import_LFPy_neuron()
 
-    if not os.path.isdir(join(cell_folder, cell_name)):
-        raise NotImplementedError('Cell model %s is not found in %s' \
-                                  % (cell_name, cell_folder))
+    cell_folder = Path(cell_folder)
 
-    morphologyfile = os.listdir(join(cell_folder, cell_name, 'morphology'))[0]
-    morphology = join(cell_folder, cell_name, 'morphology', morphologyfile)
+    if not (cell_folder / cell_name).is_dir():
+        raise NotImplementedError(f'Cell model {cell_name} is not found in {cell_folder}')
+
+    morphology_files = [f for f in (cell_folder / cell_name / 'morphology').iterdir()]
+    if len(morphology_files) > 1:
+        raise Exception(f"More than 1 morphology file found for cell {cell_name}")
+    morphology = morphology_files[0]
 
     cell = LFPy.Cell(morphology=morphology, pt3d=pt3d)
     return cell

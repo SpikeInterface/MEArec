@@ -113,6 +113,8 @@ class TemplateGenerator:
         else:
             raise NotADirectoryError('Cell models folder: does not exist!')
 
+        print(cell_models)
+
         this_dir, this_filename = os.path.split(__file__)
         simulate_script = str(Path(this_dir).parent / 'simulate_cells.py')
         self.params['cell_models_folder'] = cell_models_folder
