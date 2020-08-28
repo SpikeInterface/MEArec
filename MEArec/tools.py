@@ -140,6 +140,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
     """
     if verbose:
         print("Loading eap data ...")
+
     templates_folder = Path(templates_folder)
     eaplist = [f for f in templates_folder.iterdir() if f.name.startswith('eap')]
     loclist = [f for f in templates_folder.iterdir() if f.name.startswith('pos')]
@@ -197,6 +198,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
 
     if verbose:
         print("Done loading spike data ...")
+
     return np.array(eap_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 

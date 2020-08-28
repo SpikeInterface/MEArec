@@ -328,8 +328,8 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
         imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
         vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
 
-        if not (np.any([cell_name in ifile for ifile in imem_files]) and
-                np.any([cell_name in vfile for vfile in vmem_files])):
+        if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
+                np.any([cell_name in vfile.name for vfile in vmem_files])):
 
             np.random.seed(kwargs['seed'])
             T = kwargs['sim_time'] * 1000
@@ -584,6 +584,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     # Create save folder
     if save:
         assert save_sim_folder is not None, "Specify 'save_sim_folder' argument!"
+        save_sim_folder = Path(save_sim_folder)
         sim_folder = save_sim_folder / rotation
         save_folder = sim_folder / f'tmp_{target_num_spikes}_{MEAname}'
 
@@ -749,9 +750,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     save_rot = np.array(save_rot)
 
     if save:
-        np.save(str(save_folder / 'eap-{cell_save_name}'), save_spikes)
-        np.save(str(save_folder / 'pos-{cell_save_name}'), save_pos)
-        np.save(str(save_folder / 'rot-{cell_save_name}'), save_rot)
+        np.save(str(save_folder / f'eap-{cell_save_name}'), save_spikes)
+        np.save(str(save_folder / f'pos-{cell_save_name}'), save_pos)
+        np.save(str(save_folder / f'rot-{cell_save_name}'), save_rot)
     else:
         return save_spikes, save_pos, save_rot
 

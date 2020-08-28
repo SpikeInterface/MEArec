@@ -88,7 +88,9 @@ class TemplateGenerator:
                 self.params = deepcopy(params)
             self.cell_model_folder = Path(cell_models_folder)
             self.n_jobs = n_jobs
-            self.templates_folder = Path(templates_folder)
+            if templates_folder is not None:
+                templates_folder = Path(templates_folder)
+            self.templates_folder = templates_folder
             self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp,
                                       'recompile': recompile}
 
@@ -111,12 +113,8 @@ class TemplateGenerator:
         else:
             raise NotADirectoryError('Cell models folder: does not exist!')
 
-        print(cell_models)
-
         this_dir, this_filename = os.path.split(__file__)
         simulate_script = str(Path(this_dir).parent / 'simulate_cells.py')
-        self.params['cell_models_folder'] = cell_models_folder
-        self.params['templates_folder'] = templates_folder
 
         # Compile NEURON models (nrnivmodl)
         if not (cell_models_folder / 'mods').is_dir() or recompile:
@@ -168,10 +166,12 @@ class TemplateGenerator:
         elif self.params['seed'] is None:
             self.params['seed'] = np.random.randint(1, 10000)
         if templates_folder is None:
-            self.params['templates_folder'] = os.getcwd()
-            templates_folder = self.params['templates_folder']
+            info, _ = get_default_config()
+            self.params['templates_folder'] = info['templates_folder']
+            templates_folder = Path(self.params['templates_folder'])
         else:
-            self.params['templates_folder'] = templates_folder
+            self.params['templates_folder'] = str(templates_folder)
+        self.params['cell_models_folder'] = str(cell_models_folder)
         if 'drifting' not in self.params.keys():
             self.params['drifting'] = False
         if 'max_drift' not in self.params.keys():
@@ -191,7 +191,9 @@ class TemplateGenerator:
         n = self.params['n']
         probe = self.params['probe']
 
-        tmp_params_path = 'tmp_params_path'
+        print(self.params)
+
+        tmp_params_path = 'tmp_params_path.yaml'
         with open(tmp_params_path, 'w') as f:
             yaml.dump(self.params, f)
 
@@ -221,7 +223,7 @@ class TemplateGenerator:
                           f'{tmp_params_path} {self._verbose}')
             print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
 
-        tmp_folder = templates_folder / rot / f'tmp_{n}_{probe}'
+        tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
 
         if not Path(tmp_folder).is_dir():
             raise FileNotFoundError(f'{tmp_folder} not found. Something went wrong in the template generation phase.')

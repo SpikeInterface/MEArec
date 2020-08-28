@@ -28,7 +28,8 @@ class TestGenerators(unittest.TestCase):
     def setUpClass(self):
         info, info_folder = mr.get_default_config()
         cell_models_folder = mr.get_default_cell_models_folder()
-        self.num_cells = len([f for f in os.listdir(cell_models_folder) if 'mods' not in f])
+        self.num_cells = len([f for f in Path(cell_models_folder).iterdir() if 'mods' not in
+                              f.name and not f.name.startswith('.')])
         self.n = 10
         self.n_drift = 5
 
@@ -684,10 +685,10 @@ class TestGenerators(unittest.TestCase):
 
         target_spikes = [3, 50]
         params['target_spikes'] = target_spikes
-        cell_path = [c for c in cell_folder.iterdir() if 'TTPC1' in c][0]
+        cell_path = [c for c in cell_folder.iterdir() if 'TTPC1' in c.name][0]
         cell_name = cell_path.parts[-1]
 
-        cell, v, i = mr.run_cell_model(cell_model_folder=cell_path, sim_folder=None, verbose=True,
+        cell, v, i = mr.run_cell_model(cell_model_folder=str(cell_path), sim_folder=None, verbose=True,
                                        save=False, return_vi=True, **params)
         c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
         assert target_spikes[0] <= len(v) <= target_spikes[1]
