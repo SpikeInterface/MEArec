@@ -196,7 +196,6 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
         LFPy cell object
     """
     LFPy, neuron = import_LFPy_neuron()
-
     cell_folder = Path(cell_folder)
 
     if not (cell_folder / cell_name).is_dir():
@@ -207,7 +206,7 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
         raise Exception(f"More than 1 morphology file found for cell {cell_name}")
     morphology = morphology_files[0]
 
-    cell = LFPy.Cell(morphology=morphology, pt3d=pt3d)
+    cell = LFPy.Cell(morphology=str(morphology), pt3d=pt3d)
     return cell
 
 
@@ -313,7 +312,8 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
 
     """
     cell_name = Path(cell_model_folder).parts[-1]
-    sim_folder = Path(sim_folder)
+    if sim_folder is not None:
+        sim_folder = Path(sim_folder)
 
     if custom_return_cell_function is None:
         return_function = return_bbp_cell

@@ -644,7 +644,7 @@ class TestGenerators(unittest.TestCase):
                                      '-nc', '2', '-ov', '20', '-s', '1', '-mind', '10', '-maxd', '100',
                                      '-drst', '10', '-v'])
         assert result.exit_code == 0
-        result = runner.invoke(cli, ["gen-recordings", '-t', str(self.test_dir) + '/templates.h5', '-ne', '2', '-ni', '1',
+        result = runner.invoke(cli, ["gen-recordings", '-t', str(self.test_dir / 'templates.h5'), '-ne', '2', '-ni', '1',
                                      '-fe', '5', '-fi', '15', '-se', '1', '-si', '1', '-mr', '0.2',
                                      '-rp', '2', '-p', 'poisson', '-md', '1', '-mina', '10', '-maxa', '1000',
                                      '--fs', '32000', '-sr', '0', '-sj', '1', '-nl', '10', '-m', 'none',
@@ -690,7 +690,7 @@ class TestGenerators(unittest.TestCase):
 
         cell, v, i = mr.run_cell_model(cell_model_folder=str(cell_path), sim_folder=None, verbose=True,
                                        save=False, return_vi=True, **params)
-        c = mr.return_bbp_cell_morphology(cell_name, cell_folder)
+        c = mr.return_bbp_cell_morphology(str(cell_name), cell_folder)
         assert target_spikes[0] <= len(v) <= target_spikes[1]
         assert target_spikes[0] <= len(i) <= target_spikes[1]
         assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)

@@ -605,7 +605,7 @@ def set_recordings_params(recordings_params):
     info, config = get_default_config()
     recordings_params = Path(recordings_params).absolute()
     if recordings_params.is_file() and recordings_params.suffix in ['.yaml', '.yml']:
-        info['templates_params'] = str(recordings_params)
+        info['recording_params'] = str(recordings_params)
         with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default recordings_params to: ', recordings_params)
