@@ -81,7 +81,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
         print(neurons)
 
     for neuron in neurons:
-        for nmodl in (neuron / 'mechanism').iterdir():
+        for nmodl in (neuron / 'mechanisms').iterdir():
             if nmodl.suffix == '.mod':
                 while not (cell_folder / 'mods' / nmodl.parts[-1]).is_file():
                     if sys.platform == 'win32':
