@@ -36,7 +36,7 @@ Additional requirements for template generatiom
 Installing NEURON
 ~~~~~~~~~~~~~~~~~
 
-The template generation requires NEURON. The code is tested using version 7.5 and 7.6.4,
+The template generation requires NEURON. The code is tested using version 7.5, 7.6, and 7.7,
 that can be downloaded `here <https://neuron.yale.edu/ftp/neuron/versions/>`_. If you are running a Linux system
 add:
 
