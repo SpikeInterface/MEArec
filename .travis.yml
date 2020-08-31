@@ -11,8 +11,9 @@ addons:
     - libhdf5-serial-dev
     - gfortran
 install:
-- source continuous_integration/install.sh
+#- source continuous_integration/install.sh
 - pip install matplotlib
+- pip install neuron
 - pip install LFPy>=2.1
 - pip install .
 - pip install pytest
