@@ -2,7 +2,7 @@ import os
 import pprint
 import time
 from distutils.version import StrictVersion
-from os.path import join
+from pathlib import Path
 
 import MEArec.generation_tools as gt
 import MEAutility as mu
@@ -117,9 +117,9 @@ def gen_templates(params, **kwargs):
 
     if kwargs['folder'] is not None:
         templates_folder = kwargs['folder']
-        params_dict['templates_folder'] = kwargs['folder']
+        params_dict['templates_folder'] = Path(kwargs['folder'])
     else:
-        templates_folder = info['templates_folder']
+        templates_folder = Path(info['templates_folder'])
     intraonly = kwargs['intraonly']
 
     if kwargs['rot'] is not None:
@@ -175,11 +175,11 @@ def gen_templates(params, **kwargs):
     recompile = kwargs['recompile']
     verbose = kwargs['verbose']
 
-    params_dict['templates_folder'] = templates_folder
+    params_dict['templates_folder'] = str(templates_folder)
 
     tempgen = gt.gen_templates(cell_models_folder=model_folder,
                                params=params_dict,
-                               templates_tmp_folder=templates_folder,
+                               templates_tmp_folder=str(templates_folder),
                                intraonly=intraonly,
                                n_jobs=njobs,
                                recompile=recompile,
@@ -193,12 +193,12 @@ def gen_templates(params, **kwargs):
         probe = params_dict['probe']
         if kwargs['fname'] is None:
             if params_dict['drifting']:
-                fname = 'templates_%d_%s_drift_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
+                fname = f'templates_{n}_{probe}_drift_{time.strftime("%d-%m-%Y_%H-%M")}.h5'
             else:
-                fname = 'templates_%d_%s_%s.h5' % (n, probe, time.strftime("%d-%m-%Y_%H-%M"))
+                fname = f'templates_{n}_{probe}_{time.strftime("%d-%m-%Y_%H-%M")}.h5'
         else:
             fname = kwargs['fname']
-        save_fname = join(templates_folder, rot, fname)
+        save_fname = str(templates_folder / rot / fname)
         save_template_generator(tempgen, save_fname, verbose=True)
 
 
@@ -325,6 +325,8 @@ def gen_recordings(params, **kwargs):
         pprint.pprint(params_dict)
         return
 
+    templates_folder = Path(kwargs['templates'])
+
     if kwargs['folder'] is not None:
         params_dict['recordings'].update({'recordings_folder': kwargs['folder']})
     else:
@@ -335,8 +337,7 @@ def gen_recordings(params, **kwargs):
         print('Provide eap templates path')
         return
     else:
-        if os.path.isdir(kwargs['templates']) or kwargs['templates'].endswith('h5') \
-                or kwargs['templates'].endswith('hdf5'):
+        if templates_folder.is_dir() or templates_folder.suffix in ['.h5', '.hdf5']:
             params_dict['templates'].update({'templates': kwargs['templates']})
         else:
             print(kwargs['templates'])
@@ -475,18 +476,19 @@ def gen_recordings(params, **kwargs):
 
     if kwargs['fname'] is None:
         if kwargs['drifting']:
-            fname = 'recordings_%dcells_%s_%s_%.1fuV_drift_%s.h5' % (n_neurons, electrode_name, duration,
-                                                                     noise_level, time.strftime("%d-%m-%Y_%H-%M"))
+            fname = f'recordings_{n_neurons}cells_{electrode_name}_{duration}_{np.round(noise_level, 2)}uV_' \
+                    f'drift_{time.strftime("%d-%m-%Y_%H-%M")}.h5'
         else:
-            fname = 'recordings_%dcells_%s_%s_%.1fuV_%s.h5' % (n_neurons, electrode_name, duration,
-                                                               noise_level, time.strftime("%d-%m-%Y_%H-%M"))
+            fname = f'recordings_{n_neurons}cells_{electrode_name}_{duration}_{np.round(noise_level, 2)}uV_' \
+                    f'{time.strftime("%d-%m-%Y_%H-%M")}.h5'
     else:
         fname = kwargs['fname']
 
     if recordings_folder is not None:
-        if not os.path.isdir(recordings_folder):
-            os.makedirs(recordings_folder)
-    rec_path = join(recordings_folder, fname)
+        recordings_folder = Path(recordings_folder)
+        if not recordings_folder.is_dir():
+            os.makedirs(str(recordings_folder))
+    rec_path = str(recordings_folder / fname)
     save_recording_generator(recgen, rec_path, verbose=True)
 
 
@@ -527,9 +529,10 @@ def available_probes(info):
 def set_cell_models_folder(cell_models_folder):
     """Set default cell_models folder."""
     info, config = get_default_config()
-    if os.path.isdir(cell_models_folder):
-        info['cell_models_folder'] = os.path.abspath(cell_models_folder)
-        with open(join(config, 'mearec.conf'), 'w') as f:
+    cell_models_folder = Path(cell_models_folder)
+    if cell_models_folder.is_dir():
+        info['cell_models_folder'] = str(cell_models_folder.absolute())
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default cell_models_folder to: ', cell_models_folder)
     else:
@@ -542,16 +545,16 @@ def set_cell_models_folder(cell_models_folder):
 def set_templates_folder(templates_folder, create):
     """Set default templates output folder."""
     info, config = get_default_config()
-    templates_folder = os.path.abspath(templates_folder)
-    if os.path.isdir(templates_folder):
-        info['templates_folder'] = templates_folder
-        with open(join(config, 'mearec.conf'), 'w') as f:
+    templates_folder = Path(templates_folder).absolute()
+    if templates_folder.is_dir():
+        info['templates_folder'] = str(templates_folder)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default templates_folder to: ', templates_folder)
     elif create:
-        os.makedirs(templates_folder)
-        info['templates_folder'] = templates_folder
-        with open(join(config, 'mearec.conf'), 'w') as f:
+        os.makedirs(str(templates_folder))
+        info['templates_folder'] = str(templates_folder)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default templates_folder to: ', templates_folder)
     else:
@@ -564,16 +567,16 @@ def set_templates_folder(templates_folder, create):
 def set_recordings_folder(recordings_folder, create):
     """Set default recordings output folder."""
     info, config = get_default_config()
-    recordings_folder = os.path.abspath(recordings_folder)
-    if os.path.isdir(recordings_folder):
-        info['recordings_folder'] = recordings_folder
-        with open(join(config, 'mearec.conf'), 'w') as f:
+    recordings_folder = Path(recordings_folder).absolute()
+    if recordings_folder.is_dir():
+        info['recordings_folder'] = str(recordings_folder)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default recordings_folder to: ', recordings_folder)
     elif create:
-        os.makedirs(recordings_folder)
-        info['recordings_folder'] = recordings_folder
-        with open(join(config, 'mearec.conf'), 'w') as f:
+        os.makedirs(str(recordings_folder))
+        info['recordings_folder'] = str(recordings_folder)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default recordings_folder to: ', recordings_folder)
     else:
@@ -585,10 +588,10 @@ def set_recordings_folder(recordings_folder, create):
 def set_templates_params(templates_params):
     """Set default templates parameter file."""
     info, config = get_default_config()
-    templates_params = os.path.abspath(templates_params)
-    if os.path.isfile(templates_params) and (templates_params.endswith('yaml') or templates_params.endswith('yml')):
-        info['templates_params'] = templates_params
-        with open(join(config, 'mearec.conf'), 'w') as f:
+    templates_params = Path(templates_params).absolute()
+    if templates_params.is_file() and templates_params.suffix in ['.yaml', '.yml']:
+        info['templates_params'] = str(templates_params)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default templates_params to: ', templates_params)
     else:
@@ -600,10 +603,10 @@ def set_templates_params(templates_params):
 def set_recordings_params(recordings_params):
     """Set default recordings parameter file."""
     info, config = get_default_config()
-    recordings_params = os.path.abspath(recordings_params)
-    if os.path.isfile(recordings_params) and (recordings_params.endswith('yaml') or recordings_params.endswith('yml')):
-        info['recordings_params'] = recordings_params
-        with open(join(config, 'mearec.conf'), 'w') as f:
+    recordings_params = Path(recordings_params).absolute()
+    if recordings_params.is_file() and recordings_params.suffix in ['.yaml', '.yml']:
+        info['recording_params'] = str(recordings_params)
+        with open(Path(config) / 'mearec.conf', 'w') as f:
             yaml.dump(info, f)
         print('Set default recordings_params to: ', recordings_params)
     else:

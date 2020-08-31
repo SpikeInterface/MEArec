@@ -7,7 +7,6 @@ The function compile_all_mechanisms must be run once before any cell simulation
 """
 
 import os
-from os.path import join
 import sys
 from glob import glob
 import numpy as np
@@ -71,28 +70,29 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     cell_folder : str
         Path to cell folder
     """
+    cell_folder = Path(cell_folder)
+    mod_folder = cell_folder / 'mods'
+    if not mod_folder.is_dir():
+        os.makedirs(str(mod_folder))
 
-    if not os.path.isdir(join(cell_folder, 'mods')):
-        os.mkdir(join(cell_folder, 'mods'))
+    neurons = [f for f in cell_folder.iterdir() if 'mods' not in str(f) and not f.name.startswith('.')]
 
-    neurons = [join(cell_folder, f) \
-               for f in os.listdir(join(cell_folder)) \
-               if f != 'mods']
     if verbose:
         print(neurons)
 
-    for nrn in neurons:
-        for nmodl in glob(join(nrn, 'mechanisms', '*.mod')):
-            while not os.path.isfile(join(cell_folder, 'mods', os.path.split(nmodl)[-1])):
-                if sys.platform == 'win32':
-                    _command = 'copy'
-                else:
-                    _command = 'cp'
-                if verbose:
-                    print('{} {} {}'.format(_command, nmodl, join(cell_folder, 'mods')))
-                os.system('{} {} {}'.format(_command, nmodl, join(cell_folder, 'mods')))
+    for neuron in neurons:
+        for nmodl in (neuron / 'mechanisms').iterdir():
+            if nmodl.suffix == '.mod':
+                while not (cell_folder / 'mods' / nmodl.parts[-1]).is_file():
+                    if sys.platform == 'win32':
+                        _command = 'copy'
+                    else:
+                        _command = 'cp'
+                    if verbose:
+                        print(f"{_command} {nmodl} {cell_folder / 'mods'}")
+                    os.system(f"{_command} {nmodl} {cell_folder / 'mods'}")
     starting_dir = os.getcwd()
-    os.chdir(join(cell_folder, 'mods'))
+    os.chdir(str(cell_folder / 'mods'))
     os.system('nrnivmodl')
     os.chdir(starting_dir)
 
@@ -125,7 +125,7 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     if verbose:
         print("Simulating ", cell_folder)
 
-    neuron.load_mechanisms('../mods')
+    neuron.load_mechanisms(str(Path(cell_folder).parent / 'mods'))
 
     f = open("template.hoc", 'r')
     templatename = get_templatename(f)
@@ -140,7 +140,8 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     f.close()
 
     # get synapses template name
-    f = open(join("synapses", "synapses.hoc"), 'r')
+    synapses_file = str(Path("synapses") / "synapses.hoc")
+    f = open(synapses_file, 'r')
     synapses = get_templatename(f)
     f.close()
 
@@ -153,16 +154,16 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
 
     if not hasattr(neuron.h, synapses):
         # load synapses
-        neuron.h.load_file(1, join('synapses', 'synapses.hoc'))
+        neuron.h.load_file(1, synapses_file)
 
     if not hasattr(neuron.h, templatename):
         neuron.h.load_file(1, "template.hoc")
 
-    morphologyfile = os.listdir('morphology')[0]  # glob('morphology\\*')[0]
+    morphologyfile = [f for f in Path('morphology').iterdir()][0]
 
     # Instantiate the cell(s) using LFPy
-    cell = LFPy.TemplateCell(morphology=join('morphology', morphologyfile),
-                             templatefile=join('template.hoc'),
+    cell = LFPy.TemplateCell(morphology=str(morphologyfile),
+                             templatefile=str(Path('template.hoc').absolute()),
                              templatename=templatename,
                              templateargs=0,
                              tstop=end_T,
@@ -195,15 +196,17 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
         LFPy cell object
     """
     LFPy, neuron = import_LFPy_neuron()
+    cell_folder = Path(cell_folder)
 
-    if not os.path.isdir(join(cell_folder, cell_name)):
-        raise NotImplementedError('Cell model %s is not found in %s' \
-                                  % (cell_name, cell_folder))
+    if not (cell_folder / cell_name).is_dir():
+        raise NotImplementedError(f'Cell model {cell_name} is not found in {cell_folder}')
 
-    morphologyfile = os.listdir(join(cell_folder, cell_name, 'morphology'))[0]
-    morphology = join(cell_folder, cell_name, 'morphology', morphologyfile)
+    morphology_files = [f for f in (cell_folder / cell_name / 'morphology').iterdir()]
+    if len(morphology_files) > 1:
+        raise Exception(f"More than 1 morphology file found for cell {cell_name}")
+    morphology = morphology_files[0]
 
-    cell = LFPy.Cell(morphology=morphology, pt3d=pt3d)
+    cell = LFPy.Cell(morphology=str(morphology), pt3d=pt3d)
     return cell
 
 
@@ -309,6 +312,8 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
 
     """
     cell_name = Path(cell_model_folder).parts[-1]
+    if sim_folder is not None:
+        sim_folder = Path(sim_folder)
 
     if custom_return_cell_function is None:
         return_function = return_bbp_cell
@@ -317,14 +322,14 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
 
     if save:
         assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
-        if not os.path.isdir(sim_folder):
-            os.makedirs(sim_folder)
+        if not sim_folder.is_dir():
+            os.makedirs(str(sim_folder))
 
-        imem_files = [f for f in os.listdir(sim_folder) if 'imem' in f]
-        vmem_files = [f for f in os.listdir(sim_folder) if 'vmem' in f]
+        imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
+        vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
 
-        if not (np.any([cell_name in ifile for ifile in imem_files]) and
-                np.any([cell_name in vfile for vfile in vmem_files])):
+        if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
+                np.any([cell_name in vfile.name for vfile in vmem_files])):
 
             np.random.seed(kwargs['seed'])
             T = kwargs['sim_time'] * 1000
@@ -378,10 +383,10 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 i_spikes[idx, :, :] = i_spike
                 v_spikes[idx, :] = v_spike
 
-            if not os.path.isdir(sim_folder):
-                os.makedirs(sim_folder)
-            np.save(join(sim_folder, 'imem_%d_%s.npy' % (num_spikes - 1, cell_name)), i_spikes)
-            np.save(join(sim_folder, 'vmem_%d_%s.npy' % (num_spikes - 1, cell_name)), v_spikes)
+            if not sim_folder.is_dir():
+                os.makedirs(str(sim_folder))
+            np.save(str(sim_folder / f'imem_{num_spikes - 1}_{cell_name}.npy'), i_spikes)
+            np.save(str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
 
         else:
             if verbose:
@@ -522,8 +527,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         nothing, but saves the result
     """
     LFPy, neuron = import_LFPy_neuron()
-    cell_name = os.path.split(cell_model_folder)[-1]
+    cell_model_folder = Path(cell_model_folder)
+    cell_name = cell_model_folder.parts[-1]
     cell_save_name = cell_name
+    load_sim_folder = Path(load_sim_folder)
     np.random.seed(seed)
 
     T = kwargs['sim_time'] * 1000
@@ -559,10 +566,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
 
     # Load data from previous cell simulation
-    imem_file = [f for f in os.listdir(load_sim_folder) if cell_name in f and 'imem' in f][0]
-    vmem_file = [f for f in os.listdir(load_sim_folder) if cell_name in f and 'vmem' in f][0]
-    i_spikes = np.load(join(load_sim_folder, imem_file))
-    v_spikes = np.load(join(load_sim_folder, vmem_file))
+    imem_file = [f for f in load_sim_folder.iterdir() if cell_name in f.name and 'imem' in f.name][0]
+    vmem_file = [f for f in load_sim_folder.iterdir() if cell_name in f.name and 'vmem' in f.name][0]
+    i_spikes = np.load(str(imem_file))
+    v_spikes = np.load(str(vmem_file))
     cell.tvec = np.arange(i_spikes.shape[-1]) * dt
 
     save_spikes = []
@@ -577,14 +584,15 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     # Create save folder
     if save:
         assert save_sim_folder is not None, "Specify 'save_sim_folder' argument!"
-        sim_folder = join(save_sim_folder, rotation)
-        save_folder = join(sim_folder, 'tmp_%d_%s' % (target_num_spikes, MEAname))
+        save_sim_folder = Path(save_sim_folder)
+        sim_folder = save_sim_folder / rotation
+        save_folder = sim_folder / f'tmp_{target_num_spikes}_{MEAname}'
 
-        if not os.path.isdir(save_folder):
-            os.makedirs(save_folder)
+        if not save_folder.is_dir():
+            os.makedirs(str(save_folder))
 
     if verbose:
-        print('Cell ', cell_save_name, ' extracellular spikes to be simulated')
+        print(f'Cell {cell_save_name} extracellular spikes to be simulated')
 
     mea = mu.return_mea(MEAname)
     if ncontacts > 1:
@@ -742,9 +750,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     save_rot = np.array(save_rot)
 
     if save:
-        np.save(join(save_folder, 'eap-%s' % cell_save_name), save_spikes)
-        np.save(join(save_folder, 'pos-%s' % cell_save_name), save_pos)
-        np.save(join(save_folder, 'rot-%s' % cell_save_name), save_rot)
+        np.save(str(save_folder / f'eap-{cell_save_name}'), save_spikes)
+        np.save(str(save_folder / f'pos-{cell_save_name}'), save_pos)
+        np.save(str(save_folder / f'rot-{cell_save_name}'), save_rot)
     else:
         return save_spikes, save_pos, save_rot
 
@@ -1145,7 +1153,7 @@ if __name__ == '__main__':
         rot = params['rot']
 
         extra_sim_folder = params['templates_folder']
-        vm_im_sim_folder = join(params['templates_folder'], 'intracellular')
+        vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
 
         print('Intracellular simulation: ', cell_model)
         run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)

@@ -4,6 +4,7 @@ import yaml
 import os
 from distutils.version import StrictVersion
 import time
+from pathlib import Path
 import numpy as np
 import neo
 
@@ -43,8 +44,9 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Generated recording generator object
     """
     t_start = time.perf_counter()
-    if isinstance(params, str):
-        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
+    if isinstance(params, (str, Path)):
+        params = Path(params)
+        if params.is_file() and params.suffix in ['.yaml', '.yml']:
             with open(params, 'r') as pf:
                 if use_loader:
                     params_dict = yaml.load(pf, Loader=yaml.FullLoader)
@@ -70,9 +72,10 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         raise AttributeError("Provide either 'templates' or 'tempgen' TemplateGenerator object")
 
     if tempgen is None:
-        if os.path.isdir(templates):
+        templates = Path(templates)
+        if templates.is_dir():
             tempgen = load_templates(templates, verbose=False)
-        elif templates.endswith('h5') or templates.endswith('hdf5'):
+        elif templates.suffix in ['.h5', '.hdf5']:
             tempgen = load_templates(templates, verbose=False)
         else:
             raise AttributeError("'templates' is not a folder or an hdf5 file")
@@ -145,8 +148,9 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
             "'spiketrains' should be a list of neo.SpikeTrain objects"
         params_dict = {}
     else:
-        if isinstance(params, str):
-            if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
+        if isinstance(params, (str, Path)):
+            params = Path(params)
+            if params.is_file() and params.suffix in ['.yaml', '.yml']:
                 with open(params, 'r') as pf:
                     if use_loader:
                         params_dict = yaml.load(pf, Loader=yaml.FullLoader)
@@ -195,8 +199,9 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
         Generated template generator object
 
     """
-    if isinstance(params, str):
-        if os.path.isfile(params) and (params.endswith('yaml') or params.endswith('yml')):
+    if isinstance(params, (str, Path)):
+        params = Path(params)
+        if params.is_file() and params.suffix in ['.yaml', '.yml']:
             with open(params, 'r') as pf:
                 if use_loader:
                     params_dict = yaml.load(pf, Loader=yaml.FullLoader)
@@ -208,7 +213,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
         params_dict = None
 
     if templates_tmp_folder is not None:
-        if not os.path.isdir(templates_tmp_folder):
+        if not Path(templates_tmp_folder).is_dir():
             os.makedirs(templates_tmp_folder)
 
     tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
