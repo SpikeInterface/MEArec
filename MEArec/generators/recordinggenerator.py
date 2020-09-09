@@ -75,9 +75,13 @@ class RecordingGenerator:
             else:
                 self.spiketrains = np.array([])
             if 'templates' in rec_dict.keys():
-                self.templates = rec_dict['templates']
+                self.jitter_templates = rec_dict['templates']
             else:
-                self.templates = np.array([])
+                self.jitter_templates = np.array([])
+            if 'original_templates' in rec_dict.keys():
+                self.original_templates = rec_dict['original_templates']
+            else:
+                self.original_templates = np.array([])
             if 'template_locations' in rec_dict.keys():
                 self.template_locations = rec_dict['template_locations']
             else:
@@ -161,6 +165,10 @@ class RecordingGenerator:
                 except Exception as e:
                     if self._verbose >= 1:
                         print('Impossible to delete temp file:', fname, 'Error', e)
+
+    @property
+    def templates(self):
+        return self.jitter_templates
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
@@ -480,9 +488,9 @@ class RecordingGenerator:
                 assert temp_info['params']['drifting'], "For generating drifting recordings, templates must be drifting"
             else:
                 if params['n_jitters'] == 1:
-                    assert len(self.templates.shape) == 4
+                    assert len(self.jitter_templates.shape) == 4
                 else:
-                    assert len(self.templates.shape) == 5
+                    assert len(self.jitter_templates.shape) == 5
             preferred_dir = np.array(rec_params['preferred_dir'])
             preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
             angle_tol = rec_params['angle_tol']
@@ -506,8 +514,8 @@ class RecordingGenerator:
                 if temp_info['params']['drifting']:
                     eaps = eaps[:, 0]
                     locs = locs[:, 0]
-            elif len(self.templates.shape) == 5:
-                self.templates = self.templates[:, 0]
+            elif len(self.jitter_templates.shape) == 5:
+                self.jitter_templates = self.jitter_templates[:, 0]
                 self.template_locs = self.template_locs[:, 0]
             preferred_dir = None
             angle_tol = None
@@ -666,6 +674,7 @@ class RecordingGenerator:
                 template_rots = np.array(rots)[reordered_idx_cells]
                 template_bin = np.array(bin_cat)[reordered_idx_cells]
                 templates = np.array(eaps)[reordered_idx_cells]
+                self.original_templates = templates
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
