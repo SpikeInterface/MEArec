@@ -509,19 +509,14 @@ def available_probes(info):
     probe_list = mu.return_mea_list()
     for p in probe_list:
         probe_info = mu.return_mea_info(p)
-        if 'description' in probe_info.keys():
-            if info:
-                print(p)
-                pprint(mu.return_mea_info(p))
-            else:
-                print(p, '----------', probe_info['description'])
-            print()
+        if 'description' not in probe_info.keys():
+            probe_info['description'] = 'no description'
+        if info:
+            print(p)
+            pprint(mu.return_mea_info(p))
         else:
-            if probe_info:
-                pprint(mu.return_mea_info(p))
-            else:
-                print(p, '----------', probe_info['description'])
-            print()
+            print(p, '----------', probe_info['description'])
+        print()
 
 
 @cli.command()
