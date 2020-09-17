@@ -78,6 +78,10 @@ class RecordingGenerator:
                 self.templates = rec_dict['templates']
             else:
                 self.templates = np.array([])
+            if 'original_templates' in rec_dict.keys():
+                self.original_templates = rec_dict['original_templates']
+            else:
+                self.original_templates = np.array([])
             if 'template_locations' in rec_dict.keys():
                 self.template_locations = rec_dict['template_locations']
             else:
@@ -666,6 +670,7 @@ class RecordingGenerator:
                 template_rots = np.array(rots)[reordered_idx_cells]
                 template_bin = np.array(bin_cat)[reordered_idx_cells]
                 templates = np.array(eaps)[reordered_idx_cells]
+                self.original_templates = templates
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)

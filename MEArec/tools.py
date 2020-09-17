@@ -291,7 +291,7 @@ def load_recordings(recordings, return_h5_objects=True,
 
     if load is None:
         load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
-                'spike_traces', 'templates']
+                'spike_traces', 'templates', ]
     else:
         assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
                                        "('recordings', 'channel_positions', 'voltge_peaks', 'spiketrains', " \
@@ -327,6 +327,11 @@ def load_recordings(recordings, return_h5_objects=True,
                 rec_dict['templates'] = F.get('templates')
             else:
                 rec_dict['templates'] = np.array(F.get('templates'))
+            if F.get('original_templates') is not None:
+                if return_h5_objects:
+                    rec_dict['original_templates'] = F.get('original_templates')
+                else:
+                    rec_dict['original_templates'] = np.array(F.get('original_templates'))
             if F.get('template_locations') is not None:
                 if return_h5_objects:
                     rec_dict['template_locations'] = F.get('template_locations')
@@ -450,6 +455,8 @@ def save_recording_generator(recgen, filename=None, verbose=False):
                     save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
             if len(recgen.templates) > 0:
                 F.create_dataset('templates', data=recgen.templates)
+            if len(recgen.original_templates) > 0:
+                F.create_dataset('original_templates', data=recgen.original_templates)
             if len(recgen.template_locations) > 0:
                 F.create_dataset('template_locations', data=recgen.template_locations)
             if len(recgen.template_rotations) > 0:
