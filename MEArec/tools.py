@@ -327,10 +327,11 @@ def load_recordings(recordings, return_h5_objects=True,
                 rec_dict['templates'] = F.get('templates')
             else:
                 rec_dict['templates'] = np.array(F.get('templates'))
-            if return_h5_objects:
-                rec_dict['original_templates'] = F.get('original_templates')
-            else:
-                rec_dict['original_templates'] = np.array(F.get('original_templates'))
+            if F.get('original_templates') is not None:
+                if return_h5_objects:
+                    rec_dict['original_templates'] = F.get('original_templates')
+                else:
+                    rec_dict['original_templates'] = np.array(F.get('original_templates'))
             if F.get('template_locations') is not None:
                 if return_h5_objects:
                     rec_dict['template_locations'] = F.get('template_locations')
