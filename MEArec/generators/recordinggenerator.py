@@ -1054,7 +1054,8 @@ class RecordingGenerator:
 
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
-        self.recordings = recordings.transpose()
+        #~ self.recordings = recordings.transpose()
+        self.recordings = recordings
         self.timestamps = timestamps
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
@@ -1063,7 +1064,9 @@ class RecordingGenerator:
         self.template_celltypes = template_celltypes
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
-        self.spike_traces = spike_traces.transpose()
+        #~ self.spike_traces = spike_traces.transpose()
+        self.spike_traces = spike_traces
+        self._spike_traces = spike_traces
         self.info = params
 
         #############################

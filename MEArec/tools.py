@@ -13,6 +13,8 @@ from copy import deepcopy
 from distutils.version import StrictVersion
 from joblib import Parallel, delayed
 
+from .version import version
+
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
 else:
@@ -436,6 +438,7 @@ def save_recording_generator(recgen, filename=None, verbose=False):
         os.makedirs(str(filename.parent))
     if filename.suffix == '.h5' or filename.suffix == '.hdf5':
         with h5py.File(filename, 'w') as F:
+            F.attrs['mearec_version'] = version
             save_dict_to_hdf5(recgen.info, F, 'info/')
             if len(recgen.voltage_peaks) > 0:
                 F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
