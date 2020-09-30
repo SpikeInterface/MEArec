@@ -303,6 +303,15 @@ def load_recordings(recordings, return_h5_objects=True,
     recordings = Path(recordings)
     if (recordings.suffix == '.h5' or recordings.suffix == '.hdf5') or (not check_suffix):
         F = h5py.File(str(recordings), 'r')
+        mearec_version = F.attrs.get('mearec_version', '1.4.0')
+        if StrictVersion(mearec_version) >= '1.5.0':
+            # version after 1.5.0 is (n_sample, n_channel) inside the h5 file
+            need_transpose = False
+        else:
+            # version  1.4.0 and before is (n_channel, n_sample) inside the h5 file
+            need_transpose = True
+            raise NotImpletedError('Alessio will implent this soon')
+        
         info = load_dict_from_hdf5(F, 'info/')
         if F.get('voltage_peaks') is not None and 'voltage_peaks' in load:
             if return_h5_objects:
@@ -316,14 +325,27 @@ def load_recordings(recordings, return_h5_objects=True,
                 rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
         if F.get('recordings') is not None and 'recordings' in load:
             if return_h5_objects:
-                rec_dict['recordings'] = F.get('recordings')
+                if need_transpose:
+                    pass
+                    ## rec_dict['recordings'] = lazy_operation  on F.get('recordings')
+                else:
+                    rec_dict['recordings'] = F.get('recordings')
             else:
-                rec_dict['recordings'] = np.array(F.get('recordings'))
+                arr = np.array(F.get('recordings'))
+                if need_transpose:
+                    arr = arr.T
+                rec_dict['recordings'] = arr
         if F.get('spike_traces') is not None and 'spike_traces' in load:
             if return_h5_objects:
-                rec_dict['spike_traces'] = F.get('spike_traces')
+                if need_transpose:
+                    ## rec_dict['spike_traces'] = lazy_operation  on F.get('spike_traces')
+                else:
+                    rec_dict['spike_traces'] = F.get('spike_traces')
             else:
-                rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
+                arr = np.array(F.get('spike_traces'))
+                if need_transpose:
+                    arr = arr.T
+                rec_dict['spike_traces'] = arr
         if F.get('templates') is not None and 'templates' in load:
             if return_h5_objects:
                 rec_dict['templates'] = F.get('templates')
