@@ -2524,7 +2524,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
     else:
         n_pad = [int(p * pq.ms * fs.rescale('kHz')) for p in cut_out]
 
-    n_elec, n_samples = recordings.shape
+    n_samples, n_elec = recordings.shape
     if timestamps is None:
         timestamps = np.arange(n_samples) / fs.rescale('Hz')
     unit = timestamps[0].rescale('ms').units
@@ -2547,7 +2547,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
             elif idx + n_pad[1] > n_samples:
                 spike_rec = recordings[idx - n_pad[0]:]
                 spike_rec = np.pad(spike_rec, ((0, idx + n_pad[1] - n_samples), (0, 0)), 'constant')
-            sp_rec_wf.append(spike_rec)
+            sp_rec_wf.append(spike_rec.T)
         st.waveforms = np.array(sp_rec_wf)
 
 
@@ -2866,7 +2866,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     else:
         start_frame = int(start_time * fs)
     if end_time is None:
-        end_frame = recordings.shape[1]
+        end_frame = recordings.shape[0]
     else:
         end_frame = int(end_time * fs)
 
@@ -2893,7 +2893,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         spike_idxs = []
         for st in recgen.spiketrains:
             spike_idxs.append((st.times * fs).magnitude.astype('int'))
-        n_samples = recordings.shape[1]
+        n_samples = recordings.shape[0]
 
         if cmap is not None:
             cm = plt.get_cmap(cmap)
@@ -2912,7 +2912,6 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
                 if 'drifting' in recgen.spiketrains[i].annotations.keys():
                     if recgen.spiketrains[i].annotations['drifting']:
                         template_idxs = recgen.spiketrains[i].annotations['template_idxs']
-
                 rec_t = convolve_templates_spiketrains(i, sp, t, n_samples, template_idxs=template_idxs,
                                                        max_channels_per_template=max_channels_per_template,
                                                        cut_out=cut_out_samples).T
