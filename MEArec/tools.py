@@ -236,8 +236,7 @@ def load_templates(templates, return_h5_objects=True, verbose=False, check_suffi
     verbose : bool
         If True output is verbose
     check_suffix : bool
-        If True, hfdf5 suffix is checked
-
+        If True, hdf5 suffix is checked
 
     Returns
     -------
@@ -298,7 +297,7 @@ def load_recordings(recordings, return_h5_objects=True,
     verbose : bool
         If True output is verbose
     check_suffix : bool
-        If True, hfdf5 suffix is checked
+        If True, hdf5 suffix is checked
 
     Returns
     -------
@@ -436,7 +435,7 @@ def save_template_generator(tempgen, filename=None, verbose=True):
     tempgen : TemplateGenerator
         TemplateGenerator object to be saved
     filename : str
-        Path to .h5 file or folder
+        Path to .h5 file
     verbose : bool
         If True output is verbose
     """
@@ -468,7 +467,7 @@ def save_recording_generator(recgen, filename=None, verbose=False):
     recgen : RecordingGenerator
         RecordingGenerator object to be saved
     filename : str
-        Path to .h5 file or folder
+        Path to .h5 file
     verbose : bool
         If True output is verbose
     """
@@ -648,11 +647,10 @@ def convert_recording_to_new_version(filename, new_filename=None):
 
     Parameters
     ----------
-    filename
-    new_filename
-
-    Returns
-    -------
+    filename: str
+        Path to original .h5 file
+    new_filename: str (optional)
+        Path to new .h5 file. If None (default), the original file is overwritten
 
     """
     filename = Path(filename)
