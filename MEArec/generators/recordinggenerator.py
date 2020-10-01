@@ -144,9 +144,6 @@ class RecordingGenerator:
         self._is_tmp_folder_local = False
 
     def __del__(self):
-        self.recordings = None
-        self.spike_traces = None
-
         if not self._is_tmp_folder_local:
             if self.tmp_folder is not None:
                 try:
@@ -165,6 +162,11 @@ class RecordingGenerator:
                 except Exception as e:
                     if self._verbose >= 1:
                         print('Impossible to delete temp file:', fname, 'Error', e)
+        if isinstance(self.recordings, h5py.Dataset):
+            f = self.recordings.file
+            f.close()
+        self.recordings = None
+        self.spike_traces = None
 
     def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
         """
@@ -1054,7 +1056,6 @@ class RecordingGenerator:
 
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
-        #~ self.recordings = recordings.transpose()
         self.recordings = recordings
         self.timestamps = timestamps
         self.channel_positions = mea_pos
@@ -1064,9 +1065,7 @@ class RecordingGenerator:
         self.template_celltypes = template_celltypes
         self.spiketrains = spiketrains
         self.voltage_peaks = voltage_peaks
-        #~ self.spike_traces = spike_traces.transpose()
         self.spike_traces = spike_traces
-        self._spike_traces = spike_traces
         self.info = params
 
         #############################
