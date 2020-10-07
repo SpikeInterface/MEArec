@@ -9,9 +9,12 @@ import os
 import MEAutility as mu
 import h5py
 from pathlib import Path
-from copy import deepcopy
+from copy import deepcopy, copy
 from distutils.version import StrictVersion
 from joblib import Parallel, delayed
+from lazy_ops import DatasetView
+
+from .version import version
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -35,8 +38,26 @@ def get_default_config():
     this_dir = Path(this_dir)
     home = Path(os.path.expanduser("~"))
     mearec_home = home / '.config' / 'mearec'
-    if not (mearec_home / 'mearec.conf').is_file():
+    version_folder = mearec_home / version
+    
+    print(f"MEarec version: {version}\n")
+    
+    if not mearec_home.is_dir():
         mearec_home.mkdir(exist_ok=True, parents=True)
+    else:
+        versions = [ver.name for ver in mearec_home.iterdir() if ver.is_dir() and len(ver.name.split('.')) > 1]
+        if len(versions) > 0:
+            if np.all(np.array(versions) != version):
+                # find most recent version
+                old_version = np.sort(versions)[::-1][0]
+                recent_version = mearec_home / old_version
+                print(f"Copying settings from version {old_version} to new version {version}\n")
+                shutil.copytree(recent_version, version_folder)
+        else:
+            version_folder.mkdir(exist_ok=True, parents=True)
+
+    if not (version_folder / 'mearec.conf').is_file():
+        version_folder.mkdir(exist_ok=True, parents=True)
         shutil.copytree(str(this_dir / 'default_params'), str(mearec_home / 'default_params'))
         shutil.copytree(str(this_dir / 'cell_models'), str(mearec_home / 'cell_models'))
         default_info = {'templates_params': str(mearec_home / 'default_params' / 'templates_params.yaml'),
@@ -44,10 +65,10 @@ def get_default_config():
                         'templates_folder': str(mearec_home / 'templates'),
                         'recordings_folder': str(mearec_home / 'recordings'),
                         'cell_models_folder': str(mearec_home / 'cell_models' / 'bbp')}
-        with (mearec_home / 'mearec.conf').open('w') as f:
+        with (version_folder / 'mearec.conf').open('w') as f:
             yaml.dump(default_info, f)
     else:
-        with (mearec_home / 'mearec.conf').open() as f:
+        with (version_folder / 'mearec.conf').open() as f:
             if use_loader:
                 default_info = yaml.load(f, Loader=yaml.FullLoader)
             else:
@@ -215,8 +236,7 @@ def load_templates(templates, return_h5_objects=True, verbose=False, check_suffi
     verbose : bool
         If True output is verbose
     check_suffix : bool
-        If True, hfdf5 suffix is checked
-
+        If True, hdf5 suffix is checked
 
     Returns
     -------
@@ -230,30 +250,30 @@ def load_templates(templates, return_h5_objects=True, verbose=False, check_suffi
 
     temp_dict = {}
     templates = Path(templates)
-    if (templates.suffix == '.h5' or templates.suffix == '.hdf5') or (not check_suffix):
-        F = h5py.File(str(templates), 'r')
-        info = load_dict_from_hdf5(F, 'info/')
-        celltypes = np.array(F.get('celltypes'))
+    if (templates.suffix in ['.h5', '.hdf5']) or (not check_suffix):
+        f = h5py.File(str(templates), 'r')
+        info = load_dict_from_hdf5(f, 'info/')
+        celltypes = np.array(f.get('celltypes'))
         temp_dict['celltypes'] = np.array([c.decode('utf-8') for c in celltypes])
         if return_h5_objects:
-            temp_dict['locations'] = F.get('locations')
+            temp_dict['locations'] = f.get('locations')
         else:
-            temp_dict['locations'] = np.array(F.get('locations'))
+            temp_dict['locations'] = np.array(f.get('locations'))
         if return_h5_objects:
-            temp_dict['rotations'] = F.get('rotations')
+            temp_dict['rotations'] = f.get('rotations')
         else:
-            temp_dict['rotations'] = np.array(F.get('rotations'))
+            temp_dict['rotations'] = np.array(f.get('rotations'))
         if return_h5_objects:
-            temp_dict['templates'] = F.get('templates')
+            temp_dict['templates'] = f.get('templates')
         else:
-            temp_dict['templates'] = np.array(F.get('templates'))
+            temp_dict['templates'] = np.array(f.get('templates'))
     else:
         raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
     if verbose:
         print("Done loading templates...")
     if not return_h5_objects:
-        F.close()
+        f.close()
     tempgen = TemplateGenerator(temp_dict=temp_dict, info=info)
     return tempgen
 
@@ -277,7 +297,7 @@ def load_recordings(recordings, return_h5_objects=True,
     verbose : bool
         If True output is verbose
     check_suffix : bool
-        If True, hfdf5 suffix is checked
+        If True, hdf5 suffix is checked
 
     Returns
     -------
@@ -299,69 +319,92 @@ def load_recordings(recordings, return_h5_objects=True,
 
     rec_dict = {}
     recordings = Path(recordings)
-    if (recordings.suffix == '.h5' or recordings.suffix == '.hdf5') or (not check_suffix):
-        F = h5py.File(str(recordings), 'r')
-        info = load_dict_from_hdf5(F, 'info/')
-        if F.get('voltage_peaks') is not None and 'voltage_peaks' in load:
+    if (recordings.suffix in ['.h5', '.hdf5']) or (not check_suffix):
+        f = h5py.File(str(recordings), 'r')
+        mearec_version = f.attrs.get('mearec_version', '1.4.0')
+
+        if StrictVersion(mearec_version) >= '1.5.0':
+            # version after 1.5.0 is (n_samples, n_channel) inside the h5 file
+            need_transpose = False
+        else:
+            # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file
+            print("Warning: MEArec file created with version <1.5. This could result in lower efficiency. To upgrade"
+                  "your file to the new format use: mr.convert_recording_to_new_version(filename)")
+            need_transpose = True
+
+        info = load_dict_from_hdf5(f, 'info/')
+        if f.get('voltage_peaks') is not None and 'voltage_peaks' in load:
             if return_h5_objects:
-                rec_dict['voltage_peaks'] = F.get('voltage_peaks')
+                rec_dict['voltage_peaks'] = f.get('voltage_peaks')
             else:
-                rec_dict['voltage_peaks'] = np.array(F.get('voltage_peaks'))
-        if F.get('channel_positions') is not None and 'channel_positions' in load:
+                rec_dict['voltage_peaks'] = np.array(f.get('voltage_peaks'))
+        if f.get('channel_positions') is not None and 'channel_positions' in load:
             if return_h5_objects:
-                rec_dict['channel_positions'] = F.get('channel_positions')
+                rec_dict['channel_positions'] = f.get('channel_positions')
             else:
-                rec_dict['channel_positions'] = np.array(F.get('channel_positions'))
-        if F.get('recordings') is not None and 'recordings' in load:
+                rec_dict['channel_positions'] = np.array(f.get('channel_positions'))
+        if f.get('recordings') is not None and 'recordings' in load:
             if return_h5_objects:
-                rec_dict['recordings'] = F.get('recordings')
-            else:
-                rec_dict['recordings'] = np.array(F.get('recordings'))
-        if F.get('spike_traces') is not None and 'spike_traces' in load:
-            if return_h5_objects:
-                rec_dict['spike_traces'] = F.get('spike_traces')
-            else:
-                rec_dict['spike_traces'] = np.array(F.get('spike_traces'))
-        if F.get('templates') is not None and 'templates' in load:
-            if return_h5_objects:
-                rec_dict['templates'] = F.get('templates')
-            else:
-                rec_dict['templates'] = np.array(F.get('templates'))
-            if F.get('original_templates') is not None:
-                if return_h5_objects:
-                    rec_dict['original_templates'] = F.get('original_templates')
+                if need_transpose:
+                    rec_dict['recordings'] = DatasetView(f.get('recordings')).lazy_transpose()
                 else:
-                    rec_dict['original_templates'] = np.array(F.get('original_templates'))
-            if F.get('template_locations') is not None:
-                if return_h5_objects:
-                    rec_dict['template_locations'] = F.get('template_locations')
+                    rec_dict['recordings'] = f.get('recordings')
+            else:
+                arr = np.array(f.get('recordings'))
+                if need_transpose:
+                    arr = arr.T
+                rec_dict['recordings'] = arr
+        if f.get('spike_traces') is not None and 'spike_traces' in load:
+            if return_h5_objects:
+                if need_transpose:
+                    rec_dict['spike_traces'] = DatasetView(f.get('spike_traces')).lazy_transpose()
                 else:
-                    rec_dict['template_locations'] = np.array(F.get('template_locations'))
-            if F.get('template_rotations') is not None:
+                    rec_dict['spike_traces'] = f.get('spike_traces')
+            else:
+                arr = np.array(f.get('spike_traces'))
+                if need_transpose:
+                    arr = arr.T
+                rec_dict['spike_traces'] = arr
+        if f.get('templates') is not None and 'templates' in load:
+            if return_h5_objects:
+                rec_dict['templates'] = f.get('templates')
+            else:
+                rec_dict['templates'] = np.array(f.get('templates'))
+            if f.get('original_templates') is not None:
                 if return_h5_objects:
-                    rec_dict['template_rotations'] = F.get('template_rotations')
+                    rec_dict['original_templates'] = f.get('original_templates')
                 else:
-                    rec_dict['template_rotations'] = np.array(F.get('template_rotations'))
-            if F.get('template_celltypes') is not None:
-                celltypes = np.array(([n.decode() for n in F.get('template_celltypes')]))
+                    rec_dict['original_templates'] = np.array(f.get('original_templates'))
+            if f.get('template_locations') is not None:
+                if return_h5_objects:
+                    rec_dict['template_locations'] = f.get('template_locations')
+                else:
+                    rec_dict['template_locations'] = np.array(f.get('template_locations'))
+            if f.get('template_rotations') is not None:
+                if return_h5_objects:
+                    rec_dict['template_rotations'] = f.get('template_rotations')
+                else:
+                    rec_dict['template_rotations'] = np.array(f.get('template_rotations'))
+            if f.get('template_celltypes') is not None:
+                celltypes = np.array(([n.decode() for n in f.get('template_celltypes')]))
                 rec_dict['template_celltypes'] = np.array(celltypes)
-        if F.get('timestamps') is not None and 'timestamps' in load:
+        if f.get('timestamps') is not None and 'timestamps' in load:
             if return_h5_objects:
-                rec_dict['timestamps'] = F.get('timestamps')
+                rec_dict['timestamps'] = f.get('timestamps')
             else:
-                rec_dict['timestamps'] = np.array(F.get('timestamps')) * pq.s
-        if F.get('spiketrains') is not None and 'spiketrains' in load:
+                rec_dict['timestamps'] = np.array(f.get('timestamps')) * pq.s
+        if f.get('spiketrains') is not None and 'spiketrains' in load:
             spiketrains = []
-            sorted_units = sorted([int(u) for u in F.get('spiketrains/')])
+            sorted_units = sorted([int(u) for u in f.get('spiketrains/')])
             for unit in sorted_units:
                 unit = str(unit)
-                times = np.array(F.get('spiketrains/' + unit + '/times'))
-                t_stop = np.array(F.get('spiketrains/' + unit + '/t_stop'))
-                if F.get('spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
-                    waveforms = np.array(F.get('spiketrains/' + unit + '/waveforms'))
+                times = np.array(f.get('spiketrains/' + unit + '/times'))
+                t_stop = np.array(f.get('spiketrains/' + unit + '/t_stop'))
+                if f.get('spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
+                    waveforms = np.array(f.get('spiketrains/' + unit + '/waveforms'))
                 else:
                     waveforms = None
-                annotations = load_dict_from_hdf5(F, 'spiketrains/' + unit + '/annotations/')
+                annotations = load_dict_from_hdf5(f, 'spiketrains/' + unit + '/annotations/')
                 st = neo.core.SpikeTrain(
                     times,
                     t_stop=t_stop,
@@ -378,7 +421,7 @@ def load_recordings(recordings, return_h5_objects=True,
         print("Done loading recordings...")
 
     if not return_h5_objects:
-        F.close()
+        f.close()
     recgen = RecordingGenerator(rec_dict=rec_dict, info=info)
     return recgen
 
@@ -392,30 +435,27 @@ def save_template_generator(tempgen, filename=None, verbose=True):
     tempgen : TemplateGenerator
         TemplateGenerator object to be saved
     filename : str
-        Path to .h5 file or folder
+        Path to .h5 file
     verbose : bool
         If True output is verbose
     """
     filename = Path(filename)
     if not filename.parent.is_dir():
         os.makedirs(str(filename.parent))
-    if filename.suffix == '.h5' or filename.suffix == '.hdf5':
-        F = h5py.File(filename, 'w')
-        save_dict_to_hdf5(tempgen.info, F, 'info/')
+    assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
+    with h5py.File(filename, 'w') as f:
+        save_dict_to_hdf5(tempgen.info, f, 'info/')
         if len(tempgen.celltypes) > 0:
             celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
-            F.create_dataset('celltypes', data=celltypes)
+            f.create_dataset('celltypes', data=celltypes)
         if len(tempgen.locations) > 0:
-            F.create_dataset('locations', data=tempgen.locations)
+            f.create_dataset('locations', data=tempgen.locations)
         if len(tempgen.rotations) > 0:
-            F.create_dataset('rotations', data=tempgen.rotations)
+            f.create_dataset('rotations', data=tempgen.rotations)
         if len(tempgen.templates) > 0:
-            F.create_dataset('templates', data=tempgen.templates)
-        F.close()
-        if verbose:
-            print('\nSaved  templates in', filename, '\n')
-    else:
-        raise Exception('Provide an .h5 or .hdf5 file name')
+            f.create_dataset('templates', data=tempgen.templates)
+    if verbose:
+        print('\nSaved  templates in', filename, '\n')
 
 
 def save_recording_generator(recgen, filename=None, verbose=False):
@@ -427,49 +467,48 @@ def save_recording_generator(recgen, filename=None, verbose=False):
     recgen : RecordingGenerator
         RecordingGenerator object to be saved
     filename : str
-        Path to .h5 file or folder
+        Path to .h5 file
     verbose : bool
         If True output is verbose
     """
     filename = Path(filename)
     if not filename.parent.is_dir():
         os.makedirs(str(filename.parent))
-    if filename.suffix == '.h5' or filename.suffix == '.hdf5':
-        with h5py.File(filename, 'w') as F:
-            save_dict_to_hdf5(recgen.info, F, 'info/')
-            if len(recgen.voltage_peaks) > 0:
-                F.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
-            if len(recgen.channel_positions) > 0:
-                F.create_dataset('channel_positions', data=recgen.channel_positions)
-            if len(recgen.recordings) > 0:
-                F.create_dataset('recordings', data=recgen.recordings)
-            if len(recgen.spike_traces) > 0:
-                F.create_dataset('spike_traces', data=recgen.spike_traces)
-            if len(recgen.spiketrains) > 0:
-                for ii in range(len(recgen.spiketrains)):
-                    st = recgen.spiketrains[ii]
-                    F.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
-                    F.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
-                    if st.waveforms is not None:
-                        F.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
-                    save_dict_to_hdf5(st.annotations, F, 'spiketrains/{}/annotations/'.format(ii))
-            if len(recgen.templates) > 0:
-                F.create_dataset('templates', data=recgen.templates)
-            if len(recgen.original_templates) > 0:
-                F.create_dataset('original_templates', data=recgen.original_templates)
-            if len(recgen.template_locations) > 0:
-                F.create_dataset('template_locations', data=recgen.template_locations)
-            if len(recgen.template_rotations) > 0:
-                F.create_dataset('template_rotations', data=recgen.template_rotations)
-            if len(recgen.template_celltypes) > 0:
-                celltypes = [n.encode("ascii", "ignore") for n in recgen.template_celltypes]
-                F.create_dataset('template_celltypes', data=celltypes)
-            if len(recgen.timestamps) > 0:
-                F.create_dataset('timestamps', data=recgen.timestamps)
-        if verbose:
-            print('\nSaved recordings in', filename, '\n')
-    else:
-        raise Exception('Provide an .h5 or .hdf5 file name')
+    assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
+    with h5py.File(filename, 'w') as f:
+        f.attrs['mearec_version'] = version
+        save_dict_to_hdf5(recgen.info, f, 'info/')
+        if len(recgen.voltage_peaks) > 0:
+            f.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
+        if len(recgen.channel_positions) > 0:
+            f.create_dataset('channel_positions', data=recgen.channel_positions)
+        if len(recgen.recordings) > 0:
+            f.create_dataset('recordings', data=recgen.recordings)
+        if len(recgen.spike_traces) > 0:
+            f.create_dataset('spike_traces', data=recgen.spike_traces)
+        if len(recgen.spiketrains) > 0:
+            for ii in range(len(recgen.spiketrains)):
+                st = recgen.spiketrains[ii]
+                f.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
+                f.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
+                if st.waveforms is not None:
+                    f.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
+                save_dict_to_hdf5(st.annotations, f, 'spiketrains/{}/annotations/'.format(ii))
+        if len(recgen.templates) > 0:
+            f.create_dataset('templates', data=recgen.templates)
+        if len(recgen.original_templates) > 0:
+            f.create_dataset('original_templates', data=recgen.original_templates)
+        if len(recgen.template_locations) > 0:
+            f.create_dataset('template_locations', data=recgen.template_locations)
+        if len(recgen.template_rotations) > 0:
+            f.create_dataset('template_rotations', data=recgen.template_rotations)
+        if len(recgen.template_celltypes) > 0:
+            celltypes = [n.encode("ascii", "ignore") for n in recgen.template_celltypes]
+            f.create_dataset('template_celltypes', data=celltypes)
+        if len(recgen.timestamps) > 0:
+            f.create_dataset('timestamps', data=recgen.timestamps)
+    if verbose:
+        print('\nSaved recordings in', filename, '\n')
 
 
 def save_dict_to_hdf5(dic, h5file, path):
@@ -600,6 +639,52 @@ def clean_dict(d):
                 else:
                     d[key] = list(item)
     return d
+
+
+def convert_recording_to_new_version(filename, new_filename=None):
+    """
+    Converts MEArec h5 file from a version <1.5 to the new format >=1.5.
+
+    Parameters
+    ----------
+    filename: str
+        Path to original .h5 file
+    new_filename: str (optional)
+        Path to new .h5 file. If None (default), the original file is overwritten
+
+    """
+    filename = Path(filename)
+    assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
+
+    if new_filename is not None:
+        new_filename = Path(new_filename)
+        assert new_filename.suffix in ['.h5', '.hdf5']
+        shutil.copy(filename, new_filename)
+
+    with h5py.File(filename, 'r+') as f:
+        mearec_version = f.attrs.get('mearec_version', '1.4.0')
+
+        if StrictVersion(mearec_version) >= '1.5.0':
+            print("The provided mearec file is already up to date")
+        else:
+            # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file
+            print("Updating file")
+            recordings = f.get('recordings')[:]
+            spike_traces = f.get('spike_traces')[:]
+
+            if new_filename is not None:
+                with h5py.File(new_filename, 'r+') as fnew:
+                    del fnew['recordings']
+                    del fnew['spike_traces']
+                    fnew.create_dataset('recordings', data=recordings.T)
+                    fnew.create_dataset('spike_traces', data=spike_traces.T)
+                    fnew.attrs['mearec_version'] = version
+            else:
+                del f['recordings']
+                del f['spike_traces']
+                f.create_dataset('recordings', data=recordings.T)
+                f.create_dataset('spike_traces', data=spike_traces.T)
+                f.attrs['mearec_version'] = version
 
 
 ### TEMPLATES INFO ###
@@ -1273,7 +1358,7 @@ def resample_templates(templates, n_resample, up, down, drifting, dtype, verbose
             print('Resampling with', n_jobs, 'jobs')
 
         output_list = Parallel(n_jobs=n_jobs)(
-            delayed(_resample_parallel)(i, tem, up, down, drifting,) for i, tem in enumerate(templates))
+            delayed(_resample_parallel)(i, tem, up, down, drifting, ) for i, tem in enumerate(templates))
 
         for i, tem in enumerate(templates):
             template_rs = output_list[i]
@@ -1281,7 +1366,7 @@ def resample_templates(templates, n_resample, up, down, drifting, dtype, verbose
                 if not drifting:
                     templates_rs[i, :, :len(template_rs)] = template_rs
                 else:
-                    templates_rs[i, :, :, :len(template_rs)] =template_rs
+                    templates_rs[i, :, :, :len(template_rs)] = template_rs
             elif template_rs.shape[-1] > templates_rs.shape[-1]:
                 if not drifting:
                     templates_rs[i] = template_rs[:, :templates_rs.shape[-1]]
@@ -1296,7 +1381,7 @@ def resample_templates(templates, n_resample, up, down, drifting, dtype, verbose
                 if not drifting:
                     templates_rs[i, :, :len(template_rs)] = template_rs
                 else:
-                    templates_rs[i, :, :, :len(template_rs)] =template_rs
+                    templates_rs[i, :, :, :len(template_rs)] = template_rs
             elif template_rs.shape[-1] > templates_rs.shape[-1]:
                 if not drifting:
                     templates_rs[i] = template_rs[:, :templates_rs.shape[-1]]
@@ -1358,8 +1443,8 @@ def pad_templates(templates, pad_samples, drifting, dtype, verbose, n_jobs=None,
 
         if verbose:
             print('Padding with', n_jobs, 'jobs')
-        output_list = Parallel(n_jobs=n_jobs)(delayed(_pad_parallel)(i, tem, pad_samples, drifting, verbose,)
-                                                      for i, tem in enumerate(templates))
+        output_list = Parallel(n_jobs=n_jobs)(delayed(_pad_parallel)(i, tem, pad_samples, drifting, verbose, )
+                                              for i, tem in enumerate(templates))
 
         for i, tem in enumerate(templates_pad):
             templates_pad[i] = output_list[i]
@@ -1408,15 +1493,15 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype
                                          dtype=dtype, mode='w+')
         else:
             templates_jitter = np.zeros((templates.shape[0], n_jitters, templates.shape[1],
-                                                          templates.shape[2]))
+                                         templates.shape[2]))
     else:
         if tmp_file is not None:
             templates_jitter = np.memmap(tmp_file, shape=(templates.shape[0], templates.shape[1], n_jitters,
-                                         templates.shape[2], templates.shape[3]),
-                                      dtype=dtype, mode='w+')
+                                                          templates.shape[2], templates.shape[3]),
+                                         dtype=dtype, mode='w+')
         else:
             templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
-                                      templates.shape[2], templates.shape[3]))
+                                         templates.shape[2], templates.shape[3]))
     if parallel:
         if n_jobs is None:
             n_jobs = os.cpu_count() // 2
@@ -1425,13 +1510,13 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype
             print('Jittering with', n_jobs, 'jobs')
 
         output_list = Parallel(n_jobs=n_jobs)(delayed(_jitter_parallel)(i, tem, upsample, fs, n_jitters, jitter,
-                                                                        drifting, verbose,)
-                                                      for i, tem in enumerate(templates))
+                                                                        drifting, verbose, )
+                                              for i, tem in enumerate(templates))
         for i, tem in enumerate(templates_jitter):
             templates_jitter[i] = output_list[i]
     else:
         for i, tem in enumerate(templates):
-            templates_jitter[i] = _jitter_parallel(i, tem, upsample, fs, n_jitters, jitter, drifting, verbose,)
+            templates_jitter[i] = _jitter_parallel(i, tem, upsample, fs, n_jitters, jitter, drifting, verbose, )
 
     return templates_jitter
 
@@ -2101,9 +2186,9 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
     return spike_trace
 
 
-def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples,cut_out=None, modulation=False, mod_array=None,
-                                   verbose=False, bursting=False, shape_stretch=None, template_idxs=None,
-                                   max_channels_per_template=None, recordings=None):
+def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
+                                   mod_array=None, verbose=False, bursting=False, shape_stretch=None,
+                                   template_idxs=None, max_channels_per_template=None, recordings=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
     Parameters
@@ -2423,7 +2508,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
     spiketrains : list
         List of neo spike trains
     recordings : np.array
-        Array with recordings (n_elec, n_samples)
+        Array with recordings (n_samples, n_elec)
     fs : Quantity
         Sampling frequency
     cut_out : float or list
@@ -2439,7 +2524,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
     else:
         n_pad = [int(p * pq.ms * fs.rescale('kHz')) for p in cut_out]
 
-    n_elec, n_samples = recordings.shape
+    n_samples, n_elec = recordings.shape
     if timestamps is None:
         timestamps = np.arange(n_samples) / fs.rescale('Hz')
     unit = timestamps[0].rescale('ms').units
@@ -2455,14 +2540,14 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
                 idx = len(timestamps) - 1
             # find single waveforms crossing thresholds
             if idx - n_pad[0] > 0 and idx + n_pad[1] < n_samples:
-                spike_rec = recordings[:, idx - n_pad[0]:idx + n_pad[1]]
+                spike_rec = recordings[idx - n_pad[0]:idx + n_pad[1]]
             elif idx - n_pad[0] < 0:
-                spike_rec = recordings[:, :idx + n_pad[1]]
-                spike_rec = np.pad(spike_rec, ((0, 0), (np.abs(idx - n_pad[0]), 0)), 'constant')
+                spike_rec = recordings[:idx + n_pad[1]]
+                spike_rec = np.pad(spike_rec, ((np.abs(idx - n_pad[0]), 0), (0, 0)), 'constant')
             elif idx + n_pad[1] > n_samples:
-                spike_rec = recordings[:, idx - n_pad[0]:]
-                spike_rec = np.pad(spike_rec, ((0, 0), (0, idx + n_pad[1] - n_samples)), 'constant')
-            sp_rec_wf.append(spike_rec)
+                spike_rec = recordings[idx - n_pad[0]:]
+                spike_rec = np.pad(spike_rec, ((0, idx + n_pad[1] - n_samples), (0, 0)), 'constant')
+            sp_rec_wf.append(spike_rec.T)
         st.waveforms = np.array(sp_rec_wf)
 
 
@@ -2474,7 +2559,7 @@ def filter_analog_signals(signals, freq, fs, filter_type='bandpass', order=3):
     Parameters
     ----------
     signals : np.array
-        Array of analog signals (n_elec, n_samples)
+        Array of analog signals (n_samples, n_elec)
     freq : list or float
         Cutoff frequency-ies in Hz
     fs : Quantity
@@ -2781,14 +2866,14 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     else:
         start_frame = int(start_time * fs)
     if end_time is None:
-        end_frame = recordings.shape[1]
+        end_frame = recordings.shape[0]
     else:
         end_frame = int(end_time * fs)
 
     if max_channels_per_template is None:
         max_channels_per_template = len(recordings)
 
-    mu.plot_mea_recording(recordings[:, start_frame:end_frame], mea, ax=ax, **kwargs)
+    mu.plot_mea_recording(recordings[start_frame:end_frame, :].T, mea, ax=ax, **kwargs)
 
     if 'vscale' not in kwargs.keys():
         kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
@@ -2808,7 +2893,7 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         spike_idxs = []
         for st in recgen.spiketrains:
             spike_idxs.append((st.times * fs).magnitude.astype('int'))
-        n_samples = recordings.shape[1]
+        n_samples = recordings.shape[0]
 
         if cmap is not None:
             cm = plt.get_cmap(cmap)
@@ -2827,7 +2912,6 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
                 if 'drifting' in recgen.spiketrains[i].annotations.keys():
                     if recgen.spiketrains[i].annotations['drifting']:
                         template_idxs = recgen.spiketrains[i].annotations['template_idxs']
-
                 rec_t = convolve_templates_spiketrains(i, sp, t, n_samples, template_idxs=template_idxs,
                                                        max_channels_per_template=max_channels_per_template,
                                                        cut_out=cut_out_samples).T
@@ -3396,6 +3480,7 @@ def _find_new_drift_template(drift_mode, st_idx, sp_time, pos, template, templat
                        'loc_start': loc_start, 't_start_drift': t_start_drift}
 
     return temp_jitt, temp_idx, new_drift_state
+
 
 def _resample_parallel(i, template, up, down, drifting):
     """

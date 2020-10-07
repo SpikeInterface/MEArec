@@ -31,6 +31,7 @@ setup(
         'h5py',
         'MEAutility',
         'joblib',
+        'lazy_ops'
     ],
     entry_points={'console_scripts': 'mearec=MEArec.cli:cli'}
 )
