@@ -26,9 +26,9 @@ setup(
         'click',
         'pyyaml',
         'matplotlib',
+        'h5py==2.10.0',
         'neo',
         'elephant',
-        'h5py',
         'MEAutility',
         'joblib',
         'lazy_ops'
