@@ -23,7 +23,7 @@ else:
 
 
 ### GET DEFAULT SETTINGS ###
-def get_default_config():
+def get_default_config(print_version=False):
     """
     Returns default_info and mearec_home path.
 
@@ -39,8 +39,9 @@ def get_default_config():
     home = Path(os.path.expanduser("~"))
     mearec_home = home / '.config' / 'mearec'
     version_folder = mearec_home / version
-    
-    print(f"MEarec version: {version}\n")
+
+    if print_version:
+        print(f"MEArec version: {version}\n")
     
     if not mearec_home.is_dir():
         mearec_home.mkdir(exist_ok=True, parents=True)
@@ -58,13 +59,13 @@ def get_default_config():
 
     if not (version_folder / 'mearec.conf').is_file():
         version_folder.mkdir(exist_ok=True, parents=True)
-        shutil.copytree(str(this_dir / 'default_params'), str(mearec_home / 'default_params'))
-        shutil.copytree(str(this_dir / 'cell_models'), str(mearec_home / 'cell_models'))
-        default_info = {'templates_params': str(mearec_home / 'default_params' / 'templates_params.yaml'),
-                        'recordings_params': str(mearec_home / 'default_params' / 'recordings_params.yaml'),
-                        'templates_folder': str(mearec_home / 'templates'),
-                        'recordings_folder': str(mearec_home / 'recordings'),
-                        'cell_models_folder': str(mearec_home / 'cell_models' / 'bbp')}
+        shutil.copytree(str(this_dir / 'default_params'), str(version_folder / 'default_params'))
+        shutil.copytree(str(this_dir / 'cell_models'), str(version_folder / 'cell_models'))
+        default_info = {'templates_params': str(version_folder / 'default_params' / 'templates_params.yaml'),
+                        'recordings_params': str(version_folder / 'default_params' / 'recordings_params.yaml'),
+                        'templates_folder': str(version_folder / 'templates'),
+                        'recordings_folder': str(version_folder / 'recordings'),
+                        'cell_models_folder': str(version_folder / 'cell_models' / 'bbp')}
         with (version_folder / 'mearec.conf').open('w') as f:
             yaml.dump(default_info, f)
     else:

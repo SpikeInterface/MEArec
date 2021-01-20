@@ -495,7 +495,7 @@ def gen_recordings(params, **kwargs):
 @cli.command()
 def default_config():
     """Print default configurations."""
-    info, config = get_default_config()
+    info, config = get_default_config(print_version=True)
     pprint.pprint(info)
 
 
