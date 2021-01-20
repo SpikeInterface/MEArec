@@ -73,7 +73,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     cell_folder = Path(cell_folder)
     mod_folder = cell_folder / 'mods'
     if not mod_folder.is_dir():
-        os.makedirs(str(mod_folder))
+        mod_folder.mkdir(exist_ok=True, parents=True)
 
     neurons = [f for f in cell_folder.iterdir() if 'mods' not in str(f) and not f.name.startswith('.')]
 
@@ -323,7 +323,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
     if save:
         assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
         if not sim_folder.is_dir():
-            os.makedirs(str(sim_folder))
+            sim_folder.mkdir(exist_ok=True, parents=True)
 
         imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
         vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
@@ -384,7 +384,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 v_spikes[idx, :] = v_spike
 
             if not sim_folder.is_dir():
-                os.makedirs(str(sim_folder))
+                sim_folder.mkdir(exist_ok=True, parents=True)
             np.save(str(sim_folder / f'imem_{num_spikes - 1}_{cell_name}.npy'), i_spikes)
             np.save(str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
 
@@ -589,7 +589,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         save_folder = sim_folder / f'tmp_{target_num_spikes}_{MEAname}'
 
         if not save_folder.is_dir():
-            os.makedirs(str(save_folder))
+            save_folder.mkdir(exist_ok=True, parents=True)
 
     if verbose:
         print(f'Cell {cell_save_name} extracellular spikes to be simulated')
