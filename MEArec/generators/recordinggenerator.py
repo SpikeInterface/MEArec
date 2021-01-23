@@ -110,6 +110,10 @@ class RecordingGenerator:
                 self.spike_traces = rec_dict['spike_traces']
             else:
                 self.spike_traces = np.array([])
+            if 'template_ids' in rec_dict.keys():
+                self.template_ids = rec_dict['template_ids']
+            else:
+                self.template_ids = None
             self.info = deepcopy(info)
             self.params = deepcopy(info)
             if len(self.spiketrains) > 0:
