@@ -216,12 +216,13 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
 
     if tempgen is not None:
         if isinstance(tempgen, (str, Path)):
-            tempgen_l = load_templates(tempgen)
+            tempgen_arg = load_templates(tempgen)
         else:
-            print(type(tempgen))
             assert isinstance(tempgen, MEArec.generators.templategenerator.TemplateGenerator), \
                 "'tempgen' should be a TemplateGenerator"
-            tempgen_l = tempgen
+            tempgen_arg = tempgen
+    else:
+        tempgen_arg = tempgen
 
     if templates_tmp_folder is not None:
         if not Path(templates_tmp_folder).is_dir():
@@ -230,7 +231,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
     tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
                                 params=params_dict,
                                 templates_folder=templates_tmp_folder,
-                                tempgen=tempgen_l,
+                                tempgen=tempgen_arg,
                                 intraonly=intraonly,
                                 parallel=parallel,
                                 recompile=recompile,
