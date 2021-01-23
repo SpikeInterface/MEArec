@@ -72,8 +72,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     """
     cell_folder = Path(cell_folder)
     mod_folder = cell_folder / 'mods'
-    if not mod_folder.is_dir():
-        mod_folder.mkdir(exist_ok=True, parents=True)
+    mod_folder.mkdir(exist_ok=True, parents=True)
 
     neurons = [f for f in cell_folder.iterdir() if 'mods' not in str(f) and not f.name.startswith('.')]
 
@@ -123,7 +122,7 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
     cwd = os.getcwd()
     os.chdir(cell_folder)
     if verbose:
-        print("Simulating ", cell_folder)
+        print(f"Simulating {cell_folder}")
 
     neuron.load_mechanisms(str(Path(cell_folder).parent / 'mods'))
 
@@ -322,8 +321,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
 
     if save:
         assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
-        if not sim_folder.is_dir():
-            sim_folder.mkdir(exist_ok=True, parents=True)
+        sim_folder.mkdir(exist_ok=True, parents=True)
 
         imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
         vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
@@ -361,7 +359,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 num_spikes = len(spikes)
 
                 if verbose:
-                    print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
+                    print(f"Input weight: {weight} - Num Spikes: {num_spikes}")
                 if num_spikes >= target_spikes[1]:
                     weight *= weights[0]
                 elif num_spikes <= target_spikes[0]:
@@ -383,8 +381,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 i_spikes[idx, :, :] = i_spike
                 v_spikes[idx, :] = v_spike
 
-            if not sim_folder.is_dir():
-                sim_folder.mkdir(exist_ok=True, parents=True)
+            sim_folder.mkdir(exist_ok=True, parents=True)
             np.save(str(sim_folder / f'imem_{num_spikes - 1}_{cell_name}.npy'), i_spikes)
             np.save(str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
 
@@ -422,7 +419,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
             num_spikes = len(spikes)
 
             if verbose:
-                print("Input weight: ", weight, " - Num Spikes: ", num_spikes)
+                print(f"Input weight: {weight} - Num Spikes: {num_spikes}")
             if num_spikes >= target_spikes[1]:
                 weight *= weights[0]
             elif num_spikes <= target_spikes[0]:
@@ -498,7 +495,7 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
 
 
 def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0, verbose=False, position=None,
-                       save=True, custom_return_cell_function=None, **kwargs):
+                       custom_return_cell_function=None, cell_locations=None, cell_rotations=None, save=True, **kwargs):
     """
     Loads data from previous cell simulation, and use results to generate
     arbitrary number of spikes above a certain noise level.
@@ -519,6 +516,11 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         Python function to to return an LFPy cell from the cell_model_folder
     save : bool
         If True eaps are saved in the 'save_sim_folder'. If False eaps, positions, and rotations are returned as arrays
+    cell_locations: np.array or None
+        If passed, the passed locations are used (instead of random generation)
+    cell_rotations: np.array or None
+        If passed, the passed rotations are used (instead of random generation). Must be set if cell_locations is not
+        None
     **kwargs: keyword arguments
         Template generation parameters (use mr.get_default_template_parameters() to retrieve the arguments)
 
@@ -545,6 +547,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     min_amp = kwargs['min_amp']
     MEAname = kwargs['probe']
     drifting = kwargs['drifting']
+
     if drifting:
         max_drift = kwargs['max_drift']
         min_drift = kwargs['min_drift']
@@ -572,10 +575,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     v_spikes = np.load(str(vmem_file))
     cell.tvec = np.arange(i_spikes.shape[-1]) * dt
 
-    save_spikes = []
-    save_pos = []
-    save_rot = []
-    save_offs = []
+    saved_eaps = []
+    saved_positions = []
+    saved_rotations = []
     target_num_spikes = int(nobs)
 
     # load MEA info
@@ -587,9 +589,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         save_sim_folder = Path(save_sim_folder)
         sim_folder = save_sim_folder / rotation
         save_folder = sim_folder / f'tmp_{target_num_spikes}_{MEAname}'
-
-        if not save_folder.is_dir():
-            save_folder.mkdir(exist_ok=True, parents=True)
+        save_folder.mkdir(exist_ok=True, parents=True)
 
     if verbose:
         print(f'Cell {cell_save_name} extracellular spikes to be simulated')
@@ -614,58 +614,61 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         z_lim = [float(np.min(elec_z) - overhang),
                  float(np.max(elec_z) + overhang)]
 
-    ignored = 0
     saved = 0
     i = 0
+    saved_amplitudes = []
 
-    while len(save_spikes) < target_num_spikes:
-        if i > 1000 * target_num_spikes:
-            if verbose:
-                print("Gave up finding spikes above noise level for %s" % cell_name)
-            break
-        spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
-        cell.imem = i_spikes[spike_idx, :, :]
-        cell.somav = v_spikes[spike_idx, :]
+    if cell_locations is not None:
+        assert cell_rotations is not None
 
-        if not drifting:
-            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
-                                                                 electrodes=electrodes,
-                                                                 limits=[x_lim, y_lim, z_lim], rotation=rotation,
-                                                                 pos=position)
-            # Method of Images for semi-infinite planes
-            if elinfo['type'] == 'mea':
-                espikes = espikes * 2
-
-            if check_espike(espikes, min_amp):
-                espikes = center_espike(espikes, cut_out)
-                save_spikes.append(espikes)
-                save_pos.append(pos)
-                save_rot.append(rot)
-                save_offs.append(offs)
-                plot_spike = False
+    if cell_locations is None:
+        while len(saved_eaps) < target_num_spikes:
+            if i > 1000 * target_num_spikes:
                 if verbose:
-                    print('Cell: ' + cell_name + ' Progress: [' +
-                          str(len(save_spikes)) + '/' + str(target_num_spikes) + ']')
-                saved += 1
-        else:
+                    print(f"Gave up finding spikes above noise level for {cell_name}")
+                break
+            spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
+            cell.imem = i_spikes[spike_idx, :, :]
+            cell.somav = v_spikes[spike_idx, :]
+
             espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
                                                                  electrodes=electrodes,
                                                                  limits=[x_lim, y_lim, z_lim], rotation=rotation,
                                                                  pos=position)
-
             # Method of Images for semi-infinite planes
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
 
-            if x_lim[0] < pos[0] - drift_x_lim[0] < x_lim[1] and \
-                    y_lim[0] < pos[1] - drift_y_lim[0] < y_lim[1] and \
-                    z_lim[0] < pos[2] - drift_z_lim[0] < z_lim[1]:
+            if not drifting:
                 if check_espike(espikes, min_amp):
+                    skip = skip_duplicate(pos, saved_positions, drifting, verbose)
+                    if skip:
+                        continue
+
+                    espikes = center_espike(espikes, cut_out)
+                    saved_eaps.append(espikes)
+                    saved_positions.append(pos)
+                    saved_rotations.append(rot)
+                    if verbose:
+                        print(f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
+                    saved += 1
+            else:
+                check_drift_amp = False
+                final_pos_within_lims = False
+
+                if check_espike(espikes, min_amp):
+                    print('Amp:', np.round(np.abs(np.min(espikes)), 1))
+
+                    skip = skip_duplicate(pos, saved_positions, drifting, verbose)
+                    if skip:
+                        continue
+
                     drift_ok = False
                     # fix rotation while drifting
                     cell.set_rotation(rot[0], rot[1], rot[2])
                     max_trials = 100
                     tr = 0
+
                     while not drift_ok and tr < max_trials:
                         init_pos = pos
                         # find drifting final position within drift limits
@@ -676,34 +679,43 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
 
                         # check location and boundaries
-                        if max_drift > drift_dist > min_drift and \
-                                x_lim[0] < x_rand < x_lim[1] and \
-                                y_lim[0] < y_rand < y_lim[1] and \
-                                z_lim[0] < z_rand < z_lim[1]:
-                            espikes, pos, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
-                                                                                  model_type=model_type,
-                                                                                  electrodes=electrodes,
-                                                                                  limits=[x_lim, y_lim, z_lim],
-                                                                                  rotation=None,
-                                                                                  pos=final_pos)
-                            # check final position spike amplitude
-                            if check_espike(espikes, min_amp):
-                                if verbose:
-                                    print('Found final drifting position')
-                                drift_ok = True
-                            else:
+                        if final_pos_within_lims:
+                            if not (x_lim[0] < x_rand < x_lim[1] and y_lim[0] < y_rand < y_lim[1] and
+                                    z_lim[0] < z_rand < z_lim[1]):
+                                print(f"Discarded for final drift position {cell_name}")
                                 tr += 1
-                                pass
+                                continue
+                        if max_drift > drift_dist > min_drift:
+                            if check_drift_amp:
+                                # check final position spike amplitude
+                                espikes, pos, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                                      model_type=model_type,
+                                                                                      electrodes=electrodes,
+                                                                                      limits=[x_lim, y_lim, z_lim],
+                                                                                      rotation=None,
+                                                                                      pos=final_pos)
+                                # Method of Images for semi-infinite planes
+                                if elinfo['type'] == 'mea':
+                                    espikes = espikes * 2
+
+                                if check_espike(espikes, min_amp):
+                                    if verbose:
+                                        print('Found final drifting position')
+                                    drift_ok = True
+                                else:
+                                    tr += 1
+                                    print(f"Discarded for final drift amplitude {cell_name}")
+                                    continue
+                            else:
+                                drift_ok = True
                         else:
                             tr += 1
-                            pass
+                            print(f"Discarded for drift distance {cell_name}")
 
                     # now compute drifting templates
                     if drift_ok:
                         drift_spikes = []
                         drift_pos = []
-                        drift_rot = []
-                        drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
                         drift_dir = np.array(final_pos) - np.array(init_pos)
                         for i, dp in enumerate(np.linspace(0, 1, drift_steps)):
                             pos_drift = init_pos + dp * drift_dir
@@ -713,10 +725,12 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                                                                                 limits=[x_lim, y_lim, z_lim],
                                                                                 rotation=None,
                                                                                 pos=pos_drift)
+                            # Method of Images for semi-infinite planes
+                            if elinfo['type'] == 'mea':
+                                espikes = espikes * 2
                             espikes = center_espike(espikes, cut_out)
                             drift_spikes.append(espikes)
                             drift_pos.append(pos)
-                            drift_rot.append(rot)
 
                         # reverse rotation
                         rev_rot = [-r for r in rot]
@@ -725,36 +739,96 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         drift_spikes = np.array(drift_spikes)
                         drift_pos = np.array(drift_pos)
                         if verbose:
-                            print('Drift done from ', init_pos, ' to ', final_pos, ' with ', drift_steps, ' steps')
+                            print(f'Drift done from {np.round(init_pos, 1)} to {np.round(final_pos, 1)} um'
+                                  f' with {drift_steps} steps')
 
-                        save_spikes.append(drift_spikes)
-                        save_pos.append(drift_pos)
-                        save_rot.append(rot)
-                        save_offs.append(offs)
+                        amp = np.round(np.max(np.abs(drift_spikes[0])), 3)
+
+                        saved_amplitudes.append(amp)
+                        saved_eaps.append(drift_spikes)
+                        saved_positions.append(drift_pos)
+                        saved_rotations.append(rot)
                         if verbose:
-                            print('Cell: ' + cell_name + ' Progress: [' + str(len(save_spikes)) + '/' +
-                                  str(target_num_spikes) + ']')
+                            print(f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
                         saved += 1
                     else:
                         if verbose:
-                            print('Discarded for trials')
+                            print(f'Discarded for trials {cell_name}')
                 else:
+                    print(f"Discarded for minimum amp {cell_name}")
                     pass
-            else:
-                if verbose:
-                    print('Discarded position: ', pos)
-        i += 1
+            i += 1
+    else:
+        for (loc, rot) in zip(cell_locations, cell_rotations):
+            spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
+            cell.imem = i_spikes[spike_idx, :, :]
+            cell.somav = v_spikes[spike_idx, :]
+            cell.set_rotation(rot[0], rot[1], rot[2])
 
-    save_spikes = np.array(save_spikes)
-    save_pos = np.array(save_pos)
-    save_rot = np.array(save_rot)
+            if not drifting:
+                if loc.ndim == 1:
+                    pos = loc
+                elif loc.ndim == 1:
+                    # take first drifting location
+                    pos = loc[0]
+                print(cell_name, np.round(pos, 2))
+                espikes, pos_, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                       model_type=model_type,
+                                                                       electrodes=electrodes,
+                                                                       limits=[x_lim, y_lim, z_lim], rotation=None,
+                                                                       pos=pos)
+                # Method of Images for semi-infinite planes
+                if elinfo['type'] == 'mea':
+                    espikes = espikes * 2
+
+                espikes = center_espike(espikes, cut_out)
+                saved_eaps.append(espikes)
+                saved_positions.append(pos)
+                saved_rotations.append(rot)
+            else:
+                assert loc.ndim == 2
+                drift_spikes = []
+                print(cell_name, np.round(loc[0], 2))
+                for pos_drift in loc:
+                    espikes, pos, r_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                        model_type=model_type,
+                                                                        electrodes=electrodes,
+                                                                        limits=[x_lim, y_lim, z_lim],
+                                                                        rotation=None,
+                                                                        pos=pos_drift)
+                    # Method of Images for semi-infinite planes
+                    if elinfo['type'] == 'mea':
+                        espikes = espikes * 2
+                    espikes = center_espike(espikes, cut_out)
+                    drift_spikes.append(espikes)
+
+                saved_eaps.append(drift_spikes)
+                saved_positions.append(loc)
+                saved_rotations.append(rot)
+
+            # reverse rotation
+            rev_rot = [-r for r in rot]
+            cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
+
+            if verbose:
+                print(f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
+            saved += 1
+        else:
+            pass
+
+    if verbose:
+        print(f"Done generating EAPs for {cell_name}")
+
+    saved_eaps = np.array(saved_eaps)
+    saved_positions = np.array(saved_positions)
+    saved_rotations = np.array(saved_rotations)
 
     if save:
-        np.save(str(save_folder / f'eap-{cell_save_name}'), save_spikes)
-        np.save(str(save_folder / f'pos-{cell_save_name}'), save_pos)
-        np.save(str(save_folder / f'rot-{cell_save_name}'), save_rot)
+        np.save(str(save_folder / f'eap-{cell_save_name}'), saved_eaps)
+        np.save(str(save_folder / f'pos-{cell_save_name}'), saved_positions)
+        np.save(str(save_folder / f'rot-{cell_save_name}'), saved_rotations)
     else:
-        return save_spikes, save_pos, save_rot
+        return saved_eaps, saved_positions, saved_rotations
 
 
 def check_espike(espikes, min_amp):
@@ -772,14 +846,11 @@ def check_espike(espikes, min_amp):
     -------
     valid: bool
         If True EAP is valid
-
     """
-    valid = True
-    if np.max(np.abs(np.min(espikes))) < min_amp:
-        valid = False
-    if np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
-        valid = False
-    return valid
+    if np.abs(np.min(espikes)) < min_amp or np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
+        return False
+    else:
+        return True
 
 
 def center_espike(espike, cut_out_samples, tol=1):
@@ -821,6 +892,40 @@ def center_espike(espike, cut_out_samples, tol=1):
     assert np.abs(expexted_peak - cent_peak_idx) < tol, "Something went wrong in centering the spike"
 
     return cent_espike
+
+
+def skip_duplicate(pos, saved_positions, drifting, verbose):
+    """
+    Checks if a position has to be skipped because already used.
+
+    Parameters
+    ----------
+    pos: 3d array
+        The position to be tested
+    saved_positions: list
+        The list of 3d positions already saved
+    drifting: bool
+        Whether templates are drifting or not
+    verbose: bool
+        If True, the output is verbose
+
+    Returns
+    -------
+    skip_duplicate: bool
+        If True, the position should be skipped because it's a duplicate
+    """
+    skip_duplicate = False
+    if len(saved_positions) > 0:
+        for pos_s in saved_positions:
+            if not drifting:
+                test_pos = pos_s
+            else:
+                test_pos = pos_s[0]
+            if np.all(np.round(test_pos, 2) == np.round(pos, 2)):
+                if verbose:
+                    print(f"Duplicated position: {np.round(pos, 2)} -- {np.round(pos_s[0], 2)}. Skipping")
+                skip_duplicate = True
+    return skip_duplicate
 
 
 def get_physrot_specs(cell_name, model):
@@ -1123,15 +1228,70 @@ def simulate_templates_one_cell(cell_model, intra_save_folder, params, verbose, 
     '''
     run_cell_model(cell_model, save=True, sim_folder=intra_save_folder, verbose=verbose,
                    custom_return_cell_function=custom_return_cell_function, **params)
-    print('Extracellular simulation: ', cell_model)
+    print(f'Extracellular simulation: {cell_model}')
     eaps, locs, rots = calc_extracellular(cell_model, intra_save_folder, verbose=verbose,
                                           save=False, custom_return_cell_function=custom_return_cell_function, **params)
 
     return eaps, locs, rots
 
 
-if __name__ == '__main__':
+def compile_models(cell_folder):
+    compile_all_mechanisms(cell_folder)
+    print(f"Compiled all cell models in {cell_folder}")
 
+
+def compute_eap_for_cell_model(cell_model, params_path, intraonly=False, verbose=False):
+    with open(params_path, 'r') as f:
+        if use_loader:
+            params = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            params = yaml.load(f)
+
+    extra_sim_folder = params['templates_folder']
+    vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
+
+    print(f'Intracellular simulation: {cell_model}')
+    run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+    if not intraonly:
+        print(f'Extracellular simulation: {cell_model}')
+        calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
+                           load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+
+
+def compute_eap_based_on_tempgen(cell_folder, params_path,
+                                 tempgen, intraonly=False, verbose=False):
+    with open(params_path, 'r') as f:
+        if use_loader:
+            params = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            params = yaml.load(f)
+
+    extra_sim_folder = params['templates_folder']
+    vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
+
+    celltypes = np.unique(tempgen.celltypes)
+
+    for celltype in celltypes:
+        celltype_idxs = np.where(tempgen.celltypes == celltype)
+        if np.any(np.diff(celltype_idxs) != 1):
+            raise NotImplementedError("Cell types in the template generator must be contiguous.")
+
+
+    # print(f'Intracellular simulation: {cell_model}')
+    for celltype in celltypes:
+        cell_model = cell_folder / celltype
+        run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+        celltype_idxs = np.where(tempgen.celltypes == celltype)
+        cell_locations = tempgen.locations[celltype_idxs]
+        cell_rotations = tempgen.rotations[celltype_idxs]
+        if not intraonly:
+            print(f'Extracellular simulation: {cell_model}')
+            calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
+                               load_sim_folder=vm_im_sim_folder, verbose=verbose, cell_locations=cell_locations,
+                               cell_rotations=cell_rotations, **params)
+
+
+if __name__ == '__main__':
     if len(sys.argv) == 3 and sys.argv[1] == 'compile':
         cell_folder = sys.argv[2]
         compile_all_mechanisms(cell_folder)
@@ -1155,9 +1315,9 @@ if __name__ == '__main__':
         extra_sim_folder = params['templates_folder']
         vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
 
-        print('Intracellular simulation: ', cell_model)
+        print(f'Intracellular simulation: {cell_model}')
         run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
         if not intraonly:
-            print('Extracellular simulation: ', cell_model)
+            print(f'Extracellular simulation: {cell_model}')
             calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
                                load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)

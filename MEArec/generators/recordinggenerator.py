@@ -141,6 +141,8 @@ class RecordingGenerator:
         # temp file that should remove on delete
         self._to_remove_on_delete = []
         self.tmp_folder = None
+        self.template_ids = None
+        self.n_jobs = None
         self._is_tmp_folder_local = False
 
     def __del__(self):
@@ -168,7 +170,7 @@ class RecordingGenerator:
         self.recordings = None
         self.spike_traces = None
 
-    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, n_jobs=0):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, template_ids=None, n_jobs=0):
         """
         Generates recordings
 
@@ -187,6 +189,7 @@ class RecordingGenerator:
 
         self.tmp_mode = tmp_mode
         self.tmp_folder = tmp_folder
+        self.template_ids = template_ids
         self.n_jobs = n_jobs
 
         if tmp_mode is not None:
@@ -651,28 +654,39 @@ class RecordingGenerator:
 
                 if verbose_1:
                     print('Selecting cells')
-                idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim, y_lim=y_lim,
-                                                            z_lim=z_lim, min_amp=min_amp, max_amp=max_amp,
-                                                            min_dist=min_dist, drifting=drifting,
-                                                            drift_dir=drift_directions,
-                                                            preferred_dir=preferred_dir, angle_tol=angle_tol,
-                                                            n_overlap_pairs=n_overlap_pairs,
-                                                            overlap_threshold=overlap_threshold,
-                                                            verbose=verbose_2)
 
-                if not np.any('U' in  selected_cat):
-                    assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
-                    # Reorder templates according to E-I types
-                    reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                if self.template_ids is None:
+                    idxs_cells, selected_cat = select_templates(locs, eaps, bin_cat, n_exc, n_inh, x_lim=x_lim,
+                                                                y_lim=y_lim, z_lim=z_lim, min_amp=min_amp,
+                                                                max_amp=max_amp, min_dist=min_dist, drifting=drifting,
+                                                                drift_dir=drift_directions,
+                                                                preferred_dir=preferred_dir, angle_tol=angle_tol,
+                                                                n_overlap_pairs=n_overlap_pairs,
+                                                                overlap_threshold=overlap_threshold,
+                                                                verbose=verbose_2)
+
+                    if not np.any('U' in  selected_cat):
+                        assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
+                        # Reorder templates according to E-I types
+                        reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
+                    else:
+                        reordered_idx_cells = idxs_cells
+
+                    template_celltypes = celltypes[reordered_idx_cells]
+                    template_locs = np.array(locs)[reordered_idx_cells]
+                    template_rots = np.array(rots)[reordered_idx_cells]
+                    template_bin = np.array(bin_cat)[reordered_idx_cells]
+                    templates = np.array(eaps)[reordered_idx_cells]
+                    self.original_templates = templates
+                    self.template_ids = reordered_idx_cells
                 else:
-                    reordered_idx_cells = idxs_cells
-
-                template_celltypes = celltypes[reordered_idx_cells]
-                template_locs = np.array(locs)[reordered_idx_cells]
-                template_rots = np.array(rots)[reordered_idx_cells]
-                template_bin = np.array(bin_cat)[reordered_idx_cells]
-                templates = np.array(eaps)[reordered_idx_cells]
-                self.original_templates = templates
+                    print(f"Using provided template ids: {self.template_ids}")
+                    template_celltypes = celltypes[self.template_ids]
+                    template_locs = np.array(locs)[self.template_ids]
+                    template_rots = np.array(rots)[self.template_ids]
+                    template_bin = np.array(bin_cat)[self.template_ids]
+                    templates = np.array(eaps)[self.template_ids]
+                    self.original_templates = templates
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)

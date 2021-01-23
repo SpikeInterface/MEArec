@@ -28,6 +28,7 @@ setup(
         'matplotlib',
         'h5py==2.10.0',
         'neo',
+        'quantities',
         'elephant',
         'MEAutility',
         'joblib',
