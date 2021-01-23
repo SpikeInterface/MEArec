@@ -134,6 +134,18 @@ def get_default_recordings_params():
     return recordings_params
 
 
+def available_probes():
+    """
+    Returns list of available probes
+
+    Returns
+    -------
+    probe_list : list
+        List of available probes in MEAutility
+    """
+    return mu.return_mea_list()
+
+
 ### LOAD FUNCTIONS ###
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
     """

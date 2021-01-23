@@ -240,26 +240,27 @@ class TemplateGenerator:
                                              tempgen=self.tempgen,
                                              intraonly=intraonly,
                                              verbose=self._verbose)
-            tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
 
-            if not Path(tmp_folder).is_dir():
-                raise FileNotFoundError(
-                    f'{tmp_folder} not found. Something went wrong in the template generation phase.')
+        tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
 
-            templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
-            if delete_tmp:
-                shutil.rmtree(tmp_folder)
-                os.remove(tmp_params_path)
+        if not Path(tmp_folder).is_dir():
+            raise FileNotFoundError(
+                f'{tmp_folder} not found. Something went wrong in the template generation phase.')
 
-            self.info = {}
+        templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
+        if delete_tmp:
+            shutil.rmtree(tmp_folder)
+            os.remove(tmp_params_path)
 
-            self.templates = templates
-            self.locations = locations
-            self.rotations = rotations
-            self.celltypes = celltypes
+        self.info = {}
 
-            self.info['params'] = self.params
-            self.info['electrodes'] = mu.return_mea_info(probe)
+        self.templates = templates
+        self.locations = locations
+        self.rotations = rotations
+        self.celltypes = celltypes
 
-            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
+        self.info['params'] = self.params
+        self.info['electrodes'] = mu.return_mea_info(probe)
+
+        print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
 
