@@ -20,7 +20,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-local_temp = True
+local_temp = False
 
 
 class TestGenerators(unittest.TestCase):
@@ -130,8 +130,6 @@ class TestGenerators(unittest.TestCase):
         assert len(self.tempgen_drift.rotations) == (n * num_cells)
         assert len(self.tempgen_drift.celltypes) == (n * num_cells)
         assert len(np.unique(self.tempgen_drift.celltypes)) == num_cells
-        assert np.min(self.tempgen_drift.locations[:, :, 0]) > templates_params['xlim'][0] \
-               and np.max(self.tempgen_drift.locations[:, :, 0]) < templates_params['xlim'][1]
         assert self.tempgen_drift.templates.shape[1] == self.num_steps_drift
 
     def test_gen_spiketrains(self):

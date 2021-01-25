@@ -140,12 +140,12 @@ class RecordingGenerator:
             self.spgen = spgen
             self.tempgen = tempgen
             self.tmp_mode = None
+            self.template_ids = None
 
         self.overlapping = []
         # temp file that should remove on delete
         self._to_remove_on_delete = []
         self.tmp_folder = None
-        self.template_ids = None
         self.n_jobs = None
         self._is_tmp_folder_local = False
 
@@ -186,9 +186,13 @@ class RecordingGenerator:
         tmp_folder: str or Path
             In case of tmp files, you can specify the folder.
             If None, then it is automatic using tempfile.mkdtemp()
+        n_jobs: int
+            if >1 then use joblib to execute chunk in parallel else in loop
+        template_ids: list or None
+            If None, templates are selected randomly based on selection rules. If a list of indices is provided, the
+            indices are used to select templates (template selection is bypassed)
         verbose: bool or int
             Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
-        n_jobs: int if >1 then use joblib to execute chunk in parallel else in loop
         """
 
         self.tmp_mode = tmp_mode

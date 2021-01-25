@@ -46,6 +46,9 @@ class TemplateGenerator:
         Info dictionary to instantiate TemplateGenerator with existing data. It contains the following fields:
           - params : dict with template generation parameters
           - electrodes : dict with probe info (from MEAutility.return_mea_info('probe-name'))
+    tempgen : TemplateGenerator
+        If a TemplateGenerator is passed, the cell types, locations, and rotations of the templates will be set using
+        the provided templates
     params : dict
         Dictionary with parameters to simulate templates. Default values can be retrieved with
         mr.get_default_template_params()
@@ -63,9 +66,9 @@ class TemplateGenerator:
         If True, output is verbose
     """
 
-    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
+    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None, tempgen=None,
                  params=None, intraonly=False, parallel=True, recompile=False, n_jobs=None, delete_tmp=True,
-                 tempgen=None, verbose=False):
+                 verbose=False):
         self._verbose = verbose
         if temp_dict is not None and info is not None:
             if 'templates' in temp_dict.keys():
@@ -191,6 +194,10 @@ class TemplateGenerator:
             self.params['drift_ylim'] = [-10, 10]
         if 'drift_zlim' not in self.params.keys():
             self.params['drift_zlim'] = [20, 80]
+        if 'check_for_drift_amp' not in self.params.keys():
+            self.params['check_for_drift_amp'] = False
+        if 'drift_within_bounds' not in self.params.keys():
+            self.params['drift_within_bounds'] = False
 
         rot = self.params['rot']
         n = self.params['n']

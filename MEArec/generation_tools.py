@@ -34,7 +34,10 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
     tmp_mode : None, 'h5' 'memmap'
         Use temporary file h5 memmap or None
-        None is no temporary file.
+        None is no temporary file
+    template_ids: list or None
+        If None, templates are selected randomly based on selection rules. If a list of indices is provided, the
+        indices are used to select templates (template selection is bypassed)
     tmp_folder: str or Path
         In case of tmp files, you can specify the folder.
         If None, then it is automatic using tempfile.mkdtemp()
@@ -182,6 +185,9 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
         Path to parameters yaml file or parameters dictionary
     templates_tmp_folder: str
         Path to temporary folder where templates are temporarily saved
+    tempgen :  TemplateGenerator
+        If a TemplateGenerator is passed, the cell types, locations, and rotations of the templates will be set using
+        the provided templates
     intraonly : bool
         if True, only intracellular simulation is run
     parallel : bool

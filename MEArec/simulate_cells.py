@@ -555,6 +555,8 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         drift_x_lim = kwargs['drift_xlim']
         drift_y_lim = kwargs['drift_ylim']
         drift_z_lim = kwargs['drift_zlim']
+        check_for_drift_amp = kwargs['check_for_drift_amp']
+        drift_within_bounds = kwargs['drift_within_bounds']
 
     if custom_return_cell_function is None:
         return_function = return_bbp_cell
@@ -619,7 +621,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     saved_amplitudes = []
 
     if cell_locations is not None:
-        assert cell_rotations is not None
+        assert cell_rotations is not None, "If 'cell_locations' is not None, 'cell_rotations' should be given"
 
     if cell_locations is None:
         while len(saved_eaps) < target_num_spikes:
@@ -653,11 +655,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         print(f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
                     saved += 1
             else:
-                check_drift_amp = False
-                final_pos_within_lims = False
-
                 if check_espike(espikes, min_amp):
-                    print('Amp:', np.round(np.abs(np.min(espikes)), 1))
+                    if verbose:
+                        print('Amp:', np.round(np.abs(np.min(espikes)), 1))
 
                     skip = skip_duplicate(pos, saved_positions, drifting, verbose)
                     if skip:
@@ -679,14 +679,15 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         drift_dist = np.linalg.norm(np.array(init_pos) - np.array(final_pos))
 
                         # check location and boundaries
-                        if final_pos_within_lims:
+                        if drift_within_bounds:
                             if not (x_lim[0] < x_rand < x_lim[1] and y_lim[0] < y_rand < y_lim[1] and
                                     z_lim[0] < z_rand < z_lim[1]):
-                                print(f"Discarded for final drift position {cell_name}")
+                                if verbose:
+                                    print(f"Discarded for final drift position {cell_name}")
                                 tr += 1
                                 continue
                         if max_drift > drift_dist > min_drift:
-                            if check_drift_amp:
+                            if check_for_drift_amp:
                                 # check final position spike amplitude
                                 espikes, pos, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
                                                                                       model_type=model_type,
@@ -704,13 +705,15 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                                     drift_ok = True
                                 else:
                                     tr += 1
-                                    print(f"Discarded for final drift amplitude {cell_name}")
+                                    if verbose:
+                                        print(f"Discarded for final drift amplitude {cell_name}")
                                     continue
                             else:
                                 drift_ok = True
                         else:
                             tr += 1
-                            print(f"Discarded for drift distance {cell_name}")
+                            if verbose:
+                                print(f"Discarded for drift distance {cell_name}")
 
                     # now compute drifting templates
                     if drift_ok:
@@ -755,10 +758,12 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         if verbose:
                             print(f'Discarded for trials {cell_name}')
                 else:
-                    print(f"Discarded for minimum amp {cell_name}")
+                    if verbose:
+                        print(f"Discarded for minimum amp {cell_name}")
                     pass
             i += 1
     else:
+        target_num_spikes = len(cell_locations)
         for (loc, rot) in zip(cell_locations, cell_rotations):
             spike_idx = np.random.randint(0, i_spikes.shape[0])  # Each cell has several spikes to choose from
             cell.imem = i_spikes[spike_idx, :, :]
@@ -771,7 +776,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                 elif loc.ndim == 1:
                     # take first drifting location
                     pos = loc[0]
-                print(cell_name, np.round(pos, 2))
+
                 espikes, pos_, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
                                                                        model_type=model_type,
                                                                        electrodes=electrodes,
@@ -788,7 +793,6 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
             else:
                 assert loc.ndim == 2
                 drift_spikes = []
-                print(cell_name, np.round(loc[0], 2))
                 for pos_drift in loc:
                     espikes, pos, r_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
                                                                         model_type=model_type,
