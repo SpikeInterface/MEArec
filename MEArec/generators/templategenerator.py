@@ -210,8 +210,8 @@ class TemplateGenerator:
             yaml.dump(self.params, f)
 
         if self.tempgen is not None and parallel and self.n_jobs not in (0, 1):
-            print("Generation of templates from a template generator is only supported without parallel processing."
-                  "Setting parallel to False")
+            print("\nWARNING: Generation of templates from a template generator is only supported without parallel "
+                  "processing. Setting parallel to False\n")
             parallel = False
 
         # Simulate neurons and EAP for different cell models separately
@@ -230,7 +230,6 @@ class TemplateGenerator:
                                                                      cell_models_folder, intraonly, tmp_params_path,
                                                                      self._verbose, )
                                     for i, cell_model in enumerate(cell_models))
-            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
         else:
             start_time = time.time()
             if self.tempgen is None:

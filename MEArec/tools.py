@@ -2890,10 +2890,10 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     if max_channels_per_template is None:
         max_channels_per_template = len(recordings)
 
-    mu.plot_mea_recording(recordings[start_frame:end_frame, :].T, mea, ax=ax, **kwargs)
-
     if 'vscale' not in kwargs.keys():
         kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
+
+    mu.plot_mea_recording(recordings[start_frame:end_frame, :].T, mea, ax=ax, **kwargs)
 
     if overlay_templates:
         if 'lw' in kwargs.keys():

@@ -224,7 +224,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
         if isinstance(tempgen, (str, Path)):
             tempgen_arg = load_templates(tempgen)
         else:
-            assert isinstance(tempgen, MEArec.generators.templategenerator.TemplateGenerator), \
+            assert isinstance(tempgen, TemplateGenerator), \
                 "'tempgen' should be a TemplateGenerator"
             tempgen_arg = tempgen
     else:
