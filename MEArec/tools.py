@@ -523,7 +523,8 @@ def save_recording_generator(recgen, filename=None, verbose=False):
         if len(recgen.timestamps) > 0:
             f.create_dataset('timestamps', data=recgen.timestamps)
         if hasattr(recgen, 'template_ids'):
-            f.create_dataset('template_ids', data=recgen.template_ids)
+            if recgen.template_ids is not None:
+                f.create_dataset('template_ids', data=recgen.template_ids)
     if verbose:
         print('\nSaved recordings in', filename, '\n')
 
