@@ -1,11 +1,7 @@
-import pytest
-import sys
-import os
 import numpy as np
 import unittest
 import MEArec as mr
 from pathlib import Path
-import tempfile
 import shutil
 import yaml
 import elephant.statistics as stat
