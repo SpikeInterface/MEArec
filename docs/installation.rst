@@ -28,7 +28,7 @@ The following are the Python requirements, which are installed when running the 
 - neo
 - elephant
 - h5py
-- MEAutility (https://github.com/alejoe91/MEAutility)
+- `MEAutility <https://github.com/alejoe91/MEAutility>`_
 
 Additional requirements for template generatiom
 -----------------------------------------------
@@ -36,21 +36,15 @@ Additional requirements for template generatiom
 Installing NEURON
 ~~~~~~~~~~~~~~~~~
 
-The template generation requires NEURON. The code is tested using version 7.5, 7.6, and 7.7,
-that can be downloaded `here <https://neuron.yale.edu/ftp/neuron/versions/>`_. If you are running a Linux system
-add:
+The template generation requires the NEURON simulator to be installed.
+From MEArec version 1.7.0, NEURON version 7.8 is supported. On UNIX systems NEURON can be installed with:
 
 .. code-block:: bash
 
-    export PYTHONPATH="/usr/local/nrn/lib/python/:$PYTHONPATH"
+    pip install neuron
 
-to your .bashrc.
+On Windows machines, NEURON can be downloaded and installed from this `link <https://www.neuron.yale.edu/neuron/download>`_.
 
-On Linux systems you also need install libncurses and libreadlines:
-
-.. code-block:: bash
-
-    sudo apt install lib32ncurses5-dev libreadline-dev
 
 Installing LFPy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,7 +53,7 @@ LFPy is used to generate extracellular templates. It is not installed by default
 
 .. code-block:: bash
 
-    pip install LFPy
+    pip install LFPy>=2.2
 
 
 Test the installation

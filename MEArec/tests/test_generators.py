@@ -119,7 +119,6 @@ class TestGenerators(unittest.TestCase):
         n = self.n_drift
         num_cells = self.num_cells
         n_steps = self.num_steps_drift
-        templates_params = self.templates_params_drift
 
         assert self.tempgen_drift.templates.shape[0] == (n * num_cells)
         assert self.tempgen_drift.locations.shape == (n * num_cells, n_steps, 3)
@@ -127,6 +126,33 @@ class TestGenerators(unittest.TestCase):
         assert len(self.tempgen_drift.celltypes) == (n * num_cells)
         assert len(np.unique(self.tempgen_drift.celltypes)) == num_cells
         assert self.tempgen_drift.templates.shape[1] == self.num_steps_drift
+
+    def test_gen_templates_from_tempgen(self):
+        print('Test templates generation from existing template generator')
+        cell_models_folder = mr.get_default_cell_models_folder()
+
+        # no drift
+        params = self.templates_params
+        params["probe"] = "Neuropixels-24"
+        tempgen2 = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                    params=params, tempgen=self.tempgen)
+
+        assert tempgen2.templates.shape[0] == self.tempgen.templates.shape[0]
+        # assert that all locations are the same
+        for (loc_new, loc_old) in zip(tempgen2.locations, self.tempgen.locations):
+            assert np.allclose(loc_new, loc_old)
+
+        # drift
+        params = self.templates_params_drift
+        params["probe"] = "Neuropixels-24"
+        tempgen_drift2 = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                    params=params, tempgen=self.tempgen_drift)
+
+        assert tempgen_drift2.templates.shape[0] == self.tempgen_drift.templates.shape[0]
+        # assert that all locations are the same
+        for (loc_new, loc_old) in zip(tempgen2.locations, self.tempgen.locations):
+            for (loc_new_d, loc_old_d) in zip(loc_new, loc_old):
+                assert np.allclose(loc_new_d, loc_old_d)
 
     def test_gen_spiketrains(self):
         print('Test spike train generation')
