@@ -8,6 +8,7 @@ import os
 from distutils.version import StrictVersion
 from pathlib import Path
 from joblib import Parallel, delayed
+from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_on_tempgen
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
@@ -45,6 +46,9 @@ class TemplateGenerator:
         Info dictionary to instantiate TemplateGenerator with existing data. It contains the following fields:
           - params : dict with template generation parameters
           - electrodes : dict with probe info (from MEAutility.return_mea_info('probe-name'))
+    tempgen : TemplateGenerator
+        If a TemplateGenerator is passed, the cell types, locations, and rotations of the templates will be set using
+        the provided templates
     params : dict
         Dictionary with parameters to simulate templates. Default values can be retrieved with
         mr.get_default_template_params()
@@ -62,7 +66,7 @@ class TemplateGenerator:
         If True, output is verbose
     """
 
-    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None,
+    def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None, tempgen=None,
                  params=None, intraonly=False, parallel=True, recompile=False, n_jobs=None, delete_tmp=True,
                  verbose=False):
         self._verbose = verbose
@@ -91,6 +95,7 @@ class TemplateGenerator:
             if templates_folder is not None:
                 templates_folder = Path(templates_folder)
             self.templates_folder = templates_folder
+            self.tempgen = tempgen
             self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp,
                                       'recompile': recompile}
 
@@ -121,6 +126,9 @@ class TemplateGenerator:
             if self._verbose:
                 print('Compiling NEURON models')
             os.system(f'python {simulate_script} compile {cell_models_folder}')
+
+        # sort cell model names
+        cell_models = np.array(cell_models)[np.argsort([f.name for f in cell_models])]
 
         if 'sim_time' not in self.params.keys():
             self.params['sim_time'] = 1
@@ -186,6 +194,10 @@ class TemplateGenerator:
             self.params['drift_ylim'] = [-10, 10]
         if 'drift_zlim' not in self.params.keys():
             self.params['drift_zlim'] = [20, 80]
+        if 'check_for_drift_amp' not in self.params.keys():
+            self.params['check_for_drift_amp'] = False
+        if 'drift_within_bounds' not in self.params.keys():
+            self.params['drift_within_bounds'] = False
 
         rot = self.params['rot']
         n = self.params['n']
@@ -196,6 +208,11 @@ class TemplateGenerator:
         tmp_params_path = 'tmp_params_path.yaml'
         with open(tmp_params_path, 'w') as f:
             yaml.dump(self.params, f)
+
+        if self.tempgen is not None and parallel and self.n_jobs not in (0, 1):
+            print("\nWARNING: Generation of templates from a template generator is only supported without parallel "
+                  "processing. Setting parallel to False\n")
+            parallel = False
 
         # Simulate neurons and EAP for different cell models separately
         if parallel and self.n_jobs not in (0, 1):
@@ -213,20 +230,28 @@ class TemplateGenerator:
                                                                      cell_models_folder, intraonly, tmp_params_path,
                                                                      self._verbose, )
                                     for i, cell_model in enumerate(cell_models))
-            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
         else:
             start_time = time.time()
-            for numb, cell_model in enumerate(cell_models):
-                if self._verbose:
-                    print(f'\n\n {cell_model} {numb + 1}/{len(cell_models)}\n\n')
-                os.system(f'python {simulate_script} {str(cell_models_folder / cell_model)} {intraonly} '
-                          f'{tmp_params_path} {self._verbose}')
-            print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
+            if self.tempgen is None:
+                for numb, cell_model in enumerate(cell_models):
+                    if self._verbose:
+                        print(f'\n\n {cell_model} {numb + 1}/{len(cell_models)}\n\n')
+                    compute_eap_for_cell_model(cell_model=cell_models_folder / cell_model, params_path=tmp_params_path,
+                                               intraonly=intraonly, verbose=self._verbose)
+
+            else:
+                print("Using template generation info")
+                compute_eap_based_on_tempgen(cell_folder=cell_models_folder,
+                                             params_path=tmp_params_path,
+                                             tempgen=self.tempgen,
+                                             intraonly=intraonly,
+                                             verbose=self._verbose)
 
         tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
 
         if not Path(tmp_folder).is_dir():
-            raise FileNotFoundError(f'{tmp_folder} not found. Something went wrong in the template generation phase.')
+            raise FileNotFoundError(
+                f'{tmp_folder} not found. Something went wrong in the template generation phase.')
 
         templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
         if delete_tmp:
@@ -239,5 +264,9 @@ class TemplateGenerator:
         self.locations = locations
         self.rotations = rotations
         self.celltypes = celltypes
+
         self.info['params'] = self.params
         self.info['electrodes'] = mu.return_mea_info(probe)
+
+        print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
+

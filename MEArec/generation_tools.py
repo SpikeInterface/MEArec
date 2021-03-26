@@ -1,3 +1,4 @@
+import MEArec
 from MEArec.tools import load_templates
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
 import yaml
@@ -15,7 +16,7 @@ else:
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
-                   tmp_mode='memmap', tmp_folder=None, n_jobs=0):
+                   tmp_mode='memmap', template_ids=None, tmp_folder=None, n_jobs=0):
     """
     Generates recordings.
 
@@ -33,7 +34,10 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
         Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
     tmp_mode : None, 'h5' 'memmap'
         Use temporary file h5 memmap or None
-        None is no temporary file.
+        None is no temporary file
+    template_ids: list or None
+        If None, templates are selected randomly based on selection rules. If a list of indices is provided, the
+        indices are used to select templates (template selection is bypassed)
     tmp_folder: str or Path
         In case of tmp files, you can specify the folder.
         If None, then it is automatic using tempfile.mkdtemp()
@@ -116,7 +120,8 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     params_dict['spiketrains'] = spgen.info
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict)
-    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, n_jobs=n_jobs, verbose=verbose)
+    recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, template_ids=template_ids,
+                               n_jobs=n_jobs, verbose=verbose)
 
     if verbose >= 1:
         print('Elapsed time: ', time.perf_counter() - t_start)
@@ -168,7 +173,7 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
     return spgen
 
 
-def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
+def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, tempgen=None,
                   intraonly=False, parallel=True, n_jobs=None, recompile=False, delete_tmp=True, verbose=True):
     """
 
@@ -180,6 +185,9 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
         Path to parameters yaml file or parameters dictionary
     templates_tmp_folder: str
         Path to temporary folder where templates are temporarily saved
+    tempgen :  TemplateGenerator
+        If a TemplateGenerator is passed, the cell types, locations, and rotations of the templates will be set using
+        the provided templates
     intraonly : bool
         if True, only intracellular simulation is run
     parallel : bool
@@ -212,6 +220,16 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
     else:
         params_dict = None
 
+    if tempgen is not None:
+        if isinstance(tempgen, (str, Path)):
+            tempgen_arg = load_templates(tempgen)
+        else:
+            assert isinstance(tempgen, TemplateGenerator), \
+                "'tempgen' should be a TemplateGenerator"
+            tempgen_arg = tempgen
+    else:
+        tempgen_arg = tempgen
+
     if templates_tmp_folder is not None:
         if not Path(templates_tmp_folder).is_dir():
             os.makedirs(templates_tmp_folder)
@@ -219,6 +237,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None,
     tempgen = TemplateGenerator(cell_models_folder=cell_models_folder,
                                 params=params_dict,
                                 templates_folder=templates_tmp_folder,
+                                tempgen=tempgen_arg,
                                 intraonly=intraonly,
                                 parallel=parallel,
                                 recompile=recompile,

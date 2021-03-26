@@ -1,11 +1,7 @@
-import pytest
-import sys
-import os
 import numpy as np
 import unittest
 import MEArec as mr
 from pathlib import Path
-import tempfile
 import shutil
 import yaml
 import elephant.statistics as stat
@@ -130,8 +126,6 @@ class TestGenerators(unittest.TestCase):
         assert len(self.tempgen_drift.rotations) == (n * num_cells)
         assert len(self.tempgen_drift.celltypes) == (n * num_cells)
         assert len(np.unique(self.tempgen_drift.celltypes)) == num_cells
-        assert np.min(self.tempgen_drift.locations[:, :, 0]) > templates_params['xlim'][0] \
-               and np.max(self.tempgen_drift.locations[:, :, 0]) < templates_params['xlim'][1]
         assert self.tempgen_drift.templates.shape[1] == self.num_steps_drift
 
     def test_gen_spiketrains(self):

@@ -134,6 +134,18 @@ def get_default_recordings_params():
     return recordings_params
 
 
+def available_probes():
+    """
+    Returns list of available probes
+
+    Returns
+    -------
+    probe_list : list
+        List of available probes in MEAutility
+    """
+    return mu.return_mea_list()
+
+
 ### LOAD FUNCTIONS ###
 def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose=False):
     """
@@ -312,7 +324,7 @@ def load_recordings(recordings, return_h5_objects=True,
 
     if load is None:
         load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
-                'spike_traces', 'templates', ]
+                'spike_traces', 'templates', 'template_ids']
     else:
         assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
                                        "('recordings', 'channel_positions', 'voltge_peaks', 'spiketrains', " \
@@ -394,6 +406,8 @@ def load_recordings(recordings, return_h5_objects=True,
                 rec_dict['timestamps'] = f.get('timestamps')
             else:
                 rec_dict['timestamps'] = np.array(f.get('timestamps')) * pq.s
+        if f.get('template_ids') is not None and 'template_ids' in load:
+            rec_dict['template_ids'] = f.get('template_ids')
         if f.get('spiketrains') is not None and 'spiketrains' in load:
             spiketrains = []
             sorted_units = sorted([int(u) for u in f.get('spiketrains/')])
@@ -508,6 +522,9 @@ def save_recording_generator(recgen, filename=None, verbose=False):
             f.create_dataset('template_celltypes', data=celltypes)
         if len(recgen.timestamps) > 0:
             f.create_dataset('timestamps', data=recgen.timestamps)
+        if hasattr(recgen, 'template_ids'):
+            if recgen.template_ids is not None:
+                f.create_dataset('template_ids', data=recgen.template_ids)
     if verbose:
         print('\nSaved recordings in', filename, '\n')
 
@@ -2874,10 +2891,10 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
     if max_channels_per_template is None:
         max_channels_per_template = len(recordings)
 
-    mu.plot_mea_recording(recordings[start_frame:end_frame, :].T, mea, ax=ax, **kwargs)
-
     if 'vscale' not in kwargs.keys():
         kwargs['vscale'] = 1.5 * np.max(np.abs(recordings))
+
+    mu.plot_mea_recording(recordings[start_frame:end_frame, :].T, mea, ax=ax, **kwargs)
 
     if overlay_templates:
         if 'lw' in kwargs.keys():
