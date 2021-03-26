@@ -686,7 +686,7 @@ class TestGenerators(unittest.TestCase):
         c = mr.return_bbp_cell_morphology(str(cell_name), cell_folder)
         assert target_spikes[0] <= len(v) <= target_spikes[1]
         assert target_spikes[0] <= len(i) <= target_spikes[1]
-        assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
+        assert len(c.x) == len(c.y) and len(c.x) == len(c.z)
 
 
 if __name__ == '__main__':
