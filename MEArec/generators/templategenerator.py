@@ -7,7 +7,7 @@ import yaml
 import os
 from distutils.version import StrictVersion
 from pathlib import Path
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, cpu_count
 from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_on_tempgen
 
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
@@ -67,7 +67,8 @@ class TemplateGenerator:
     """
 
     def __init__(self, cell_models_folder=None, templates_folder=None, temp_dict=None, info=None, tempgen=None,
-                 params=None, intraonly=False, parallel=True, recompile=False, n_jobs=None, delete_tmp=True,
+                 params=None, intraonly=False, parallel=True, recompile=False, n_jobs=None,
+                 joblib_backend="loky", delete_tmp=True,
                  verbose=False):
         self._verbose = verbose
         if temp_dict is not None and info is not None:
@@ -92,6 +93,7 @@ class TemplateGenerator:
                 self.params = deepcopy(params)
             self.cell_model_folder = Path(cell_models_folder)
             self.n_jobs = n_jobs
+            self.joblib_backend = joblib_backend
             if templates_folder is not None:
                 templates_folder = Path(templates_folder)
             self.templates_folder = templates_folder
@@ -203,8 +205,6 @@ class TemplateGenerator:
         n = self.params['n']
         probe = self.params['probe']
 
-        print(self.params)
-
         tmp_params_path = 'tmp_params_path.yaml'
         with open(tmp_params_path, 'w') as f:
             yaml.dump(self.params, f)
@@ -219,17 +219,19 @@ class TemplateGenerator:
             start_time = time.time()
             tot = len(cell_models)
             if self.n_jobs is None:
-                n_jobs = tot
+                n_jobs = cpu_count()
+                print(f"Setting n_jobs to {n_jobs} CPUs")
             else:
                 n_jobs = self.n_jobs
 
             if self._verbose:
                 print('Running with', n_jobs, 'jobs')
 
-            Parallel(n_jobs=n_jobs)(delayed(simulate_cell_templates)(i, simulate_script, tot, cell_model,
-                                                                     cell_models_folder, intraonly, tmp_params_path,
-                                                                     self._verbose, )
-                                    for i, cell_model in enumerate(cell_models))
+            Parallel(n_jobs=n_jobs, backend=self.joblib_backend)(
+                delayed(simulate_cell_templates)(i, simulate_script, tot, cell_model,
+                                                 cell_models_folder, intraonly, tmp_params_path,
+                                                 self._verbose, )
+                for i, cell_model in enumerate(cell_models))
         else:
             start_time = time.time()
             if self.tempgen is None:
@@ -269,4 +271,3 @@ class TemplateGenerator:
         self.info['electrodes'] = mu.return_mea_info(probe)
 
         print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
-

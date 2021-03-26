@@ -31,10 +31,11 @@ def import_LFPy_neuron():
     try:
         import neuron
     except:
-        raise ModuleNotFoundError("NEURON is not installed. Install it from https://www.neuron.yale.edu/neuron/download")
+        raise ModuleNotFoundError(
+            "NEURON is not installed. Install it from https://www.neuron.yale.edu/neuron/download")
 
-    if StrictVersion(LFPy.__version__) < StrictVersion('2.1'):
-        raise ImportError("LFPy version must be >= 2.1. To use a previous LFPy version, downgrade MEArec to <= 1.4.1")
+    if StrictVersion(LFPy.__version__) < StrictVersion('2.2'):
+        raise ImportError("LFPy version must be >= 2.2. To use a previous LFPy version, downgrade MEArec to <= 1.4.1")
 
     return LFPy, neuron
 
@@ -328,7 +329,6 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
 
         if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
                 np.any([cell_name in vfile.name for vfile in vmem_files])):
-
             np.random.seed(kwargs['seed'])
             T = kwargs['sim_time'] * 1000
             dt = kwargs['dt']
@@ -484,14 +484,14 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
         assert len(rotation) == 3, "'rotation' should be a 3d array"
         cell.set_rotation(x=rotation[0], y=rotation[1], z=rotation[2])
 
-    electrodes.calc_lfp()
+    lfp = electrodes.get_transformation_matrix() @ cell.imem
 
     # Reverse rotation to bring cell back into initial rotation state
     if rotation is not None:
         rev_rot = [-r for r in rotation]
         cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
 
-    return 1000 * electrodes.LFP
+    return 1000 * lfp
 
 
 def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0, verbose=False, position=None,
@@ -633,10 +633,16 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
             cell.imem = i_spikes[spike_idx, :, :]
             cell.somav = v_spikes[spike_idx, :]
 
-            espikes, pos, rot, offs = return_extracellular_spike(cell=cell, cell_name=cell_name, model_type=model_type,
-                                                                 electrodes=electrodes,
-                                                                 limits=[x_lim, y_lim, z_lim], rotation=rotation,
-                                                                 pos=position)
+            espikes, pos, rot, found_position = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                           model_type=model_type,
+                                                                           electrodes=electrodes,
+                                                                           limits=[x_lim, y_lim, z_lim],
+                                                                           rotation=rotation,
+                                                                           saved_pos=saved_positions,
+                                                                           pos=position)
+            if not found_position:
+                continue
+
             # Method of Images for semi-infinite planes
             if elinfo['type'] == 'mea':
                 espikes = espikes * 2
@@ -658,10 +664,6 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                 if check_espike(espikes, min_amp):
                     if verbose:
                         print('Amp:', np.round(np.abs(np.min(espikes)), 1))
-
-                    skip = skip_duplicate(pos, saved_positions, drifting, verbose)
-                    if skip:
-                        continue
 
                     drift_ok = False
                     # fix rotation while drifting
@@ -689,12 +691,18 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         if max_drift > drift_dist > min_drift:
                             if check_for_drift_amp:
                                 # check final position spike amplitude
-                                espikes, pos, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
-                                                                                      model_type=model_type,
-                                                                                      electrodes=electrodes,
-                                                                                      limits=[x_lim, y_lim, z_lim],
-                                                                                      rotation=None,
-                                                                                      pos=final_pos)
+                                espikes, pos, rot_, found_position = return_extracellular_spike(cell=cell,
+                                                                                                cell_name=cell_name,
+                                                                                                model_type=model_type,
+                                                                                                electrodes=electrodes,
+                                                                                                limits=[x_lim, y_lim,
+                                                                                                        z_lim],
+                                                                                                rotation=None,
+                                                                                                saved_pos=saved_positions,
+                                                                                                pos=final_pos)
+                                if not found_position:
+                                    continue
+
                                 # Method of Images for semi-infinite planes
                                 if elinfo['type'] == 'mea':
                                     espikes = espikes * 2
@@ -722,12 +730,17 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         drift_dir = np.array(final_pos) - np.array(init_pos)
                         for i, dp in enumerate(np.linspace(0, 1, drift_steps)):
                             pos_drift = init_pos + dp * drift_dir
-                            espikes, pos, r_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
-                                                                                model_type=model_type,
-                                                                                electrodes=electrodes,
-                                                                                limits=[x_lim, y_lim, z_lim],
-                                                                                rotation=None,
-                                                                                pos=pos_drift)
+                            espikes, pos, r_, found_position = return_extracellular_spike(cell=cell,
+                                                                                          cell_name=cell_name,
+                                                                                          model_type=model_type,
+                                                                                          electrodes=electrodes,
+                                                                                          limits=[x_lim, y_lim, z_lim],
+                                                                                          rotation=None,
+                                                                                          saved_pos=saved_positions,
+                                                                                          pos=pos_drift)
+                            if not found_position:
+                                continue
+
                             # Method of Images for semi-infinite planes
                             if elinfo['type'] == 'mea':
                                 espikes = espikes * 2
@@ -777,11 +790,16 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                     # take first drifting location
                     pos = loc[0]
 
-                espikes, pos_, rot_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
-                                                                       model_type=model_type,
-                                                                       electrodes=electrodes,
-                                                                       limits=[x_lim, y_lim, z_lim], rotation=None,
-                                                                       pos=pos)
+                espikes, pos_, rot_, found_position = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                                 model_type=model_type,
+                                                                                 electrodes=electrodes,
+                                                                                 limits=[x_lim, y_lim, z_lim],
+                                                                                 rotation=None,
+                                                                                 saved_pos=saved_positions,
+                                                                                 pos=pos)
+                if not found_position:
+                    continue
+
                 # Method of Images for semi-infinite planes
                 if elinfo['type'] == 'mea':
                     espikes = espikes * 2
@@ -794,12 +812,16 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                 assert loc.ndim == 2
                 drift_spikes = []
                 for pos_drift in loc:
-                    espikes, pos, r_, offs = return_extracellular_spike(cell=cell, cell_name=cell_name,
-                                                                        model_type=model_type,
-                                                                        electrodes=electrodes,
-                                                                        limits=[x_lim, y_lim, z_lim],
-                                                                        rotation=None,
-                                                                        pos=pos_drift)
+                    espikes, pos, r_, found_position = return_extracellular_spike(cell=cell, cell_name=cell_name,
+                                                                                  model_type=model_type,
+                                                                                  electrodes=electrodes,
+                                                                                  limits=[x_lim, y_lim, z_lim],
+                                                                                  rotation=None,
+                                                                                  saved_pos=saved_positions,
+                                                                                  pos=pos_drift)
+                    if not found_position:
+                        continue
+
                     # Method of Images for semi-infinite planes
                     if elinfo['type'] == 'mea':
                         espikes = espikes * 2
@@ -898,7 +920,7 @@ def center_espike(espike, cut_out_samples, tol=1):
     return cent_espike
 
 
-def skip_duplicate(pos, saved_positions, drifting, verbose):
+def skip_duplicate(pos, saved_positions, drifting, verbose=False):
     """
     Checks if a position has to be skipped because already used.
 
@@ -918,7 +940,7 @@ def skip_duplicate(pos, saved_positions, drifting, verbose):
     skip_duplicate: bool
         If True, the position should be skipped because it's a duplicate
     """
-    skip_duplicate = False
+    skip_pos = False
     if len(saved_positions) > 0:
         for pos_s in saved_positions:
             if not drifting:
@@ -927,9 +949,9 @@ def skip_duplicate(pos, saved_positions, drifting, verbose):
                 test_pos = pos_s[0]
             if np.all(np.round(test_pos, 2) == np.round(pos, 2)):
                 if verbose:
-                    print(f"Duplicated position: {np.round(pos, 2)} -- {np.round(pos_s[0], 2)}. Skipping")
-                skip_duplicate = True
-    return skip_duplicate
+                    print(f"Duplicated position: {np.round(pos, 2)} -- {np.round(pos_s, 2)}. Skipping")
+                skip_pos = True
+    return skip_pos
 
 
 def get_physrot_specs(cell_name, model):
@@ -987,13 +1009,15 @@ def get_physrot_specs(cell_name, model):
 
 
 def return_extracellular_spike(cell, cell_name, model_type,
-                               electrodes, limits, rotation, pos=None):
-    """    Calculate extracellular spike on MEA 
-           at random position relative to cell
+                               electrodes, limits, rotation, saved_pos, pos=None,
+                               max_iter=1000
+                               ):
+    """
+    Calculate extracellular spike on MEA at random position relative to cell
 
     Parameters:
     -----------
-    cell: object
+    cell: LFPy.Cell
         cell object from LFPy
     cell_name: string
         name of cell model
@@ -1003,9 +1027,14 @@ def return_extracellular_spike(cell, cell_name, model_type,
         boundaries for neuron locations, shape=(3,2)
     rotation: string 
         random rotation to apply to the neuron ('Norot', '3drot', 'physrot')
+    saved_pos: np.array
+        List of positions already used to be skipped
     pos: array_like, (optional, default None)
         Can be used to set the cell soma to a specific position. If ``None``,
         the random position is used.
+    max_iter: int
+        Max number of iterations to find a position that hasn't been used yet
+
     Returns:
     --------
     Extracellular spike for each MEA contact site
@@ -1179,24 +1208,36 @@ def return_extracellular_spike(cell, cell_name, model_type,
 
     if pos is None:
         """Move neuron randomly"""
-        x_rand = np.random.uniform(limits[0][0], limits[0][1])
-        y_rand = np.random.uniform(limits[1][0], limits[1][1])
-        z_rand = np.random.uniform(limits[2][0], limits[2][1])
+        skip_dup = True
+        iter = 0
+        while skip_dup and iter < max_iter:
+            x_rand = np.random.uniform(limits[0][0], limits[0][1])
+            y_rand = np.random.uniform(limits[1][0], limits[1][1])
+            z_rand = np.random.uniform(limits[2][0], limits[2][1])
+            pos = [x_rand, y_rand, z_rand]
+            skip_dup = skip_duplicate(pos, saved_pos, drifting=False)
+            iter += 1
+        if iter == max_iter:
+            found_position = False
+            return None, None, None, found_position
+        else:
+            found_position = True
         cell.set_pos(x_rand, y_rand, z_rand)
-        pos = [x_rand, y_rand, z_rand]
     else:
         cell.set_pos(pos[0], pos[1], pos[2])
+        found_position = True
+
     cell.set_rotation(x=x_rot, y=y_rot, z=z_rot)
     rot = [x_rot, y_rot, z_rot]
 
-    electrodes.calc_lfp()
+    lfp = electrodes.get_transformation_matrix() @ cell.imem
 
     # Reverse rotation to bring cell back into initial rotation state
     if rotation is not None:
         rev_rot = [-r for r in rot]
         cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order='zyx')
 
-    return 1000 * electrodes.LFP, pos, rot, electrodes.offsets
+    return 1000 * lfp, pos, rot, found_position
 
 
 def str2bool(v):
@@ -1280,7 +1321,6 @@ def compute_eap_based_on_tempgen(cell_folder, params_path,
         if np.any(np.diff(celltype_idxs) != 1):
             raise NotImplementedError("Cell types in the template generator must be contiguous.")
 
-
     # print(f'Intracellular simulation: {cell_model}')
     for celltype in celltypes:
         cell_model = cell_folder / celltype
@@ -1325,3 +1365,4 @@ if __name__ == '__main__':
             print(f'Extracellular simulation: {cell_model}')
             calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
                                load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+[]
