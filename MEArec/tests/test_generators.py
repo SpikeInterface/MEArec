@@ -7,6 +7,7 @@ import yaml
 import elephant.statistics as stat
 from distutils.version import StrictVersion
 import tempfile
+from copy import deepcopy
 from click.testing import CliRunner
 
 from MEArec.cli import cli
@@ -50,7 +51,7 @@ class TestGenerators(unittest.TestCase):
             print(templates_params)
             self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                             params=templates_params, parallel=True, delete_tmp=True, verbose=True)
-            self.templates_params = templates_params
+            self.templates_params = deepcopy(templates_params)
             self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
             templates_params['drifting'] = True
@@ -61,7 +62,7 @@ class TestGenerators(unittest.TestCase):
             print('Generating drifting templates')
             self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                                   params=templates_params, parallel=True, delete_tmp=True, verbose=True)
-            self.templates_params_drift = templates_params
+            self.templates_params_drift = deepcopy(templates_params)
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
 
             print('Making test recordings to test load functions')
@@ -119,7 +120,6 @@ class TestGenerators(unittest.TestCase):
         n = self.n_drift
         num_cells = self.num_cells
         n_steps = self.num_steps_drift
-        templates_params = self.templates_params_drift
 
         assert self.tempgen_drift.templates.shape[0] == (n * num_cells)
         assert self.tempgen_drift.locations.shape == (n * num_cells, n_steps, 3)
@@ -127,6 +127,33 @@ class TestGenerators(unittest.TestCase):
         assert len(self.tempgen_drift.celltypes) == (n * num_cells)
         assert len(np.unique(self.tempgen_drift.celltypes)) == num_cells
         assert self.tempgen_drift.templates.shape[1] == self.num_steps_drift
+
+    def test_gen_templates_from_tempgen(self):
+        print('Test templates generation from existing template generator')
+        cell_models_folder = mr.get_default_cell_models_folder()
+
+        # no drift
+        params = self.templates_params
+        params["probe"] = "Neuropixels-24"
+        tempgen2 = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                    params=params, tempgen=self.tempgen)
+
+        assert tempgen2.templates.shape[0] == self.tempgen.templates.shape[0]
+        # assert that all locations are the same
+        for (loc_new, loc_old) in zip(tempgen2.locations, self.tempgen.locations):
+            assert np.allclose(loc_new, loc_old)
+
+        # drift
+        params = self.templates_params_drift
+        params["probe"] = "Neuropixels-24"
+        tempgen_drift2 = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                    params=params, tempgen=self.tempgen_drift)
+
+        assert tempgen_drift2.templates.shape[0] == self.tempgen_drift.templates.shape[0]
+        # assert that all locations are the same
+        for (loc_new, loc_old) in zip(tempgen2.locations, self.tempgen.locations):
+            for (loc_new_d, loc_old_d) in zip(loc_new, loc_old):
+                assert np.allclose(loc_new_d, loc_old_d)
 
     def test_gen_spiketrains(self):
         print('Test spike train generation')
@@ -686,7 +713,7 @@ class TestGenerators(unittest.TestCase):
         c = mr.return_bbp_cell_morphology(str(cell_name), cell_folder)
         assert target_spikes[0] <= len(v) <= target_spikes[1]
         assert target_spikes[0] <= len(i) <= target_spikes[1]
-        assert len(c.xmid) == len(c.ymid) and len(c.xmid) == len(c.zmid)
+        assert len(c.x) == len(c.y) and len(c.x) == len(c.z)
 
 
 if __name__ == '__main__':

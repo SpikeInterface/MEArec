@@ -174,7 +174,8 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
 
 
 def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, tempgen=None,
-                  intraonly=False, parallel=True, n_jobs=None, recompile=False, delete_tmp=True, verbose=True):
+                  intraonly=False, parallel=True, n_jobs=None, joblib_backend="loky",
+                  recompile=False, delete_tmp=True, verbose=True):
     """
 
     Parameters
@@ -194,6 +195,8 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
         if True, multi-threading is used
     n_jobs: int
         Number of jobs to run in parallel (If None all cpus are used)
+    joblib_backend: str
+        The joblib backend to use when n_jobs > 1 (default 'loky')
     recompile: bool
         If True, cell models are recompiled
     delete_tmp :
@@ -242,6 +245,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
                                 parallel=parallel,
                                 recompile=recompile,
                                 n_jobs=n_jobs,
+                                joblib_backend=joblib_backend,
                                 delete_tmp=delete_tmp,
                                 verbose=verbose)
     tempgen.generate_templates()
