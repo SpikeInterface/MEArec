@@ -7,6 +7,7 @@ import yaml
 import elephant.statistics as stat
 from distutils.version import StrictVersion
 import tempfile
+from copy import deepcopy
 from click.testing import CliRunner
 
 from MEArec.cli import cli
@@ -50,7 +51,7 @@ class TestGenerators(unittest.TestCase):
             print(templates_params)
             self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                             params=templates_params, parallel=True, delete_tmp=True, verbose=True)
-            self.templates_params = templates_params
+            self.templates_params = deepcopy(templates_params)
             self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
             templates_params['drifting'] = True
@@ -61,7 +62,7 @@ class TestGenerators(unittest.TestCase):
             print('Generating drifting templates')
             self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
                                                   params=templates_params, parallel=True, delete_tmp=True, verbose=True)
-            self.templates_params_drift = templates_params
+            self.templates_params_drift = deepcopy(templates_params)
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
 
             print('Making test recordings to test load functions')
