@@ -420,7 +420,6 @@ class RecordingGenerator:
             n_burst_spikes = None
             max_burst_duration = None
             shape_stretch = None
-            n_bursting = None
             bursting_units = []
 
         chunk_duration = params['recordings'].get('chunk_duration', 0) * pq.s
@@ -846,11 +845,6 @@ class RecordingGenerator:
                 drifting_units = np.random.permutation(n_neurons)[:n_drifting]
             else:
                 drifting_units = []
-
-            # if bursting:
-            #     bursting_units = np.random.permutation(n_neurons)[:n_bursting]
-            # else:
-            #     bursting_units = []
 
             if modulation == 'template':
                 if verbose_1:
