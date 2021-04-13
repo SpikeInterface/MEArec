@@ -372,9 +372,6 @@ class RecordingGenerator:
         shape_mod = params['recordings']['shape_mod']
 
         if bursting:
-            if 'exp_decay' not in rec_params.keys():
-                params['recordings']['exp_decay'] = 0.2
-            exp_decay = params['recordings']['exp_decay']
             if 'n_burst_spikes' not in rec_params.keys():
                 params['recordings']['n_burst_spikes'] = 10
             n_burst_spikes = params['recordings']['n_burst_spikes']
@@ -382,10 +379,31 @@ class RecordingGenerator:
                 params['recordings']['max_burst_duration'] = 100
             max_burst_duration = params['recordings']['max_burst_duration'] * pq.ms
 
-            if rec_params['n_bursting'] is None:
-                n_bursting = n_neurons
+            if 'bursting_units' not in rec_params.keys():
+                if rec_params['n_bursting'] is None:
+                    n_bursting = n_neurons
+                    bursting_units = np.arange(n_neurons)
+                else:
+                    n_bursting = rec_params['n_bursting']
+                    bursting_units = np.random.permutation(n_neurons)[:n_bursting]
             else:
-                n_bursting = rec_params['n_bursting']
+                assert np.all([b < n_neurons for b in rec_params['bursting_units']]), "'bursting_units' ids should " \
+                                                                                      "be lower than the number of" \
+                                                                                      " neurons"
+                n_bursting = len(rec_params['bursting_units'])
+                bursting_units = rec_params['bursting_units']
+
+            if 'exp_decay' not in rec_params.keys():
+                params['recordings']['exp_decay'] = [0.2] * n_bursting
+            else:
+                if not isinstance(rec_params['exp_decay'], list):
+                    assert  isinstance(rec_params['exp_decay'], float), "'exp_decay' can be list or float"
+                    params['recordings']['exp_decay'] = [rec_params['exp_decay']] * n_bursting
+                else:
+                    assert len(rec_params['exp_decay']) == n_bursting, "'exp_decay' should have the same length as " \
+                                                                       "the number of bursting units"
+                    params['recordings']['exp_decay'] = rec_params['exp_decay']
+            exp_decay = params['recordings']['exp_decay']
 
             if shape_mod:
                 if 'shape_stretch' not in rec_params.keys():
@@ -401,6 +419,7 @@ class RecordingGenerator:
             max_burst_duration = None
             shape_stretch = None
             n_bursting = None
+            bursting_units = []
 
         chunk_duration = params['recordings'].get('chunk_duration', 0) * pq.s
         if chunk_duration == 0 * pq.s:
@@ -825,10 +844,11 @@ class RecordingGenerator:
                 drifting_units = np.random.permutation(n_neurons)[:n_drifting]
             else:
                 drifting_units = []
-            if bursting:
-                bursting_units = np.random.permutation(n_neurons)[:n_bursting]
-            else:
-                bursting_units = []
+
+            # if bursting:
+            #     bursting_units = np.random.permutation(n_neurons)[:n_bursting]
+            # else:
+            #     bursting_units = []
 
             if modulation == 'template':
                 if verbose_1:
@@ -838,7 +858,7 @@ class RecordingGenerator:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
                         amp, cons = compute_modulation(st, sdrand=sdrand,
-                                                       n_spikes=n_burst_spikes, exp=exp_decay,
+                                                       n_spikes=n_burst_spikes, exp=exp_decay[i_s],
                                                        max_burst_duration=max_burst_duration)
 
                         amp_mod.append(amp)
@@ -849,6 +869,7 @@ class RecordingGenerator:
                                                        n_spikes=0)
                         amp_mod.append(amp)
                         cons_spikes.append(cons)
+
             elif modulation == 'electrode':
                 if verbose_1:
                     print('Electrode modulaton')
@@ -857,7 +878,7 @@ class RecordingGenerator:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
                         amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                       n_spikes=n_burst_spikes, exp=exp_decay,
+                                                       n_spikes=n_burst_spikes, exp=exp_decay[i_s],
                                                        max_burst_duration=max_burst_duration)
                         amp_mod.append(amp)
 
@@ -884,13 +905,14 @@ class RecordingGenerator:
                     fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, verbose_2,
                     amp_mod, bursting_units, shape_mod, shape_stretch,
                     True, voltage_peaks, dtype, seed_list_conv,)
+
             assignment_dict = {
                 'recordings': recordings,
                 'spike_traces': spike_traces}
             output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
                                              self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
 
-            # if drift then propagate annoations to spikestrains
+            # if drift then propagate annoations to spiketrains
             for st in np.arange(n_neurons):
                 if drifting and st in drifting_units:
                     spiketrains[st].annotate(drifting=True)
