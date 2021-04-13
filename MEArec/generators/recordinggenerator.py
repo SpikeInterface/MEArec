@@ -380,24 +380,26 @@ class RecordingGenerator:
             max_burst_duration = params['recordings']['max_burst_duration'] * pq.ms
 
             if 'bursting_units' not in rec_params.keys():
+                rec_params['bursting_units'] = None
+
+            if rec_params['bursting_units'] is not None:
+                assert np.all([b < n_neurons for b in rec_params['bursting_units']]), \
+                    "'bursting_units' ids should be lower than the number of neurons"
+                n_bursting = len(rec_params['bursting_units'])
+                bursting_units = rec_params['bursting_units']
+            else:
                 if rec_params['n_bursting'] is None:
                     n_bursting = n_neurons
                     bursting_units = np.arange(n_neurons)
                 else:
                     n_bursting = rec_params['n_bursting']
                     bursting_units = np.random.permutation(n_neurons)[:n_bursting]
-            else:
-                assert np.all([b < n_neurons for b in rec_params['bursting_units']]), "'bursting_units' ids should " \
-                                                                                      "be lower than the number of" \
-                                                                                      " neurons"
-                n_bursting = len(rec_params['bursting_units'])
-                bursting_units = rec_params['bursting_units']
 
             if 'exp_decay' not in rec_params.keys():
                 params['recordings']['exp_decay'] = [0.2] * n_bursting
             else:
                 if not isinstance(rec_params['exp_decay'], list):
-                    assert  isinstance(rec_params['exp_decay'], float), "'exp_decay' can be list or float"
+                    assert isinstance(rec_params['exp_decay'], float), "'exp_decay' can be list or float"
                     params['recordings']['exp_decay'] = [rec_params['exp_decay']] * n_bursting
                 else:
                     assert len(rec_params['exp_decay']) == n_bursting, "'exp_decay' should have the same length as " \
@@ -692,7 +694,7 @@ class RecordingGenerator:
                                                                 overlap_threshold=overlap_threshold,
                                                                 verbose=verbose_2)
 
-                    if not np.any('U' in  selected_cat):
+                    if not np.any('U' in selected_cat):
                         assert selected_cat.count('E') == n_exc and selected_cat.count('I') == n_inh
                         # Reorder templates according to E-I types
                         reordered_idx_cells = np.array(idxs_cells)[np.argsort(selected_cat)]
@@ -1059,7 +1061,7 @@ class RecordingGenerator:
                 # adding noise floor
                 for i, s in enumerate(np.std(additive_noise, axis=0)):
                     additive_noise[:, i] += far_neurons_noise_floor * s * \
-                                                np.random.randn(additive_noise.shape[0])
+                                            np.random.randn(additive_noise.shape[0])
                 # scaling noise
                 noise_scale = noise_level / np.std(additive_noise, axis=0)
                 if verbose_1:
@@ -1223,7 +1225,6 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
     arg_tasks = []
     karg_tasks = []
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
-
         chunk_start = (i_start / fs).rescale('s')
 
         arg_task = (ch, i_start, i_stop, chunk_start,) + args
