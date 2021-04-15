@@ -853,8 +853,9 @@ class RecordingGenerator:
                     if bursting and i_s in bursting_units:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
+                        exp_decay_idx = list(bursting_units).index(i_s)
                         amp, cons = compute_modulation(st, sdrand=sdrand,
-                                                       n_spikes=n_burst_spikes, exp=exp_decay[i_s],
+                                                       n_spikes=n_burst_spikes, exp=exp_decay[exp_decay_idx],
                                                        max_burst_duration=max_burst_duration)
 
                         amp_mod.append(amp)
@@ -873,8 +874,9 @@ class RecordingGenerator:
                     if bursting and i_s in bursting_units:
                         if verbose_1:
                             print('Bursting unit: ', i_s)
+                        exp_decay_idx = list(bursting_units).index(i_s)
                         amp, cons = compute_modulation(st, n_el=n_elec, mrand=mrand, sdrand=sdrand,
-                                                       n_spikes=n_burst_spikes, exp=exp_decay[i_s],
+                                                       n_spikes=n_burst_spikes, exp=exp_decay[exp_decay_idx],
                                                        max_burst_duration=max_burst_duration)
                         amp_mod.append(amp)
 
