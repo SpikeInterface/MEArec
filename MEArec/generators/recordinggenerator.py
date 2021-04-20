@@ -168,9 +168,6 @@ class RecordingGenerator:
                 except Exception as e:
                     if self._verbose >= 1:
                         print('Impossible to delete temp file:', fname, 'Error', e)
-        if isinstance(self.recordings, h5py.Dataset):
-            f = self.recordings.file
-            f.close()
         self.recordings = None
         self.spike_traces = None
 
