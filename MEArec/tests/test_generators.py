@@ -293,6 +293,71 @@ class TestGenerators(unittest.TestCase):
         assert recgen_burst.spike_traces.shape[1] == n_neurons
         del recgen_burst
 
+    def test_gen_recordings_multiple_bursting_modulation(self):
+        print('Test recording generation - multiple bursting modulation')
+        rates = [10, 20, 30]
+        types = ['E', 'E', 'I']
+        num_chan = self.num_chan
+        n_neurons = len(rates)
+
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params['spiketrains']['rates'] = rates
+        rec_params['spiketrains']['types'] = types
+        rec_params['spiketrains']['duration'] = 3
+        n_jitter = 4
+        rec_params['templates']['n_jitters'] = n_jitter
+        rec_params['recordings']['modulation'] = 'electrode'
+        rec_params['recordings']['bursting'] = True
+        rec_params['recordings']['shape_mod'] = True
+        rec_params['recordings']['sync_rate'] = 0.2
+        rec_params['recordings']['overlap'] = True
+        rec_params['recordings']['extract_waveforms'] = True
+        rec_params['templates']['min_dist'] = 1
+        rec_params['templates']['min_amp'] = 0
+
+        rec_params['recordings']['exp_decay'] = [0.1, 0.15, 0.2]
+        rec_params['recordings']['max_burst_duration'] = [50, 100, 150]
+        rec_params['recordings']['n_burst_spikes'] = [5, 10, 15]
+        rec_params['recordings']['shape_stretch'] = 10
+
+        recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+        recgen_burst.extract_waveforms()
+
+        assert recgen_burst.recordings.shape[1] == num_chan
+        assert len(recgen_burst.spiketrains) == n_neurons
+        assert recgen_burst.channel_positions.shape == (num_chan, 3)
+        assert recgen_burst.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+        assert recgen_burst.voltage_peaks.shape == (n_neurons, num_chan)
+        assert recgen_burst.spike_traces.shape[1] == n_neurons
+
+        for st in recgen_burst.spiketrains:
+            assert st.annotations["bursting"]
+        del recgen_burst
+
+        rec_params['recordings']['modulation'] = 'template'
+        rec_params['recordings']['bursting_units'] = [1, 2]
+        rec_params['recordings']['exp_decay'] = [0.1, 0.15]
+        rec_params['recordings']['max_burst_duration'] = [50, 100]
+        rec_params['recordings']['n_burst_spikes'] = [10, 15]
+        rec_params['recordings']['shape_stretch'] = 20
+
+        recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+        recgen_burst.extract_waveforms()
+
+        assert recgen_burst.recordings.shape[1] == num_chan
+        assert len(recgen_burst.spiketrains) == n_neurons
+        assert recgen_burst.channel_positions.shape == (num_chan, 3)
+        assert recgen_burst.templates.shape[:3] == (n_neurons, n_jitter, num_chan)
+        assert recgen_burst.voltage_peaks.shape == (n_neurons, num_chan)
+        assert recgen_burst.spike_traces.shape[1] == n_neurons
+        for i, st in enumerate(recgen_burst.spiketrains):
+            if i in rec_params['recordings']['bursting_units']:
+                assert st.annotations["bursting"]
+            else:
+                assert not st.annotations["bursting"]
+        del recgen_burst
+
     def test_gen_recordings_noise(self):
         print('Test recording generation - noise')
         ne = 0
