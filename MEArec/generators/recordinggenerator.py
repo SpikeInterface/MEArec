@@ -426,20 +426,11 @@ class RecordingGenerator:
                     assert len(rec_params['max_burst_duration']) == n_bursting, \
                         "'max_burst_duration' should have the same length as the number of bursting units"
                     params['recordings']['max_burst_duration'] = rec_params['max_burst_duration']
-            max_burst_duration = params['recordings']['max_burst_duration']
+            max_burst_duration = [m * pq.ms for m in params['recordings']['max_burst_duration']]
 
             if shape_mod:
                 if 'shape_stretch' not in rec_params.keys():
-                    params['recordings']['shape_stretch'] = [30] * n_bursting
-                else:
-                    if not isinstance(rec_params['shape_stretch'], list):
-                        assert isinstance(rec_params['shape_stretch'], (float, int, np.integer)), \
-                            "'shape_stretch' can be list or scalar"
-                        params['recordings']['shape_stretch'] = [rec_params['shape_stretch']] * n_bursting
-                    else:
-                        assert len(rec_params['shape_stretch']) == n_bursting, \
-                            "'shape_stretch' should have the same length as the number of bursting units"
-                        params['recordings']['shape_stretch'] = rec_params['shape_stretch']
+                    params['recordings']['shape_stretch'] = 30
                 shape_stretch = params['recordings']['shape_stretch']
                 if verbose_1:
                     print('Bursting with modulation sigmoid: ', shape_stretch)

@@ -319,7 +319,7 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['exp_decay'] = [0.1, 0.15, 0.2]
         rec_params['recordings']['max_burst_duration'] = [50, 100, 150]
         rec_params['recordings']['n_burst_spikes'] = [5, 10, 15]
-        rec_params['recordings']['shape_stretch'] = [10, 20, 30]
+        rec_params['recordings']['shape_stretch'] = 10
 
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
         recgen_burst.extract_waveforms()
@@ -340,7 +340,7 @@ class TestGenerators(unittest.TestCase):
         rec_params['recordings']['exp_decay'] = [0.1, 0.15]
         rec_params['recordings']['max_burst_duration'] = [50, 100]
         rec_params['recordings']['n_burst_spikes'] = [10, 15]
-        rec_params['recordings']['shape_stretch'] = [20, 30]
+        rec_params['recordings']['shape_stretch'] = 20
 
         recgen_burst = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
         recgen_burst.extract_waveforms()
