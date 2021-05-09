@@ -26,7 +26,7 @@ setup(
         'click',
         'pyyaml',
         'matplotlib',
-        'h5py==2.10.0',
+        'h5py',
         'neo',
         'quantities',
         'elephant',
