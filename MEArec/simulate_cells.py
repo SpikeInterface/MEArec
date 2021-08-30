@@ -495,7 +495,9 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
 
 
 def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0, verbose=False, position=None,
-                       custom_return_cell_function=None, cell_locations=None, cell_rotations=None, save=True, **kwargs):
+                       custom_return_cell_function=None, cell_locations=None,
+                       cell_rotations=None, save=True, max_iterations=1000,
+                       timeout=300, **kwargs):
     """
     Loads data from previous cell simulation, and use results to generate
     arbitrary number of spikes above a certain noise level.
@@ -521,6 +523,10 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     cell_rotations: np.array or None
         If passed, the passed rotations are used (instead of random generation). Must be set if cell_locations is not
         None
+    timeout : int
+        Set the timeout in seconds for finding spikes over min_amp. Default 300
+    max_iterations : int
+        Set the maximum number of iterations for finding spikes over min_amp. Default 1000
     **kwargs: keyword arguments
         Template generation parameters (use mr.get_default_template_parameters() to retrieve the arguments)
 
@@ -557,6 +563,11 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         drift_z_lim = kwargs['drift_zlim']
         check_for_drift_amp = kwargs['check_for_drift_amp']
         drift_within_bounds = kwargs['drift_within_bounds']
+
+    if 'timeout' in kwargs:
+        timeout = kwargs.get('timeout')
+    if 'max_iterations' in kwargs:
+        max_iterations = kwargs.get('max_iterations')
 
     if custom_return_cell_function is None:
         return_function = return_bbp_cell
@@ -624,8 +635,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
         assert cell_rotations is not None, "If 'cell_locations' is not None, 'cell_rotations' should be given"
 
     if cell_locations is None:
+        start_time = time.time()
         while len(saved_eaps) < target_num_spikes:
-            if i > 1000 * target_num_spikes:
+            if i > max_iterations * target_num_spikes:
                 if verbose:
                     print(f"Gave up finding spikes above noise level for {cell_name}")
                 break
@@ -775,6 +787,13 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                         print(f"Discarded for minimum amp {cell_name}")
                     pass
             i += 1
+
+            if(time.time() - start_time > timeout):
+                if verbose:
+                    print("Timeout finding spikes above noise level for" +
+                          f"{cell_name}, more than {timeout}")
+                break
+
     else:
         target_num_spikes = len(cell_locations)
         for (loc, rot) in zip(cell_locations, cell_rotations):

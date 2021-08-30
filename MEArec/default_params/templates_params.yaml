@@ -32,3 +32,6 @@ drift_ylim: [-10, 10] # limits ( low high ) for neuron drift locations in the y-
 drift_zlim: [30, 80] # limits ( low high ) for neuron drift locations in the z-axis (depth)
 check_for_drift_amp: False # If True, the drifted template final amplitude must be greater than min_amp
 drift_within_bounds: False # If True, the drifted template final position must be within xlim, ylim, zlim bounds
+
+timeout: 300 # limits the time to find spikes
+max_iterations: 1000 # limits the number of iterations to find spikes
