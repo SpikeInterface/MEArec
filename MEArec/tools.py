@@ -322,14 +322,6 @@ def load_recordings(recordings, return_h5_objects=True,
     if verbose:
         print("Loading recordings...")
 
-    if load is None:
-        load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
-                'spike_traces', 'templates', 'template_ids']
-    else:
-        assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
-                                       "('recordings', 'channel_positions', 'voltge_peaks', 'spiketrains', " \
-                                       "'timestamps', 'spike_traces', 'templates')"
-
     rec_dict = {}
     recordings = Path(recordings)
     if (recordings.suffix in ['.h5', '.hdf5']) or (not check_suffix):
@@ -345,90 +337,12 @@ def load_recordings(recordings, return_h5_objects=True,
                   "your file to the new format use: mr.convert_recording_to_new_version(filename)")
             need_transpose = True
 
-        info = load_dict_from_hdf5(f, 'info/')
-        if f.get('voltage_peaks') is not None and 'voltage_peaks' in load:
-            if return_h5_objects:
-                rec_dict['voltage_peaks'] = f.get('voltage_peaks')
-            else:
-                rec_dict['voltage_peaks'] = np.array(f.get('voltage_peaks'))
-        if f.get('channel_positions') is not None and 'channel_positions' in load:
-            if return_h5_objects:
-                rec_dict['channel_positions'] = f.get('channel_positions')
-            else:
-                rec_dict['channel_positions'] = np.array(f.get('channel_positions'))
-        if f.get('recordings') is not None and 'recordings' in load:
-            if return_h5_objects:
-                if need_transpose:
-                    rec_dict['recordings'] = DatasetView(f.get('recordings')).lazy_transpose()
-                else:
-                    rec_dict['recordings'] = f.get('recordings')
-            else:
-                arr = np.array(f.get('recordings'))
-                if need_transpose:
-                    arr = arr.T
-                rec_dict['recordings'] = arr
-        if f.get('spike_traces') is not None and 'spike_traces' in load:
-            if return_h5_objects:
-                if need_transpose:
-                    rec_dict['spike_traces'] = DatasetView(f.get('spike_traces')).lazy_transpose()
-                else:
-                    rec_dict['spike_traces'] = f.get('spike_traces')
-            else:
-                arr = np.array(f.get('spike_traces'))
-                if need_transpose:
-                    arr = arr.T
-                rec_dict['spike_traces'] = arr
-        if f.get('templates') is not None and 'templates' in load:
-            if return_h5_objects:
-                rec_dict['templates'] = f.get('templates')
-            else:
-                rec_dict['templates'] = np.array(f.get('templates'))
-            if f.get('original_templates') is not None:
-                if return_h5_objects:
-                    rec_dict['original_templates'] = f.get('original_templates')
-                else:
-                    rec_dict['original_templates'] = np.array(f.get('original_templates'))
-            if f.get('template_locations') is not None:
-                if return_h5_objects:
-                    rec_dict['template_locations'] = f.get('template_locations')
-                else:
-                    rec_dict['template_locations'] = np.array(f.get('template_locations'))
-            if f.get('template_rotations') is not None:
-                if return_h5_objects:
-                    rec_dict['template_rotations'] = f.get('template_rotations')
-                else:
-                    rec_dict['template_rotations'] = np.array(f.get('template_rotations'))
-            if f.get('template_celltypes') is not None:
-                celltypes = np.array(([n.decode() for n in f.get('template_celltypes')]))
-                rec_dict['template_celltypes'] = np.array(celltypes)
-        if f.get('timestamps') is not None and 'timestamps' in load:
-            if return_h5_objects:
-                rec_dict['timestamps'] = f.get('timestamps')
-            else:
-                rec_dict['timestamps'] = np.array(f.get('timestamps')) * pq.s
-        if f.get('template_ids') is not None and 'template_ids' in load:
-            rec_dict['template_ids'] = f.get('template_ids')
-        if f.get('spiketrains') is not None and 'spiketrains' in load:
-            spiketrains = []
-            sorted_units = sorted([int(u) for u in f.get('spiketrains/')])
-            for unit in sorted_units:
-                unit = str(unit)
-                times = np.array(f.get('spiketrains/' + unit + '/times'))
-                t_stop = np.array(f.get('spiketrains/' + unit + '/t_stop'))
-                if f.get('spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
-                    waveforms = np.array(f.get('spiketrains/' + unit + '/waveforms'))
-                else:
-                    waveforms = None
-                annotations = load_dict_from_hdf5(f, 'spiketrains/' + unit + '/annotations/')
-                st = neo.core.SpikeTrain(
-                    times,
-                    t_stop=t_stop,
-                    waveforms=waveforms,
-                    units=pq.s
-                )
-                st.annotations = annotations
-                spiketrains.append(st)
-            rec_dict['spiketrains'] = spiketrains
+        rec_dict, info = load_recordings_from_file(f,
+                                                   return_h5_objects=return_h5_objects,
+                                                   load=load,
+                                                   need_transpose=need_transpose,
+                                                   load_waveforms=load_waveforms)
+
     else:
         raise Exception("Recordings must be an hdf5 file (.h5 or .hdf5)")
 
@@ -439,6 +353,131 @@ def load_recordings(recordings, return_h5_objects=True,
         f.close()
     recgen = RecordingGenerator(rec_dict=rec_dict, info=info)
     return recgen
+
+def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
+                              need_transpose=False, load_waveforms=True):
+    """
+    Load generated recordings from file.
+
+    Parameters
+    ----------
+    filename : _io.TextIOWrapper
+        File handler
+    path: str
+        Path inside the h5 database
+    return_h5_objects : bool
+        If True output objects are h5 objects
+    load : list
+        List of fields to be loaded (('recordings', 'channel_positions', 'voltage_peaks', 'spiketrains',
+                                       'timestamps', 'spike_traces', 'templates'))
+    load_waveforms : bool
+        If True waveforms are loaded to spiketrains
+    verbose : bool
+        If True output is verbose
+    check_suffix : bool
+        If True, hdf5 suffix is checked
+
+    Returns
+    -------
+    recgen : RecordingGenerator
+        RecordingGenerator object
+
+    """
+
+    if load is None:
+        load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
+                'spike_traces', 'templates', 'template_ids']
+    else:
+        assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
+                                       "('recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', " \
+                                       "'timestamps', 'spike_traces', 'templates')"
+    rec_dict = {}
+    info = load_dict_from_hdf5(f, path + 'info/')
+    if f.get(path + 'voltage_peaks') is not None and 'voltage_peaks' in load:
+        if return_h5_objects:
+            rec_dict['voltage_peaks'] = f.get(path + 'voltage_peaks')
+        else:
+            rec_dict['voltage_peaks'] = np.array(f.get(path + 'voltage_peaks'))
+    if f.get(path + 'channel_positions') is not None and 'channel_positions' in load:
+        if return_h5_objects:
+            rec_dict['channel_positions'] = f.get(path + 'channel_positions')
+        else:
+            rec_dict['channel_positions'] = np.array(f.get(path + 'channel_positions'))
+    if f.get(path + 'recordings') is not None and 'recordings' in load:
+        if return_h5_objects:
+            if need_transpose:
+                rec_dict['recordings'] = DatasetView(f.get(path + 'recordings')).lazy_transpose()
+            else:
+                rec_dict['recordings'] = f.get(path + 'recordings')
+        else:
+            arr = np.array(f.get(path + 'recordings'))
+            if need_transpose:
+                arr = arr.T
+            rec_dict['recordings'] = arr
+    if f.get(path + 'spike_traces') is not None and 'spike_traces' in load:
+        if return_h5_objects:
+            if need_transpose:
+                rec_dict['spike_traces'] = DatasetView(f.get(path + 'spike_traces')).lazy_transpose()
+            else:
+                rec_dict['spike_traces'] = f.get(path + 'spike_traces')
+        else:
+            arr = np.array(f.get(path + 'spike_traces'))
+            if need_transpose:
+                arr = arr.T
+            rec_dict['spike_traces'] = arr
+    if f.get(path + 'templates') is not None and 'templates' in load:
+        if return_h5_objects:
+            rec_dict['templates'] = f.get(path + 'templates')
+        else:
+            rec_dict['templates'] = np.array(f.get(path + 'templates'))
+        if f.get(path + 'original_templates') is not None:
+            if return_h5_objects:
+                rec_dict['original_templates'] = f.get(path + 'original_templates')
+            else:
+                rec_dict['original_templates'] = np.array(f.get(path + 'original_templates'))
+        if f.get(path + 'template_locations') is not None:
+            if return_h5_objects:
+                rec_dict['template_locations'] = f.get(path + 'template_locations')
+            else:
+                rec_dict['template_locations'] = np.array(f.get(path + 'template_locations'))
+        if f.get(path + 'template_rotations') is not None:
+            if return_h5_objects:
+                rec_dict['template_rotations'] = f.get(path + 'template_rotations')
+            else:
+                rec_dict['template_rotations'] = np.array(f.get(path + 'template_rotations'))
+        if f.get(path + 'template_celltypes') is not None:
+            celltypes = np.array(([n.decode() for n in f.get(path + 'template_celltypes')]))
+            rec_dict['template_celltypes'] = np.array(celltypes)
+    if f.get(path + 'timestamps') is not None and 'timestamps' in load:
+        if return_h5_objects:
+            rec_dict['timestamps'] = f.get(path + 'timestamps')
+        else:
+            rec_dict['timestamps'] = np.array(f.get(path + 'timestamps')) * pq.s
+    if f.get(path + 'template_ids') is not None and 'template_ids' in load:
+        rec_dict['template_ids'] = f.get(path + 'template_ids')
+    if f.get(path + 'spiketrains') is not None and 'spiketrains' in load:
+        spiketrains = []
+        sorted_units = sorted([int(u) for u in f.get(path + 'spiketrains/')])
+        for unit in sorted_units:
+            unit = str(unit)
+            times = np.array(f.get(path + 'spiketrains/' + unit + '/times'))
+            t_stop = np.array(f.get(path + 'spiketrains/' + unit + '/t_stop'))
+            if f.get(path + 'spiketrains/' + unit + '/waveforms') is not None and load_waveforms:
+                waveforms = np.array(f.get(path + 'spiketrains/' + unit + '/waveforms'))
+            else:
+                waveforms = None
+            annotations = load_dict_from_hdf5(f, path + 'spiketrains/' + unit + '/annotations/')
+            st = neo.core.SpikeTrain(
+                times,
+                t_stop=t_stop,
+                waveforms=waveforms,
+                units=pq.s
+            )
+            st.annotations = annotations
+            spiketrains.append(st)
+        rec_dict['spiketrains'] = spiketrains
+
+    return rec_dict, info
 
 
 def save_template_generator(tempgen, filename=None, verbose=True):
@@ -492,42 +531,54 @@ def save_recording_generator(recgen, filename=None, verbose=False):
     assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
     with h5py.File(filename, 'w') as f:
         f.attrs['mearec_version'] = version
-        save_dict_to_hdf5(recgen.info, f, 'info/')
-        if len(recgen.voltage_peaks) > 0:
-            f.create_dataset('voltage_peaks', data=recgen.voltage_peaks)
-        if len(recgen.channel_positions) > 0:
-            f.create_dataset('channel_positions', data=recgen.channel_positions)
-        if len(recgen.recordings) > 0:
-            f.create_dataset('recordings', data=recgen.recordings)
-        if len(recgen.spike_traces) > 0:
-            f.create_dataset('spike_traces', data=recgen.spike_traces)
-        if len(recgen.spiketrains) > 0:
-            for ii in range(len(recgen.spiketrains)):
-                st = recgen.spiketrains[ii]
-                f.create_dataset('spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
-                f.create_dataset('spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
-                if st.waveforms is not None:
-                    f.create_dataset('spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
-                save_dict_to_hdf5(st.annotations, f, 'spiketrains/{}/annotations/'.format(ii))
-        if len(recgen.templates) > 0:
-            f.create_dataset('templates', data=recgen.templates)
-        if len(recgen.original_templates) > 0:
-            f.create_dataset('original_templates', data=recgen.original_templates)
-        if len(recgen.template_locations) > 0:
-            f.create_dataset('template_locations', data=recgen.template_locations)
-        if len(recgen.template_rotations) > 0:
-            f.create_dataset('template_rotations', data=recgen.template_rotations)
-        if len(recgen.template_celltypes) > 0:
-            celltypes = [n.encode("ascii", "ignore") for n in recgen.template_celltypes]
-            f.create_dataset('template_celltypes', data=celltypes)
-        if len(recgen.timestamps) > 0:
-            f.create_dataset('timestamps', data=recgen.timestamps)
-        if hasattr(recgen, 'template_ids'):
-            if recgen.template_ids is not None:
-                f.create_dataset('template_ids', data=recgen.template_ids)
+        save_recording_to_file(recgen, f)
     if verbose:
         print('\nSaved recordings in', filename, '\n')
 
+def save_recording_to_file(recgen, f, path=""):
+    """
+    Save recordings to file handler.
+
+    Parameters
+    ----------
+    recgen : RecordingGenerator
+        RecordingGenerator object to be saved
+    filename : _io.TextIOWrapper
+        File handler
+    """
+    save_dict_to_hdf5(recgen.info, f, path + 'info/')
+    if len(recgen.voltage_peaks) > 0:
+        f.create_dataset(path + 'voltage_peaks', data=recgen.voltage_peaks)
+    if len(recgen.channel_positions) > 0:
+        f.create_dataset(path + 'channel_positions', data=recgen.channel_positions)
+    if len(recgen.recordings) > 0:
+        f.create_dataset(path + 'recordings', data=recgen.recordings)
+    if len(recgen.spike_traces) > 0:
+        f.create_dataset(path + 'spike_traces', data=recgen.spike_traces)
+    if len(recgen.spiketrains) > 0:
+        for ii in range(len(recgen.spiketrains)):
+            st = recgen.spiketrains[ii]
+            f.create_dataset(path + 'spiketrains/{}/times'.format(ii), data=st.times.rescale('s').magnitude)
+            f.create_dataset(path + 'spiketrains/{}/t_stop'.format(ii), data=st.t_stop)
+            if st.waveforms is not None:
+                f.create_dataset(path + 'spiketrains/{}/waveforms'.format(ii), data=st.waveforms)
+            save_dict_to_hdf5(st.annotations, f, path + 'spiketrains/{}/annotations/'.format(ii))
+    if len(recgen.templates) > 0:
+        f.create_dataset(path + 'templates', data=recgen.templates)
+    if len(recgen.original_templates) > 0:
+        f.create_dataset(path + 'original_templates', data=recgen.original_templates)
+    if len(recgen.template_locations) > 0:
+        f.create_dataset(path + 'template_locations', data=recgen.template_locations)
+    if len(recgen.template_rotations) > 0:
+        f.create_dataset(path + 'template_rotations', data=recgen.template_rotations)
+    if len(recgen.template_celltypes) > 0:
+        celltypes = [n.encode("ascii", "ignore") for n in recgen.template_celltypes]
+        f.create_dataset(path + 'template_celltypes', data=celltypes)
+    if len(recgen.timestamps) > 0:
+        f.create_dataset(path + 'timestamps', data=recgen.timestamps)
+    if hasattr(recgen, 'template_ids'):
+        if recgen.template_ids is not None:
+            f.create_dataset(path + 'template_ids', data=recgen.template_ids)
 
 def save_dict_to_hdf5(dic, h5file, path):
     """
