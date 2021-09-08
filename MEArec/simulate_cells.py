@@ -788,7 +788,7 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                     pass
             i += 1
 
-            if(time.time() - start_time > timeout):
+            if time.time() - start_time > timeout:
                 if verbose:
                     print("Timeout finding spikes above noise level for" +
                           f"{cell_name}, more than {timeout}")
