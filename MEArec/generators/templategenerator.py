@@ -91,11 +91,11 @@ class TemplateGenerator:
                 self.params = {}
             else:
                 self.params = deepcopy(params)
-            self.cell_model_folder = Path(cell_models_folder)
+            self.cell_model_folder = Path(cell_models_folder).resolve()
             self.n_jobs = n_jobs
             self.joblib_backend = joblib_backend
             if templates_folder is not None:
-                templates_folder = Path(templates_folder)
+                templates_folder = Path(templates_folder).resolve()
             self.templates_folder = templates_folder
             self.tempgen = tempgen
             self.simulation_params = {'intraonly': intraonly, 'parallel': parallel, 'delete_tmp': delete_tmp,
@@ -238,7 +238,7 @@ class TemplateGenerator:
                 for numb, cell_model in enumerate(cell_models):
                     if self._verbose:
                         print(f'\n\n {cell_model} {numb + 1}/{len(cell_models)}\n\n')
-                    compute_eap_for_cell_model(cell_model=cell_models_folder / cell_model, params_path=tmp_params_path,
+                    compute_eap_for_cell_model(cell_model=cell_model, params_path=tmp_params_path,
                                                intraonly=intraonly, verbose=self._verbose)
 
             else:
