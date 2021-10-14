@@ -77,12 +77,10 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
 
     if tempgen is None:
         templates = Path(templates)
-        if templates.is_dir():
-            tempgen = load_templates(templates, verbose=False)
-        elif templates.suffix in ['.h5', '.hdf5']:
-            tempgen = load_templates(templates, verbose=False)
+        if templates.suffix in ['.h5', '.hdf5']:
+            tempgen = load_templates(templates, verbose=verbose)
         else:
-            raise AttributeError("'templates' is not a folder or an hdf5 file")
+            raise AttributeError("'templates' is not an hdf5 file")
 
     if 'spiketrains' in params_dict['seeds']:
         if params_dict['seeds']['spiketrains'] is None:
