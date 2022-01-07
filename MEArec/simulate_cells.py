@@ -282,7 +282,7 @@ def set_input(weight, dt, T, cell, delay, stim_length):
 
 def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True, return_vi=False,
                    custom_return_cell_function=None, **kwargs):
-    """ Run simulation and adjust input strength to have a certain number of 
+    """ Run simulation and adjust input strength to have a certain number of
         spikes (target_spikes[0] < num_spikes <= target_spikes[1]
         where target_spikes=[10,30] by default)
 
@@ -494,7 +494,8 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
     return 1000 * lfp
 
 
-def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0, verbose=False, position=None,
+def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0,
+                       verbose=False, position=None,
                        custom_return_cell_function=None, cell_locations=None,
                        cell_rotations=None, save=True, max_iterations=1000,
                        timeout=300, **kwargs):
@@ -504,6 +505,8 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
 
     Parameters:
     -----------
+    i: int
+        Index of cell model
     cell_model_folder : string
         Path to folder where cell model is saved.
     model_type : string
@@ -539,7 +542,9 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
     cell_name = cell_model_folder.parts[-1]
     cell_save_name = cell_name
     load_sim_folder = Path(load_sim_folder)
-    np.random.seed(seed)
+    if verbose:
+        print(f"Seed = {seed + i}")
+    np.random.seed(seed + i)
 
     T = kwargs['sim_time'] * 1000
     dt = kwargs['dt']
@@ -788,11 +793,12 @@ def calc_extracellular(cell_model_folder, load_sim_folder, save_sim_folder=None,
                     pass
             i += 1
 
-            if time.time() - start_time > timeout:
-                if verbose:
-                    print("Timeout finding spikes above noise level for" +
-                          f"{cell_name}, more than {timeout}")
-                break
+            if timeout is not None:
+                if time.time() - start_time > timeout:
+                    if verbose:
+                        print(f"Timeout finding spikes above noise level for "
+                              f"{cell_name}, more than {timeout}")
+                    break
 
     else:
         target_num_spikes = len(cell_locations)
@@ -1061,7 +1067,7 @@ def return_extracellular_spike(cell, cell_name, model_type,
 
     def get_xyz_angles(R):
         """ Get rotation angles for each axis from rotation matrix
-        
+
         Parameters;
         -----------
         R : matrix
@@ -1293,8 +1299,9 @@ def simulate_templates_one_cell(cell_model, intra_save_folder, params, verbose, 
     run_cell_model(cell_model, save=True, sim_folder=intra_save_folder, verbose=verbose,
                    custom_return_cell_function=custom_return_cell_function, **params)
     print(f'Extracellular simulation: {cell_model}')
-    eaps, locs, rots = calc_extracellular(cell_model, intra_save_folder, verbose=verbose,
-                                          save=False, custom_return_cell_function=custom_return_cell_function, **params)
+    eaps, locs, rots = calc_extracellular(0, cell_model, intra_save_folder, verbose=verbose,
+                                          save=False, custom_return_cell_function=custom_return_cell_function, 
+                                          **params)
 
     return eaps, locs, rots
 
@@ -1304,7 +1311,7 @@ def compile_models(cell_folder):
     print(f"Compiled all cell models in {cell_folder}")
 
 
-def compute_eap_for_cell_model(cell_model, params_path, intraonly=False, verbose=False):
+def compute_eap_for_cell_model(i, cell_model, params_path, intraonly=False, verbose=False):
     with open(params_path, 'r') as f:
         if use_loader:
             params = yaml.load(f, Loader=yaml.FullLoader)
@@ -1318,7 +1325,7 @@ def compute_eap_for_cell_model(cell_model, params_path, intraonly=False, verbose
     run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
     if not intraonly:
         print(f'Extracellular simulation: {cell_model}')
-        calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
+        calc_extracellular(i, cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
                            load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)
 
 
@@ -1341,7 +1348,7 @@ def compute_eap_based_on_tempgen(cell_folder, params_path,
             raise NotImplementedError("Cell types in the template generator must be contiguous.")
 
     # print(f'Intracellular simulation: {cell_model}')
-    for celltype in celltypes:
+    for i, celltype in enumerate(celltypes):
         cell_model = cell_folder / celltype
         run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
         celltype_idxs = np.where(tempgen.celltypes == celltype)
@@ -1349,7 +1356,7 @@ def compute_eap_based_on_tempgen(cell_folder, params_path,
         cell_rotations = tempgen.rotations[celltype_idxs]
         if not intraonly:
             print(f'Extracellular simulation: {cell_model}')
-            calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
+            calc_extracellular(i, cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
                                load_sim_folder=vm_im_sim_folder, verbose=verbose, cell_locations=cell_locations,
                                cell_rotations=cell_rotations, **params)
 
@@ -1359,11 +1366,12 @@ if __name__ == '__main__':
         cell_folder = sys.argv[2]
         compile_all_mechanisms(cell_folder)
         sys.exit(0)
-    elif len(sys.argv) == 5:
-        cell_model = sys.argv[1]
-        intraonly = str2bool(sys.argv[2])
-        params_path = sys.argv[3]
-        verbose = str2bool(sys.argv[4])
+    elif len(sys.argv) == 6:
+        i = int(sys.argv[1])
+        cell_model = sys.argv[2]
+        intraonly = str2bool(sys.argv[3])
+        params_path = sys.argv[4]
+        verbose = str2bool(sys.argv[5])
 
         with open(params_path, 'r') as f:
             if use_loader:
@@ -1382,6 +1390,5 @@ if __name__ == '__main__':
         run_cell_model(cell_model_folder=cell_model, sim_folder=vm_im_sim_folder, verbose=verbose, **params)
         if not intraonly:
             print(f'Extracellular simulation: {cell_model}')
-            calc_extracellular(cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
+            calc_extracellular(i, cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
                                load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)
-[]

@@ -21,7 +21,7 @@ def simulate_cell_templates(i, simulate_script, tot, cell_model,
     model_folder = Path(model_folder)
     print(f"Starting {i + 1}")
     print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
-    os.system(f'python {simulate_script} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
+    os.system(f'python {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
     print(f"Exiting {i + 1}")
 
 
@@ -235,10 +235,10 @@ class TemplateGenerator:
         else:
             start_time = time.time()
             if self.tempgen is None:
-                for numb, cell_model in enumerate(cell_models):
+                for i, cell_model in enumerate(cell_models):
                     if self._verbose:
-                        print(f'\n\n {cell_model} {numb + 1}/{len(cell_models)}\n\n')
-                    compute_eap_for_cell_model(cell_model=cell_model, params_path=tmp_params_path,
+                        print(f'\n\n {cell_model} {i + 1}/{len(cell_models)}\n\n')
+                    compute_eap_for_cell_model(i, cell_model=cell_model, params_path=tmp_params_path,
                                                intraonly=intraonly, verbose=self._verbose)
 
             else:
