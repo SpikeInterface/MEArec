@@ -27,4 +27,4 @@ jobs:
           pip install pytest
       - name: Test with pytest and build coverage report
         run: |
-          pytest
+          pytest -s
