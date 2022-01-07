@@ -12,6 +12,7 @@ from pathlib import Path
 from copy import deepcopy, copy
 from distutils.version import StrictVersion
 from joblib import Parallel, delayed
+from datetime import datetime
 from lazy_ops import DatasetView
 
 from .version import version
@@ -499,6 +500,7 @@ def save_template_generator(tempgen, filename=None, verbose=True):
     assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
     with h5py.File(filename, 'w') as f:
         save_dict_to_hdf5(tempgen.info, f, 'info/')
+        f.attrs['date'] = datetime.now().strftime("%y-%m-%d %H:%M:%S")
         if len(tempgen.celltypes) > 0:
             celltypes = [str(x).encode('utf-8') for x in tempgen.celltypes]
             f.create_dataset('celltypes', data=celltypes)
@@ -531,6 +533,7 @@ def save_recording_generator(recgen, filename=None, verbose=False):
     assert filename.suffix in ['.h5', '.hdf5'], 'Provide an .h5 or .hdf5 file name'
     with h5py.File(filename, 'w') as f:
         f.attrs['mearec_version'] = version
+        f.attrs['date'] = datetime.now().strftime("%y-%m-%d %H:%M:%S")
         save_recording_to_file(recgen, f)
     if verbose:
         print('\nSaved recordings in', filename, '\n')
