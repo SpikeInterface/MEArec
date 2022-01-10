@@ -21,7 +21,8 @@ def simulate_cell_templates(i, simulate_script, tot, cell_model,
     model_folder = Path(model_folder)
     print(f"Starting {i + 1}")
     print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
-    os.system(f'python {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
+    os.system(
+        f'python {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
     print(f"Exiting {i + 1}")
 
 
@@ -116,7 +117,8 @@ class TemplateGenerator:
             cell_models = [f for f in cell_models_folder.iterdir() if 'mods' not in f.name
                            and not f.name.startswith('.')]
             if len(cell_models) == 0:
-                raise AttributeError(cell_models_folder, ' contains no cell models!')
+                raise AttributeError(cell_models_folder,
+                                     ' contains no cell models!')
         else:
             raise NotADirectoryError('Cell models folder: does not exist!')
 
@@ -130,7 +132,8 @@ class TemplateGenerator:
             os.system(f'python {simulate_script} compile {cell_models_folder}')
 
         # sort cell model names
-        cell_models = np.array(cell_models)[np.argsort([f.name for f in cell_models])]
+        cell_models = np.array(cell_models)[
+            np.argsort([f.name for f in cell_models])]
 
         if 'sim_time' not in self.params.keys():
             self.params['sim_time'] = 1
@@ -163,6 +166,10 @@ class TemplateGenerator:
             self.params['ylim'] = None
         if 'zlim' not in self.params.keys():
             self.params['zlim'] = None
+        if 'x_distr' not in self.params.keys():
+            self.params['x_distr'] = 'uniform'
+        if 'beta_distr_params' not in self.params.keys():
+            self.params['beta_distr_params'] = [1.5, 5]
         if 'offset' not in self.params.keys():
             self.params['offset'] = 0
         if 'det_thresh' not in self.params.keys():
@@ -237,7 +244,8 @@ class TemplateGenerator:
             if self.tempgen is None:
                 for i, cell_model in enumerate(cell_models):
                     if self._verbose:
-                        print(f'\n\n {cell_model} {i + 1}/{len(cell_models)}\n\n')
+                        print(
+                            f'\n\n {cell_model} {i + 1}/{len(cell_models)}\n\n')
                     compute_eap_for_cell_model(i, cell_model=cell_model, params_path=tmp_params_path,
                                                intraonly=intraonly, verbose=self._verbose)
 
@@ -255,6 +263,7 @@ class TemplateGenerator:
             raise FileNotFoundError(
                 f'{tmp_folder} not found. Something went wrong in the template generation phase.')
 
+        print("Aggregating templates")
         templates, locations, rotations, celltypes = load_tmp_eap(tmp_folder)
         if delete_tmp:
             shutil.rmtree(tmp_folder)

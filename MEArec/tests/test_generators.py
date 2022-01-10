@@ -154,6 +154,33 @@ class TestGenerators(unittest.TestCase):
         for (loc_new, loc_old) in zip(tempgen2.locations, self.tempgen.locations):
             for (loc_new_d, loc_old_d) in zip(loc_new, loc_old):
                 assert np.allclose(loc_new_d, loc_old_d)
+                
+    def test_gen_templates_beta_distr(self):
+        print('Test templates generation from beta distributions')
+        cell_models_folder = mr.get_default_cell_models_folder()
+
+        # no drift
+        params = self.templates_params
+        params["probe"] = "Neuronexus-32"
+        
+        # beta distr
+        params["x_distr"] = "beta"
+        tempgen_beta = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                        params=params)
+
+        assert tempgen_beta.templates.shape[0] == self.tempgen.templates.shape[0]
+
+        # drift
+        params = self.templates_params_drift
+        params["probe"] = "Neuronexus-32"
+        params["x_distr"] = "beta"
+        params["beta_distr_params"] = [2, 5]
+
+        tempgen_drift_beta = mr.gen_templates(cell_models_folder=cell_models_folder,
+                                              params=params)
+
+        assert tempgen_drift_beta.templates.shape[0] == self.tempgen_drift.templates.shape[0]
+
 
     def test_gen_spiketrains(self):
         print('Test spike train generation')
