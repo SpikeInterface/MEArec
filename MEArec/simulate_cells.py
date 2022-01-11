@@ -685,7 +685,8 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
             cell.imem = i_spikes[spike_idx, :, :]
             cell.somav = v_spikes[spike_idx, :]
             tested_pos = [x_rands[tested_loc_idx],
-                          y_rands[tested_loc_idx], z_rands[tested_loc_idx]]
+                          y_rands[tested_loc_idx], 
+                          z_rands[tested_loc_idx]]
 
             espikes, pos, rot, found_position = return_extracellular_spike(cell=cell, cell_name=cell_name,
                                                                            model_type=model_type,
