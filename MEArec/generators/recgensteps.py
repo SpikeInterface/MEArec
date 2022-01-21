@@ -17,7 +17,9 @@ import numpy as np
 import scipy.signal
 
 from MEArec.tools import (filter_analog_signals, convolve_templates_spiketrains,
-                          convolve_single_template, convolve_drifting_templates_spiketrains)
+                          convolve_single_template,
+                          #~ convolve_drifting_templates_spiketrains
+                          )
 
 
 class FuncThenAddChunk:
@@ -48,7 +50,9 @@ class FuncThenAddChunk:
 
 
 def chunk_convolution_(ch, i_start, i_stop, chunk_start,
-                       st_idxs, pad_samples, modulation, drifting, drift_mode, drifting_units, templates,
+                       st_idxs, pad_samples, modulation, drifting,
+                       # drift_mode,
+                       drifting_units, templates,
                        cut_outs_samples, drift_vectors,
                        #~ template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
                        #~ fast_drift_max_jump, t_start_drift, fs, 
@@ -76,7 +80,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         Modulation type
     drifting: bool
         If True drifting is performed
-    drift_mode :  str
+**    drift_mode :  str
         Drift mode ['slow' | 'fast' | 'slow+fast']
     drifting_units: list
         List of drifting units (if None all units are drifted)
@@ -181,16 +185,18 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                 template = templates[st, :, :, :, :] 
                 central_template = templates[st, default_drift_ind, max_electrode, :]
             else:
-                if templates.shape == 4:
+                if templates.ndim == 4:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, :, :, :]
                     central_template = templates[st, max_electrode, :]
-                elif templates.shape == 5:
+                elif templates.ndim == 5:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, default_drift_ind, :, :, :]
                     central_template = templates[st, default_drift_ind, max_electrode, :]
+                else:
+                    raise Exception(f'templates.shape no 4 or 5 {templates.shape}')
 
             recordings = convolve_templates_spiketrains(st, st_idx_in_chunk_pad, 
                                                         template,

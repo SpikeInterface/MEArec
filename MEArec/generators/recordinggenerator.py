@@ -8,7 +8,7 @@ from MEArec.tools import (select_templates, find_overlapping_templates, get_bina
 from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
                           chunk_distance_correlated_noise, chunk_apply_filter)
 
-from .drift_tools import generate_drift_position_vector
+from ..drift_tools import generate_drift_position_vector
 
 import random
 import string
@@ -564,7 +564,7 @@ class RecordingGenerator:
             drift_vectors = generate_drift_position_vector(
                     fs=fs.rescale('Hz').magnitude,
                     n_samples=n_samples,
-                    template_locations=self.template_locations,
+                    template_locations=template_locs,
                     start_drift_index=int(rec_params['t_start_drift'] * fs),
                     drift_mode_probe=rec_params['drift_mode_probe'],
                     drift_mode_speed=rec_params['drift_mode_speed'],
@@ -949,7 +949,9 @@ class RecordingGenerator:
 
             pad_samples_conv = templates.shape[-1]
             # call the loop on chunks
-            args = (spike_idxs, pad_samples_conv, modulation, drifting, drift_mode, drifting_units, templates,
+            args = (spike_idxs, pad_samples_conv, modulation, drifting,
+                    # drift_mode, 
+                    drifting_units, templates,
                     cut_outs_samples, 
                     drift_vectors,
                     #~ template_locs, velocity_vector, fast_drift_period,
@@ -1101,7 +1103,9 @@ class RecordingGenerator:
                                                            templates_noise.shape[2]))
 
                 # call the loop on chunks
-                args = (spike_idxs_noise, 0, 'none', False, None, None, templates_noise,
+                args = (spike_idxs_noise, 0, 'none', False, 
+                        # None,
+                        None, templates_noise,
                         cut_outs_samples,
                         None,
                         # template_noise_locs, None, None, None, None, None, None,

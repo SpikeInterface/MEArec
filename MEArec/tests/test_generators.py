@@ -121,11 +121,6 @@ class TestGenerators(unittest.TestCase):
         n = self.n_drift
         num_cells = self.num_cells
         n_steps = self.num_steps_drift
-        print('n', n, 'num_cells', num_cells, 'n_steps', n_steps)
-        print(self.tempgen_drift.templates.shape)
-        print(self.tempgen_drift.locations.shape)
-        print(self.tempgen_drift.rotations.shape)
-        
 
         assert self.tempgen_drift.templates.shape[0] == (n * num_cells)
         assert self.tempgen_drift.locations.shape == (n * num_cells, n_steps, 3)
@@ -815,9 +810,10 @@ class TestGenerators(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # ~ unittest.main()
+    #~ unittest.main()
 
     TestGenerators().setUpClass()
     # TestGenerators().test_recordings_backend()
     TestGenerators().test_gen_templates_drift()
+    TestGenerators().test_gen_recordings_drift()
     
