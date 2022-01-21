@@ -2264,7 +2264,7 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
 
 def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
                                    mod_array=None, verbose=False, bursting=False, shape_stretch=None,
-                                   template_idxs=None, max_channels_per_template=None, recordings=None):
+                                   max_channels_per_template=None, recordings=None, drift_vector=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
     Parameters
@@ -2289,29 +2289,42 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         If True templates are modulated in shape
     shape_stretch : float
         Range of sigmoid transform for bursting shape stretch
-    template_idxs : np.array
-        Array of template indices (used for drifting templates)
     max_channels_per_template : np.array
         Maximum number of channels to be convolved
     recordings :  np.arrays
         Array to use for recordings. If None it is created
+    drift_vector: None or np.array 1d
+        Optionally the drift vector related to the chunk!!!
     Returns
     -------
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
     """
+    
+    is_drifting = drift_vector is not None
+    if is_drifting:
+        assert template.ndim == 4
+    else:
+        assert template.ndim == 3
+    
     if verbose:
         print('Convolution with spike:', spike_id)
-    if len(template.shape) == 3:
-        n_jitt = template.shape[0]
-        n_elec = template.shape[1]
-        len_spike = template.shape[2]
-    else:
-        assert template_idxs is not None, "For drifting templates, pass the 'template_idxs' argument to select the " \
-                                          "right template for each spike"
+    
+
+    if is_drifting:
+        drift_steps = template.shape[0]
         n_jitt = template.shape[1]
         n_elec = template.shape[2]
         len_spike = template.shape[3]
+    else:
+        n_jitt = template.shape[0]
+        n_elec = template.shape[1]
+        len_spike = template.shape[2]
+        
+        if is_drifting:
+            # template could drift but we don't want
+            default_drift_ind = 0
+            default_drift_ind = template.shape[0] // 2 
 
     if recordings is None:
         recordings = np.zeros((n_samples, n_elec))
@@ -2328,7 +2341,15 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
     for pos, spos in enumerate(st_idx):
+        if drifting:
+            drift_ind = drift_vector[spos]
+        
         rand_idx = np.random.randint(n_jitt)
+        if drifting:
+            temp_jitt = template[drift_ind, rand_idx]
+        else:
+            temp_jitt = template[rand_idx]
+
         if template_idxs is not None:
             temp_jitt = template[template_idxs[pos], rand_idx]
         else:
@@ -2399,179 +2420,179 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
     return recordings
 
 
-def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_samples, fs, loc, t_start_drift,
-                                            drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
-                                            fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
-                                            modulation=False, mod_array=None,
-                                            verbose=False, bursting=False, shape_stretch=None,
-                                            chunk_start=None, recordings=None):
-    """
-    Convolve template with spike train on all electrodes. Used to compute 'recordings'.
+#~ def convolve_drifting_templates_spiketrains(spike_id, st_idx, template, n_samples, fs, loc, t_start_drift,
+                                            #~ drift_mode='slow', slow_drift_velocity=5, fast_drift_period=10,
+                                            #~ fast_drift_min_jump=5, fast_drift_max_jump=20, cut_out=None,
+                                            #~ modulation=False, mod_array=None,
+                                            #~ verbose=False, bursting=False, shape_stretch=None,
+                                            #~ chunk_start=None, recordings=None):
+    #~ """
+    #~ Convolve template with spike train on all electrodes. Used to compute 'recordings'.
 
-    Parameters
-    ----------
-    spike_id : int
-        Index of spike trains - template
-    st_idx : np.array
-        Spike times
-    template : np.array
-        Array with drifting template
-    n_samples : int
-        Number of samples in chunk
-    fs : Quantity
-        Sampling frequency
-    loc : np.array
-        Locations of drifting templates
-    t_start_drift : Quantity
-        Drifting start time in s
-    drift_mode : str
-        Drift modality ['slow' | 'fast' | 'slow+fast']
-    slow_drift_velocity : 3d array
-        Slow drifting velocity vector in um/s
-    fast_drift_period : Quantity
-        Period between fast drifts in s
-    fast_drift_min_jump: float
-        Minimum 'jump' for fast drifts in uV
-    fast_drift_max_jump: float
-        Maximum 'jump' for fast drifts in uV
-    cut_out : list
-        Number of samples before and after the peak
-    modulation : bool
-        If True modulation is applied
-    mod_array : np.array
-        Array with modulation value for each spike
-    verbose : bool
-        If True output is verbose
-    bursting : bool
-        If True templates are modulated in shape
-    shape_stretch : float
-        Range of sigmoid transform for bursting shape stretch
-    chunk_start : quantity
-        Chunk start time used to compute drifting position
-    recordings :  np.arrays
-        Array to use for recordings. If None it is created
+    #~ Parameters
+    #~ ----------
+    #~ spike_id : int
+        #~ Index of spike trains - template
+    #~ st_idx : np.array
+        #~ Spike times
+    #~ template : np.array
+        #~ Array with drifting template
+    #~ n_samples : int
+        #~ Number of samples in chunk
+    #~ fs : Quantity
+        #~ Sampling frequency
+    #~ loc : np.array
+        #~ Locations of drifting templates
+    #~ t_start_drift : Quantity
+        #~ Drifting start time in s
+    #~ drift_mode : str
+        #~ Drift modality ['slow' | 'fast' | 'slow+fast']
+    #~ slow_drift_velocity : 3d array
+        #~ Slow drifting velocity vector in um/s
+    #~ fast_drift_period : Quantity
+        #~ Period between fast drifts in s
+    #~ fast_drift_min_jump: float
+        #~ Minimum 'jump' for fast drifts in uV
+    #~ fast_drift_max_jump: float
+        #~ Maximum 'jump' for fast drifts in uV
+    #~ cut_out : list
+        #~ Number of samples before and after the peak
+    #~ modulation : bool
+        #~ If True modulation is applied
+    #~ mod_array : np.array
+        #~ Array with modulation value for each spike
+    #~ verbose : bool
+        #~ If True output is verbose
+    #~ bursting : bool
+        #~ If True templates are modulated in shape
+    #~ shape_stretch : float
+        #~ Range of sigmoid transform for bursting shape stretch
+    #~ chunk_start : quantity
+        #~ Chunk start time used to compute drifting position
+    #~ recordings :  np.arrays
+        #~ Array to use for recordings. If None it is created
 
-    Returns
-    -------
-    recordings: np.array
-        Trace with convolved signals (n_elec, n_samples)
-    final_loc : np.array
-        Final 3D location of neuron
-    final_idx : int
-        Final index among n drift steps
-    peaks : np.array
-        Drifting peak images (n_steps, n_elec)
-    """
-    if verbose:
-        print('Drifting convolution with spike:', spike_id)
-    assert len(template.shape) == 4, "For drifting len(template.shape) should be 4"
+    #~ Returns
+    #~ -------
+    #~ recordings: np.array
+        #~ Trace with convolved signals (n_elec, n_samples)
+    #~ final_loc : np.array
+        #~ Final 3D location of neuron
+    #~ final_idx : int
+        #~ Final index among n drift steps
+    #~ peaks : np.array
+        #~ Drifting peak images (n_steps, n_elec)
+    #~ """
+    #~ if verbose:
+        #~ print('Drifting convolution with spike:', spike_id)
+    #~ assert len(template.shape) == 4, "For drifting len(template.shape) should be 4"
 
-    n_jitt = template.shape[1]
-    n_elec = template.shape[2]
-    len_spike = template.shape[3]
+    #~ n_jitt = template.shape[1]
+    #~ n_elec = template.shape[2]
+    #~ len_spike = template.shape[3]
 
-    if cut_out is None:
-        cut_out = [len_spike // 2, len_spike // 2]
-    if chunk_start is None:
-        chunk_start = 0 * pq.s
+    #~ if cut_out is None:
+        #~ cut_out = [len_spike // 2, len_spike // 2]
+    #~ if chunk_start is None:
+        #~ chunk_start = 0 * pq.s
 
-    if recordings is None:
-        recordings = np.zeros((n_samples, n_elec))
-    else:
-        assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
+    #~ if recordings is None:
+        #~ recordings = np.zeros((n_samples, n_elec))
+    #~ else:
+        #~ assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
 
-    # find drift direction and magnitude
-    drift_direction = loc[-1] - loc[0]
-    drift_direction /= np.linalg.norm(drift_direction)
-    v_drift_mag = np.linalg.norm(slow_drift_velocity)
+    #~ # find drift direction and magnitude
+    #~ drift_direction = loc[-1] - loc[0]
+    #~ drift_direction /= np.linalg.norm(drift_direction)
+    #~ v_drift_mag = np.linalg.norm(slow_drift_velocity)
 
-    template_idxs = np.zeros(len(st_idx), dtype='int')
+    #~ template_idxs = np.zeros(len(st_idx), dtype='int')
 
-    # set states for fast drifts
-    temp_jitt = template[0, 0]
-    max_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
-    # fix multiple chunks fast drift time
-    drift_state = {'old_pos': loc[0], 'old_chan': max_chan,
-                   'old_amp': np.min(temp_jitt[max_chan]), 'old_idx': 0, 'last_drift_position': loc[0],
-                   'direction_sign': 1, 'last_fast_drift': t_start_drift, 'loc_start': loc[0],
-                   't_start_drift': t_start_drift}
-    drift_params = {'fast_drift_period': fast_drift_period, 'fast_drift_min_jump': fast_drift_min_jump,
-                    'fast_drift_max_jump': fast_drift_max_jump, 'v_drift_mag': v_drift_mag,
-                    'drift_direction': drift_direction, 'max_iter': 100}
+    #~ # set states for fast drifts
+    #~ temp_jitt = template[0, 0]
+    #~ max_chan = np.unravel_index(np.argmin(temp_jitt), temp_jitt.shape)[0]
+    #~ # fix multiple chunks fast drift time
+    #~ drift_state = {'old_pos': loc[0], 'old_chan': max_chan,
+                   #~ 'old_amp': np.min(temp_jitt[max_chan]), 'old_idx': 0, 'last_drift_position': loc[0],
+                   #~ 'direction_sign': 1, 'last_fast_drift': t_start_drift, 'loc_start': loc[0],
+                   #~ 't_start_drift': t_start_drift}
+    #~ drift_params = {'fast_drift_period': fast_drift_period, 'fast_drift_min_jump': fast_drift_min_jump,
+                    #~ 'fast_drift_max_jump': fast_drift_max_jump, 'v_drift_mag': v_drift_mag,
+                    #~ 'drift_direction': drift_direction, 'max_iter': 100}
 
-    if not modulation:
-        # No modulation
-        mod_array = np.ones_like(st_idx)
-    else:
-        assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
+    #~ if not modulation:
+        #~ # No modulation
+        #~ mod_array = np.ones_like(st_idx)
+    #~ else:
+        #~ assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
-    for pos, spos in enumerate(st_idx):
-        rand_idx = np.random.randint(n_jitt)
-        sp_time = chunk_start + spos / fs
-        if sp_time < t_start_drift:
-            temp_idx = 0
-            temp_jitt = template[temp_idx, rand_idx]
-        else:
-            temp_jitt, temp_idx, drift_state = _find_new_drift_template(drift_mode, st_idx, sp_time, pos,
-                                                                        template, template_idxs, loc,
-                                                                        chunk_start, t_start_drift, fs,
-                                                                        rand_idx, drift_params, drift_state,
-                                                                        verbose)
-            template_idxs[pos] = temp_idx
+    #~ for pos, spos in enumerate(st_idx):
+        #~ rand_idx = np.random.randint(n_jitt)
+        #~ sp_time = chunk_start + spos / fs
+        #~ if sp_time < t_start_drift:
+            #~ temp_idx = 0
+            #~ temp_jitt = template[temp_idx, rand_idx]
+        #~ else:
+            #~ temp_jitt, temp_idx, drift_state = _find_new_drift_template(drift_mode, st_idx, sp_time, pos,
+                                                                        #~ template, template_idxs, loc,
+                                                                        #~ chunk_start, t_start_drift, fs,
+                                                                        #~ rand_idx, drift_params, drift_state,
+                                                                        #~ verbose)
+            #~ template_idxs[pos] = temp_idx
 
-        if bursting:
-            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
-                # template
-                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
-                elif spos - cut_out[0] < 0:
-                    diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
-                else:
-                    diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
-            else:
-                # electrode
-                if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
-                elif spos - cut_out[0] < 0:
-                    diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
-                else:
-                    diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
-        else:
-            if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
-                # template + none
-                if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
-                elif spos - cut_out[0] < 0:
-                    diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
-                else:
-                    diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
-            else:
-                # electrode
-                if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1]] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
-                elif spos - cut_out[0] < 0:
-                    diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1]] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
-                else:
-                    diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:] += \
-                        np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
+        #~ if bursting:
+            #~ if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                #~ # template
+                #~ if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    #~ recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        #~ compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                #~ elif spos - cut_out[0] < 0:
+                    #~ diff = -(spos - cut_out[0])
+                    #~ temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    #~ recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                #~ else:
+                    #~ diff = n_samples - (spos - cut_out[0])
+                    #~ temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    #~ recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+            #~ else:
+                #~ # electrode
+                #~ if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
+                    #~ recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        #~ compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                #~ elif spos - cut_out[0] < 0:
+                    #~ diff = -(spos - cut_out[0])
+                    #~ temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    #~ recordings[:spos + cut_out[1]] += temp_filt[:, diff:].T
+                #~ else:
+                    #~ diff = n_samples - (spos - cut_out[0])
+                    #~ temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
+                    #~ recordings[spos - cut_out[0]:] += temp_filt[:, :diff].T
+        #~ else:
+            #~ if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
+                #~ # template + none
+                #~ if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                    #~ recordings[spos - cut_out[0]:spos + cut_out[1]] += mod_array[pos] * temp_jitt.T
+                #~ elif spos - cut_out[0] < 0:
+                    #~ diff = -(spos - cut_out[0])
+                    #~ recordings[:spos + cut_out[1]] += mod_array[pos] * temp_jitt[:, diff:].T
+                #~ else:
+                    #~ diff = n_samples - (spos - cut_out[0])
+                    #~ recordings[spos - cut_out[0]:] += mod_array[pos] * temp_jitt[:, :diff].T
+            #~ else:
+                #~ # electrode
+                #~ if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
+                    #~ recordings[spos - cut_out[0]:spos + cut_out[1]] += \
+                        #~ np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
+                #~ elif spos - cut_out[0] < 0:
+                    #~ diff = -(spos - cut_out[0])
+                    #~ recordings[:spos + cut_out[1]] += \
+                        #~ np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
+                #~ else:
+                    #~ diff = n_samples - (spos - cut_out[0])
+                    #~ recordings[spos - cut_out[0]:] += \
+                        #~ np.transpose([a * t.T for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
 
-    return recordings, template_idxs
+    #~ return recordings, template_idxs
 
 
 ### RECORDING OPERATION ###
@@ -3716,3 +3737,4 @@ def _annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose)
     over[over == 'NONE'] = 'NO'
     st_i.annotate(overlap=over)
     return st_i
+

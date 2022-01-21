@@ -17,7 +17,8 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-local_temp = False
+# local_temp = False
+local_temp = True
 
 
 class TestGenerators(unittest.TestCase):
@@ -39,7 +40,7 @@ class TestGenerators(unittest.TestCase):
         if not local_temp:
             self.test_dir = Path(tempfile.mkdtemp())
         else:
-            self.test_dir = Path('./tmp')
+            self.test_dir = Path('./tmp').absolute()
 
         if not (self.test_dir / 'templates.h5').is_file() and not (self.test_dir / 'templates_drift.h5').is_file():
             templates_params['n'] = self.n
@@ -120,6 +121,11 @@ class TestGenerators(unittest.TestCase):
         n = self.n_drift
         num_cells = self.num_cells
         n_steps = self.num_steps_drift
+        print('n', n, 'num_cells', num_cells, 'n_steps', n_steps)
+        print(self.tempgen_drift.templates.shape)
+        print(self.tempgen_drift.locations.shape)
+        print(self.tempgen_drift.rotations.shape)
+        
 
         assert self.tempgen_drift.templates.shape[0] == (n * num_cells)
         assert self.tempgen_drift.locations.shape == (n * num_cells, n_steps, 3)
@@ -812,4 +818,6 @@ if __name__ == '__main__':
     # ~ unittest.main()
 
     TestGenerators().setUpClass()
-    TestGenerators().test_recordings_backend()
+    # TestGenerators().test_recordings_backend()
+    TestGenerators().test_gen_templates_drift()
+    
