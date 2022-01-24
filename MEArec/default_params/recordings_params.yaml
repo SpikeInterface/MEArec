@@ -86,7 +86,9 @@ recordings:
   filter_order: 3 # filter order
 
   drifting: False # if True templates are drifted
-  drift_mode: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
+  #drift_mode: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
+  drift_mode_speed: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
+  drift_mode_probe: 'rigid' # ['rigid', 'non-rigid']
   n_drifting: null # number of drifting units
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees

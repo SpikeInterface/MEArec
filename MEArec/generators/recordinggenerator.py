@@ -564,7 +564,7 @@ class RecordingGenerator:
             drift_vectors = generate_drift_position_vector(
                     fs=fs.rescale('Hz').magnitude,
                     n_samples=n_samples,
-                    template_locations=template_locs,
+                    template_locations=locs,
                     start_drift_index=int(rec_params['t_start_drift'] * fs),
                     drift_mode_probe=rec_params['drift_mode_probe'],
                     drift_mode_speed=rec_params['drift_mode_speed'],
@@ -697,21 +697,21 @@ class RecordingGenerator:
 
                 if drifting:
                     drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
-                    drift_velocity_ums = drift_velocity / 60.
-                    velocity_vector = drift_velocity_ums * preferred_dir
-                    if verbose_1:
-                        print('Drift mode: ', drift_mode)
-                        if 'slow' in drift_mode:
-                            print('Slow drift velocity', drift_velocity, 'um/min')
-                        if 'fast' in drift_mode:
-                            print('Fast drift period', fast_drift_period)
-                            print('Fast drift max jump',
-                                  fast_drift_max_jump)  # 'Fast drift min jump', fast_drift_min_jump)
+                    #~ drift_velocity_ums = drift_velocity / 60.
+                    #~ velocity_vector = drift_velocity_ums * preferred_dir
+                    #~ if verbose_1:
+                        #~ print('Drift mode: ', drift_mode)
+                        #~ if 'slow' in drift_mode:
+                            #~ print('Slow drift velocity', drift_velocity, 'um/min')
+                        #~ if 'fast' in drift_mode:
+                            #~ print('Fast drift period', fast_drift_period)
+                            #~ print('Fast drift max jump',
+                                  #~ fast_drift_max_jump)  # 'Fast drift min jump', fast_drift_min_jump)
                     n_elec = eaps.shape[2]
                 else:
                     drift_directions = None
-                    preferred_dir = None
-                    velocity_vector = None
+                    #~ preferred_dir = None
+                    #~ velocity_vector = None
                     n_elec = eaps.shape[1]
 
                 if n_neurons > 100 or drifting:
@@ -832,13 +832,13 @@ class RecordingGenerator:
                     template_bin = np.array(['U'] * len(celltypes))
                 voltage_peaks = self.voltage_peaks
                 overlapping = np.array([])
-                if not drifting:
-                    velocity_vector = None
-                else:
-                    drift_velocity_ums = drift_velocity / 60.
-                    velocity_vector = drift_velocity_ums * preferred_dir
-                    if verbose_1:
-                        print('Drift velocity vector: ', velocity_vector)
+                #~ if not drifting:
+                    #~ velocity_vector = None
+                #~ else:
+                    #~ drift_velocity_ums = drift_velocity / 60.
+                    #~ velocity_vector = drift_velocity_ums * preferred_dir
+                    #~ if verbose_1:
+                        #~ print('Drift velocity vector: ', velocity_vector)
 
             if sync_rate is not None:
                 if verbose_1:
@@ -971,11 +971,18 @@ class RecordingGenerator:
             for st in np.arange(n_neurons):
                 if drifting and st in drifting_units:
                     spiketrains[st].annotate(drifting=True)
-                    template_idxs = np.array([], dtype='int')
-                    for out in output_list:
-                        template_idxs = np.concatenate((template_idxs, out['template_idxs'][st]))
-                    assert len(template_idxs) == len(spiketrains[st])
-                    spiketrains[st].annotate(template_idxs=template_idxs)
+                    #~ template_idxs = np.array([], dtype='int')
+                    #~ for out in output_list:
+                        #~ template_idxs = np.concatenate((template_idxs, out['template_idxs'][st]))
+                    #~ assert len(template_idxs) == len(spiketrains[st])
+                    #~ spiketrains[st].annotate(template_idxs=template_idxs)
+                    if drift_vectors.ndim ==1:
+                        drift_vector = drift_vectors
+                    else:
+                        drift_vector = drift_vectors[:, st]
+                    drift_index = drift_vector[spike_idxs[st]]
+                    spiketrains[st].annotate(drift_index=drift_index)
+
 
         #################
         # Step 2: noise #

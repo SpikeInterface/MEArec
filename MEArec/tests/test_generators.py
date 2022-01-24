@@ -814,6 +814,6 @@ if __name__ == '__main__':
 
     TestGenerators().setUpClass()
     # TestGenerators().test_recordings_backend()
-    TestGenerators().test_gen_templates_drift()
+    #~ TestGenerators().test_gen_templates_drift()
     TestGenerators().test_gen_recordings_drift()
     

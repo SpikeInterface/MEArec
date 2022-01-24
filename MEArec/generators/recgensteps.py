@@ -169,32 +169,52 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
             mod_array = None
             unit_burst = False
 
-        spike_idx_in_chunk_pad = np.where((st_idx >= i_start_pad) & (st_idx < i_stop_pad))
-        spike_idx_in_chunk = np.where((st_idx >= i_start) & (st_idx < i_stop))
+        # spike_idx_in_chunk_pad, = np.where((st_idx >= i_start_pad) & (st_idx < i_stop_pad))
+        # spike_idx_in_chunk, = np.where((st_idx >= i_start) & (st_idx < i_stop))
+        spike_in_chunk, = np.nonzero((st_idx >= i_start_pad) & (st_idx < i_stop_pad))
 
-        if len(spike_idx_in_chunk_pad) > 0:
-            st_idx_in_chunk_pad = st_idx[spike_idx_in_chunk_pad[0]] - i_start_pad
+        if len(spike_in_chunk) > 0:
+            #~ st_idx_in_chunk_pad = st_idx[spike_idx_in_chunk_pad[0]] - i_start_pad
+            st_idx_in_chunk_pad = st_idx[spike_in_chunk] - i_start_pad
 
             if drifting and st in drifting_units:
                 if drift_vectors.ndim == 1:
-                    drift_vector = drift_vectors[i_start_pad:i_stop_pad]
+                    # rigid
+                    drift_vector = drift_vectors
                 else:
-                    drift_vector = drift_vectors[:, st][i_start_pad:i_stop_pad]
-                
+                    # non-rigid
+                    drift_vector = drift_vectors[:, st]
+                # clip dirft vector. Pad with zeros for borders.
+                drift_vector_ = []
+                if i_start_pad <0:
+                    # left borders
+                    pad = np.zeros(-i_start_pad, dtype=drift_vector.dtype)
+                    drift_vector_.append(pad)
+                drift_vector_.append(drift_vector[max(0,i_start_pad): min(drift_vector.size, i_stop_pad)])
+                if i_stop_pad >= drift_vector.size:
+                    # right borders
+                    pad = np.zeros(i_stop_pad-drift_vector.size, dtype=drift_vector.dtype)
+                    drift_vector_.append(pad)
+                if len(drift_vector_) == 1:
+                    drift_vector = drift_vector_[0]
+                else:
+                    # with zeros padding
+                    drift_vector = np.concatenate(drift_vector_, axis=0)
+
                 # 4d
                 template = templates[st, :, :, :, :] 
-                central_template = templates[st, default_drift_ind, max_electrode, :]
+                central_template = templates[st, default_drift_ind, :, max_electrode, :]
             else:
                 if templates.ndim == 4:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, :, :, :]
-                    central_template = templates[st, max_electrode, :]
+                    central_template = templates[st, :, max_electrode, :]
                 elif templates.ndim == 5:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, default_drift_ind, :, :, :]
-                    central_template = templates[st, default_drift_ind, max_electrode, :]
+                    central_template = templates[st, default_drift_ind, :, max_electrode, :]
                 else:
                     raise Exception(f'templates.shape no 4 or 5 {templates.shape}')
 

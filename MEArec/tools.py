@@ -46,17 +46,17 @@ def get_default_config(print_version=False):
     
     if not mearec_home.is_dir():
         mearec_home.mkdir(exist_ok=True, parents=True)
-    else:
-        versions = [ver.name for ver in mearec_home.iterdir() if ver.is_dir() and len(ver.name.split('.')) > 1]
-        if len(versions) > 0:
-            if np.all(np.array(versions) != version):
-                # find most recent version
-                old_version = np.sort(versions)[::-1][0]
-                recent_version = mearec_home / old_version
-                print(f"Copying settings from version {old_version} to new version {version}\n")
-                shutil.copytree(recent_version, version_folder)
-        else:
-            version_folder.mkdir(exist_ok=True, parents=True)
+    #~ else:
+        #~ versions = [ver.name for ver in mearec_home.iterdir() if ver.is_dir() and len(ver.name.split('.')) > 1]
+        #~ if len(versions) > 0:
+            #~ if np.all(np.array(versions) != version):
+                #~ # find most recent version
+                #~ old_version = np.sort(versions)[::-1][0]
+                #~ recent_version = mearec_home / old_version
+                #~ print(f"Copying settings from version {old_version} to new version {version}\n")
+                #~ shutil.copytree(recent_version, version_folder)
+        #~ else:
+            #~ version_folder.mkdir(exist_ok=True, parents=True)
 
     if not (version_folder / 'mearec.conf').is_file():
         version_folder.mkdir(exist_ok=True, parents=True)
@@ -2301,8 +2301,8 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         Trace with convolved signals (n_elec, n_samples)
     """
     
-    is_drifting = drift_vector is not None
-    if is_drifting:
+    drifting = drift_vector is not None
+    if drifting:
         assert template.ndim == 4
     else:
         assert template.ndim == 3
@@ -2311,7 +2311,7 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         print('Convolution with spike:', spike_id)
     
 
-    if is_drifting:
+    if drifting:
         drift_steps = template.shape[0]
         n_jitt = template.shape[1]
         n_elec = template.shape[2]
@@ -2321,7 +2321,7 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         n_elec = template.shape[1]
         len_spike = template.shape[2]
         
-        if is_drifting:
+        if drifting:
             # template could drift but we don't want
             default_drift_ind = 0
             default_drift_ind = template.shape[0] // 2 
@@ -2342,6 +2342,7 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 
     for pos, spos in enumerate(st_idx):
         if drifting:
+            #~ print(spos, drift_vector.shape, st_idx)
             drift_ind = drift_vector[spos]
         
         rand_idx = np.random.randint(n_jitt)
@@ -2350,10 +2351,10 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         else:
             temp_jitt = template[rand_idx]
 
-        if template_idxs is not None:
-            temp_jitt = template[template_idxs[pos], rand_idx]
-        else:
-            temp_jitt = template[rand_idx]
+        #~ if template_idxs is not None:
+            #~ temp_jitt = template[template_idxs[pos], rand_idx]
+        #~ else:
+            #~ temp_jitt = template[rand_idx]
 
         if max_channels_per_template is None:
             elec_idxs = np.arange(n_elec)
