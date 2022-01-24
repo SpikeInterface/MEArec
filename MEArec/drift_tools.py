@@ -57,6 +57,7 @@ def generate_drift_position_vector(
 
     num_cells, drift_steps, _ = template_locations.shape
     
+    # check on template_locs
     
     if drift_mode_probe == 'rigid':
         drift_vectors = np.zeros(n_samples, dtype='uint16')

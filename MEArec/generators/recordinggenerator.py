@@ -116,6 +116,11 @@ class RecordingGenerator:
                 self.template_ids = rec_dict['template_ids']
             else:
                 self.template_ids = None
+            if 'drift_vectors' in rec_dict.keys():
+                self.drift_vectors = rec_dict['drift_vectors']
+            else:
+                self.drift_vectors = None
+
             self.info = deepcopy(info)
             self.params = deepcopy(info)
             if len(self.spiketrains) > 0:
@@ -594,7 +599,9 @@ class RecordingGenerator:
             #~ t_start_drift = None
             n_drifting = None
             #~ drift_mode = None
-
+        
+        self.drift_vectors = drift_vectors
+        
         # load MEA info
         if temp_info is not None:
             mea = mu.return_mea(info=temp_info['electrodes'])

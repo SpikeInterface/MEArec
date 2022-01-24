@@ -10,14 +10,14 @@ import MEAutility as mu
 import h5py
 from pathlib import Path
 from copy import deepcopy, copy
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 from joblib import Parallel, delayed
 from datetime import datetime
 from lazy_ops import DatasetView
 
 from .version import version
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if LooseVersion(yaml.__version__) >= LooseVersion('5.0.0'):
     use_loader = True
 else:
     use_loader = False
@@ -329,7 +329,7 @@ def load_recordings(recordings, return_h5_objects=True,
         f = h5py.File(str(recordings), 'r')
         mearec_version = f.attrs.get('mearec_version', '1.4.0')
 
-        if StrictVersion(mearec_version) >= '1.5.0':
+        if LooseVersion(mearec_version) >= '1.5.0':
             # version after 1.5.0 is (n_samples, n_channel) inside the h5 file
             need_transpose = False
         else:
@@ -387,7 +387,7 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
 
     if load is None:
         load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
-                'spike_traces', 'templates', 'template_ids']
+                'spike_traces', 'templates', 'template_ids', 'drift_vectors']
     else:
         assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
                                        "('recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', " \
@@ -477,6 +477,10 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
             st.annotations = annotations
             spiketrains.append(st)
         rec_dict['spiketrains'] = spiketrains
+    if f.get(path + 'drift_vectors') is not None:
+        rec_dict['drift_vectors'] = f.get(path + 'drift_vectors')
+    else:
+        rec_dict['drift_vectors'] = None
 
     return rec_dict, info
 
@@ -582,6 +586,8 @@ def save_recording_to_file(recgen, f, path=""):
     if hasattr(recgen, 'template_ids'):
         if recgen.template_ids is not None:
             f.create_dataset(path + 'template_ids', data=recgen.template_ids)
+    if recgen.drift_vectors is not None:
+        f.create_dataset(path + 'drift_vectors', data=recgen.timestamps)
 
 def save_dict_to_hdf5(dic, h5file, path):
     """
@@ -740,7 +746,7 @@ def convert_recording_to_new_version(filename, new_filename=None):
     with h5py.File(filename, 'r+') as f:
         mearec_version = f.attrs.get('mearec_version', '1.4.0')
 
-        if StrictVersion(mearec_version) >= '1.5.0':
+        if LooseVersion(mearec_version) >= '1.5.0':
             print("The provided mearec file is already up to date")
         else:
             # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file
@@ -3004,15 +3010,28 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
         if 'colors' in kwargs.keys():
             del kwargs['colors']
 
-        for i, (sp, t) in enumerate(zip(spike_idxs, recgen.templates)):
+        # for i, (sp, t) in enumerate(zip(spike_idxs, recgen.templates)):
+        for i, sp in enumerate(spike_idxs):
             if i in template_ids:
-                template_idxs = None
-                if 'drifting' in recgen.spiketrains[i].annotations.keys():
-                    if recgen.spiketrains[i].annotations['drifting']:
-                        template_idxs = recgen.spiketrains[i].annotations['template_idxs']
-                rec_t = convolve_templates_spiketrains(i, sp, t, n_samples, template_idxs=template_idxs,
+                template = recgen.templates[i]
+                #~ template_idxs = None
+                #~ if 'drifting' in recgen.spiketrains[i].annotations.keys():
+                    #~ if recgen.spiketrains[i].annotations['drifting']:
+                        #~ template_idxs = recgen.spiketrains[i].annotations['template_idxs']
+                if recgen.drift_vectors is None:
+                    drift_vector = None
+                else:
+                    if recgen.drift_vectors.ndim == 1:
+                        drift_vector = recgen.drift_vectors
+                    else:
+                        drift_vector = recgen.drift_vectors[:, i]
+                rec_t = convolve_templates_spiketrains(i, sp,
+                                                        template, n_samples,
+                                                        # template_idxs=template_idxs,
                                                        max_channels_per_template=max_channels_per_template,
-                                                       cut_out=cut_out_samples).T
+                                                       cut_out=cut_out_samples,
+                                                       drift_vector=drift_vector,
+                                                       ).T
 
                 rec_t[np.abs(rec_t) < 1e-4] = np.nan
                 mu.plot_mea_recording(rec_t[:, start_frame:end_frame], mea, ax=ax,

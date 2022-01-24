@@ -202,19 +202,22 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
                     drift_vector = np.concatenate(drift_vector_, axis=0)
 
                 # 4d
-                template = templates[st, :, :, :, :] 
-                central_template = templates[st, default_drift_ind, :, max_electrode, :]
+                template = templates[st, :, :, :, :]
+                if extract_spike_traces:
+                    central_template = templates[st, default_drift_ind, :, max_electrode, :]
             else:
                 if templates.ndim == 4:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, :, :, :]
-                    central_template = templates[st, :, max_electrode, :]
+                    if extract_spike_traces:
+                        central_template = templates[st, :, max_electrode, :]
                 elif templates.ndim == 5:
                     drift_vector = None
                     # 3d no drift
                     template = templates[st, default_drift_ind, :, :, :]
-                    central_template = templates[st, default_drift_ind, :, max_electrode, :]
+                    if extract_spike_traces:
+                        central_template = templates[st, default_drift_ind, :, max_electrode, :]
                 else:
                     raise Exception(f'templates.shape no 4 or 5 {templates.shape}')
 
