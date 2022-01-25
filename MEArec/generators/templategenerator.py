@@ -10,6 +10,9 @@ from pathlib import Path
 from joblib import Parallel, delayed, cpu_count
 from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_on_tempgen
 
+from MEArec.tools import clean_dict_for_yaml
+
+
 if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
 else:
@@ -214,7 +217,10 @@ class TemplateGenerator:
 
         tmp_params_path = 'tmp_params_path.yaml'
         with open(tmp_params_path, 'w') as f:
-            yaml.dump(self.params, f)
+            # alessio we did have bug here because some params are numpy.int, numpy.bool
+            # I did this fast debug but we need a way to convert then to standard float/int/bool
+            # yaml.dump(self.params, f)
+            yaml.dump(clean_dict_for_yaml(self.params), f)
 
         if self.tempgen is not None and parallel and self.n_jobs not in (0, 1):
             print("\nWARNING: Generation of templates from a template generator is only supported without parallel "

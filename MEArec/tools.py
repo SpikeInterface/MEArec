@@ -723,6 +723,37 @@ def clean_dict(d):
     return d
 
 
+def _clean_numpy_scalar(v):
+    if isinstance(v, np.bool_):
+        v = bool(v)
+    if isinstance(v, np.float_):
+        v = float(v)
+    if isinstance(v, np.int_):
+        v = int(v)
+    return v
+
+def clean_dict_for_yaml(d):
+    """
+    Clean dictionary before saving to yaml
+
+    Parameters
+    ----------
+    d : dict
+        Dictionary to be cleaned.
+
+    Returns
+    -------
+    d : dict
+        Cleaned dictionary
+    """
+
+    d2 = d.copy()
+    for k, v in d2.items():
+        d2[k] = _clean_numpy_scalar(v)
+        if isinstance(v, list):
+            d2[k] = [_clean_numpy_scalar(e) for e in v]
+    return d2
+
 def convert_recording_to_new_version(filename, new_filename=None):
     """
     Converts MEArec h5 file from a version <1.5 to the new format >=1.5.
