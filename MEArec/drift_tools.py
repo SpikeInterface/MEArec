@@ -7,8 +7,8 @@ def generate_drift_position_vector(
     fs=None,
     n_samples=None,
     template_locations=None,
+    t_start_drift=0.,
     
-    start_drift_index=0,
     
     drift_mode_probe='rigid',
     drift_mode_speed='slow',
@@ -32,8 +32,8 @@ def generate_drift_position_vector(
         Template locations for every drift steps
     drift_steps: int
         Number of drift step
-    start_drift_index: int
-        When the drift start
+    t_start_drift: float
+        When the drift start in second
     drift_mode_probe: 'rigid' or 'non-rigid'
         Global drift or per cell.
     drift_mode_speed: 'slow', 'fast', 'slow+fast'
@@ -59,6 +59,8 @@ def generate_drift_position_vector(
     """
 
     num_cells, drift_steps, _ = template_locations.shape
+    
+    start_drift_index = int(t_start_drift * fs)
     
     # TODO check on template_locs
     
@@ -163,7 +165,7 @@ def test_generate_drift_position_vector():
     drift_vectors = generate_drift_position_vector(fs=fs,
         template_locations=template_locations,
         n_samples=30000*1200,
-        start_drift_index=30000* 15 ,
+        t_start_drift=10. ,
         drift_mode_probe='rigid',
         #~ drift_mode_speed='slow+fast',
         #~ drift_mode_speed='fast',

@@ -566,20 +566,13 @@ class RecordingGenerator:
                     #~ print('Disabling chunking for fast drifts')
                     #~ chunk_duration = duration
             fs_float = fs.rescale('Hz').magnitude
+            drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
+                                'slow_drift_velocity', 'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+            drift_params = {k: rec_params[k] for k in drift_keys }
             drift_vectors = generate_drift_position_vector(
                     fs=fs.rescale('Hz').magnitude,
                     n_samples=n_samples,
-                    template_locations=locs,
-                    start_drift_index=int(rec_params['t_start_drift'] * fs),
-                    drift_mode_probe=rec_params['drift_mode_probe'],
-                    drift_mode_speed=rec_params['drift_mode_speed'],
-                    slow_drift_velocity=rec_params['slow_drift_velocity'],
-                    fast_drift_period=rec_params['fast_drift_period'],
-                    fast_drift_max_jump=rec_params['fast_drift_max_jump'],
-                    fast_drift_min_jump=rec_params['fast_drift_min_jump'],
-                    )
-            
-
+                    template_locations=locs, **drift_params)
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:
