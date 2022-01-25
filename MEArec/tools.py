@@ -587,7 +587,7 @@ def save_recording_to_file(recgen, f, path=""):
         if recgen.template_ids is not None:
             f.create_dataset(path + 'template_ids', data=recgen.template_ids)
     if recgen.drift_vectors is not None:
-        f.create_dataset(path + 'drift_vectors', data=recgen.timestamps)
+        f.create_dataset(path + 'drift_vectors', data=recgen.drift_vectors)
 
 def save_dict_to_hdf5(dic, h5file, path):
     """
