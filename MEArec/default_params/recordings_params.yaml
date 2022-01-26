@@ -91,6 +91,7 @@ recordings:
   drift_mode_probe: 'rigid' # ['rigid', 'non-rigid']
   n_drifting: null # number of drifting units
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
+  non_rigid_gradient_mode: 'linear' # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
   angle_tol: 15  # tolerance for direction in degrees
   slow_drift_velocity: 5  # drift velocity in um/min.
   slow_drift_waveform: 'triangluar'   # 'triangluar' or 'sine'

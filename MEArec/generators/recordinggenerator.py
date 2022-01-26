@@ -567,7 +567,8 @@ class RecordingGenerator:
                     #~ chunk_duration = duration
             fs_float = fs.rescale('Hz').magnitude
             drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
-                                'slow_drift_velocity', 'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+                        'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+                        'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
             drift_params = {k: rec_params[k] for k in drift_keys }
             drift_vectors = generate_drift_position_vector(
                     fs=fs.rescale('Hz').magnitude,
