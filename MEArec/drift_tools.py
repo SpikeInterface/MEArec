@@ -41,7 +41,10 @@ def generate_drift_position_vector(
         Global drift or per cell.
     drift_mode_speed: 'slow', 'fast', 'slow+fast'
         drift speed
-    
+    non_rigid_non_rigid_gradient_mode: 'linear'
+        Mode to generate non rigid gradient over units on velocity.
+    preferred_dir: list of int
+        Use for gradient when non rigid mode.
     slow_drift_velocity: float
         drift velocity in um/min.
     slow_drift_waveform: 'trianglar' or 'sine'
@@ -72,18 +75,9 @@ def generate_drift_position_vector(
     
     assert start_drift_index < n_samples, f' samples ({n_samples}) must be < start drift ({start_drift_index})'
     
-    if drift_mode_probe == 'rigid':
-        drift_vectors = np.zeros(n_samples, dtype='float32')
-    elif drift_mode_probe == 'non-rigid':
-        drift_vectors = np.zeros((n_samples, num_cells), dtype='float32')
-        assert non_rigid_non_rigid_gradient_mode in ('linear', )
-        
-        # vector with shape (num_cells, ) and value between 0 and 1 which is a factor of the velocity
-        # the upper units on the 'preferred_dir' vector get 0 the lower get 1
-        preferred_dir = np.array(preferred_dir)
-        locs = template_locations[:, drift_steps //2 , :]
-        proj = np.dot(locs, preferred_dir)
-        non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
+    drift_vector = np.zeros(n_samples, dtype='float32')
+    
+    #~ if drift_mode_probe == 'non-rigid':
         
     
     # velocity and jump are computed on bigger drift over cell
@@ -111,19 +105,12 @@ def generate_drift_position_vector(
             triangle *= min_dist
             triangle -= min_dist / 2.
             
-            if drift_mode_probe == 'non-rigid':
-                triangle =triangle.reshape(-1, 1)
-            
-            drift_vectors[start_drift_index:] = triangle
+            drift_vector[start_drift_index:] = triangle
         elif slow_drift_waveform == 'sine':
             sine = np.cos(2 * np.pi * freq * times + np.pi / 2)
             sine *= min_dist / 2.
 
-            if drift_mode_probe == 'non-rigid':
-                sine = sine.reshape(-1, 1)
-
-
-            drift_vectors[start_drift_index:] = sine
+            drift_vector[start_drift_index:] = sine
         else:
             raise NotIMplementedError('slow_drift_waveform')
         
@@ -139,32 +126,47 @@ def generate_drift_position_vector(
 
             # protect from boundaries
             if jump > 0:
-                if (np.max(drift_vectors[pos: pos + period])+ jump) >= min_dist/2.:
+                if (np.max(drift_vector[pos: pos + period])+ jump) >= min_dist/2.:
                     jump = - jump
             
             # protect from boundaries
             if jump < 0:
-                if (np.min(drift_vectors[pos: pos + period]) + jump) <= - min_dist/2.:
+                if (np.min(drift_vector[pos: pos + period]) + jump) <= - min_dist/2.:
                     jump = - jump
                 
-            drift_vectors[pos:] += jump
+            drift_vector[pos:] += jump
             pos += period
     
     # Alessio : how to handle the clipping ??
     # fast + slow with similar period is impossible to avoid boundaries
     
     # avoid possible clipping
-    drift_vectors = np.clip(drift_vectors, -min_dist/2, min_dist/2)
+    drift_vector = np.clip(drift_vector, -min_dist/2, min_dist/2)
     
     # avoid boundary effect
-    drift_vectors *= 0.99999
+    drift_vector *= 0.99999
+
+    if drift_mode_probe == 'rigid':
+        drift_vectors = np.zeros(n_samples, dtype='float32')
+        
+    elif drift_mode_probe == 'non-rigid':
+        assert non_rigid_non_rigid_gradient_mode in ('linear', )
+        if non_rigid_non_rigid_gradient_mode == 'linear':
+            # vector with shape (num_cells, ) and value between 0 and 1 which is a factor of the velocity
+            # the upper units on the 'preferred_dir' vector get 0 the lower get 1
+            preferred_dir = np.array(preferred_dir)
+            locs = template_locations[:, drift_steps //2 , :]
+            proj = np.dot(locs, preferred_dir)
+            non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
+        
+        drift_vectors = np.zeros((n_samples, num_cells), dtype='float32')
+        drift_vectors[:, :] = drift_vector.reshape(-1, 1)
+        
+        drift_vectors *= non_rigid_gradient.reshape(1, -1)
     
-    # shift to positive
+
+    # shift to positive and to uint16
     drift_vectors += min_dist / 2.
-    
-    
-    drift_vectors *= non_rigid_gradient.reshape(1, -1)
-    
     drift_vectors = np.floor(drift_vectors / step).astype('uint16')
     
     return drift_vectors
@@ -188,7 +190,7 @@ def test_generate_drift_position_vector():
     
     drift_vectors = generate_drift_position_vector(fs=fs,
         template_locations=template_locations,
-        n_samples=30000*1200,
+        n_samples=30000*600,
         t_start_drift=10. ,
         #~ drift_mode_probe='rigid',
         drift_mode_probe='non-rigid',
@@ -205,12 +207,9 @@ def test_generate_drift_position_vector():
         #~ slow_drift_velocity=17,
         #~ slow_drift_waveform= 'sine',
 
-
-
         fast_drift_period=120.,
         fast_drift_max_jump=8.,
         fast_drift_min_jump=1.,
-
         
         )
     import matplotlib.pyplot as plt
