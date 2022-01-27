@@ -860,6 +860,7 @@ class RecordingGenerator:
             # find SNR and annotate
             if verbose_1:
                 print('Computing spike train SNR')
+            print('templates.shape', templates.shape)
             for t_i, temp in enumerate(templates):
                 min_peak = np.min(temp)
                 snr = np.abs(min_peak / float(noise_level))

@@ -13,7 +13,7 @@ def generate_drift_position_vector(
     drift_mode_probe='rigid',
     drift_mode_speed='slow',
     
-    non_rigid_non_rigid_gradient_mode='linear',
+    non_rigid_gradient_mode='linear',
     preferred_dir=[0, 0, 1],
 
     slow_drift_velocity=5,
@@ -41,7 +41,7 @@ def generate_drift_position_vector(
         Global drift or per cell.
     drift_mode_speed: 'slow', 'fast', 'slow+fast'
         drift speed
-    non_rigid_non_rigid_gradient_mode: 'linear'
+    non_rigid_gradient_mode: 'linear'
         Mode to generate non rigid gradient over units on velocity.
     preferred_dir: list of int
         Use for gradient when non rigid mode.
@@ -150,11 +150,11 @@ def generate_drift_position_vector(
         drift_vectors = np.zeros(n_samples, dtype='float32')
         
     elif drift_mode_probe == 'non-rigid':
-        assert non_rigid_non_rigid_gradient_mode in ('linear', )
-        if non_rigid_non_rigid_gradient_mode == 'linear':
+        assert non_rigid_gradient_mode in ('linear', )
+        if non_rigid_gradient_mode == 'linear':
             # vector with shape (num_cells, ) and value between 0 and 1 which is a factor of the velocity
             # the upper units on the 'preferred_dir' vector get 0 the lower get 1
-            preferred_dir = np.array(preferred_dir)
+            preferred_dir = np.array(preferred_dir).reshape(-1, 1)
             locs = template_locations[:, drift_steps //2 , :]
             proj = np.dot(locs, preferred_dir)
             non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
@@ -198,7 +198,7 @@ def test_generate_drift_position_vector():
         #~ drift_mode_speed='fast',
         drift_mode_speed='slow',
 
-        non_rigid_non_rigid_gradient_mode='linear',
+        non_rigid_gradient_mode='linear',
         preferred_dir=[0, 0, 1],
         
         
