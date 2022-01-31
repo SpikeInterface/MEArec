@@ -134,7 +134,8 @@ class TemplateGenerator:
         if not (cell_models_folder / 'mods').is_dir() or recompile:
             if self._verbose:
                 print('Compiling NEURON models')
-            os.system(f'python {simulate_script} compile {cell_models_folder}')
+            python = sys.executable
+            os.system(f'{python} {simulate_script} compile {cell_models_folder}')
 
         # sort cell model names
         cell_models = np.array(cell_models)[
