@@ -157,7 +157,13 @@ def generate_drift_position_vector(
             preferred_dir = np.array(preferred_dir).reshape(-1, 1)
             locs = template_locations[:, drift_steps //2 , :]
             proj = np.dot(locs, preferred_dir)
+            # print(proj[:8])
             non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
+            # print(non_rigid_gradient[:8])
+            # print(template_locations[:, drift_steps //2 , :][:8])
+            # raise Exception()
+            non_rigid_gradient = 1 - non_rigid_gradient
+
         
         drift_vectors = np.zeros((n_samples, num_cells), dtype='float32')
         drift_vectors[:, :] = drift_vector.reshape(-1, 1)

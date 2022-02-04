@@ -1,3 +1,5 @@
+# don't enter here without a good guide! (only one person in the world)
+
 import numpy as np
 import time
 from copy import deepcopy
@@ -238,6 +240,9 @@ class RecordingGenerator:
         rec_params = self.params['recordings']
         st_params = self.params['spiketrains']
         seeds = self.params['seeds']
+
+        if self.n_jobs > 1 and (rec_params["chunk_duration"] == 0):
+            raise Exception(f'For n_jobs {self.n_jobs} you must set chunk_duration > 0')
 
         if 'cell_types' in self.params.keys():
             celltype_params = self.params['cell_types']
@@ -565,15 +570,16 @@ class RecordingGenerator:
                 #~ if chunk_duration > 0 and chunk_duration != duration:
                     #~ print('Disabling chunking for fast drifts')
                     #~ chunk_duration = duration
-            fs_float = fs.rescale('Hz').magnitude
-            drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
-                        'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
-                        'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
-            drift_params = {k: rec_params[k] for k in drift_keys }
-            drift_vectors = generate_drift_position_vector(
-                    fs=fs.rescale('Hz').magnitude,
-                    n_samples=n_samples,
-                    template_locations=locs, **drift_params)
+            # fs_float = fs.rescale('Hz').magnitude
+            # drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
+            #             'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+            #             'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+            # drift_params = {k: rec_params[k] for k in drift_keys }
+            # drift_vectors = generate_drift_position_vector(
+            #         fs=fs.rescale('Hz').magnitude,
+            #         n_samples=n_samples,
+            #         template_locations=locs, **drift_params)
+            drift_vectors = None
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:
@@ -755,6 +761,19 @@ class RecordingGenerator:
                     template_bin = np.array(bin_cat)[self.template_ids]
                     templates = np.array(eaps)[self.template_ids]
                     self.original_templates = templates
+
+                if drifting:
+                    fs_float = fs.rescale('Hz').magnitude
+                    drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
+                                'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+                                'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+                    drift_params = {k: rec_params[k] for k in drift_keys }
+                    drift_vectors = generate_drift_position_vector(
+                            fs=fs.rescale('Hz').magnitude,
+                            n_samples=n_samples,
+                            template_locations=template_locs, **drift_params)
+                    self.drift_vectors = None
+
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
