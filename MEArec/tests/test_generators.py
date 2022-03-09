@@ -678,15 +678,25 @@ class TestGenerators(unittest.TestCase):
 
         for n in n_jobs:
             for ch in chunk_durations:
-                print('Test recording backend with', n, 'jobs - chunk', ch)
+                print('Test recording seeds with', n, 'jobs - chunk', ch)
                 rec_params['chunk_duration'] = n
 
+                print("memmap")
                 recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
                                             verbose=False, n_jobs=n)
-                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                            n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap', 
+                                            verbose=False, n_jobs=n)
 
                 assert np.allclose(recgen1.recordings, np.array(recgen2.recordings), atol=1e-4)
+                del recgen1, recgen2
+
+                print("memory")
+                recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None,
+                                            verbose=False, n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None,
+                                            verbose=False, n_jobs=n)
+
+                assert np.allclose(recgen1.recordings, recgen2.recordings, atol=1e-4)
                 del recgen1, recgen2
 
     def test_recordings_dtype(self):
@@ -697,7 +707,7 @@ class TestGenerators(unittest.TestCase):
 
         dtypes = ['int16', 'int32', 'float16', 'float32', 'float64']
         modulations = ['none', 'template', 'electrode']
-        
+
         rec_params = mr.get_default_recordings_params()
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
@@ -708,7 +718,7 @@ class TestGenerators(unittest.TestCase):
         for i, dt in enumerate(dtypes):
             for mod in modulations:
                 rec_params['recordings']['modulation'] = mod
-                
+
                 print('Dtype:', dt, 'modulation', mod)
                 rec_params['recordings']['dtype'] = dt
                 recgen_dt = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
@@ -818,4 +828,5 @@ if __name__ == '__main__':
     # ~ unittest.main()
 
     TestGenerators().setUpClass()
-    TestGenerators().test_recordings_dtype()
+    TestGenerators().test_recordings_seeds()
+    TestGenerators().test_recordings_backend()
