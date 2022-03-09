@@ -109,7 +109,6 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         If True (default), spike traces are extracted
     voltage_peaks: np.array
         Array containing the voltage values at the peak
-    
     """
     if verbose:
         print('Start convolutions for chunk', ch)
