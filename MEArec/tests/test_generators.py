@@ -693,7 +693,7 @@ class TestGenerators(unittest.TestCase):
         ni = 1
         duration = 1
 
-        dtypes = ['float16', 'float32', 'float64']
+        dtypes = ['int16', 'int32', 'float16', 'float32', 'float64']
         rec_params = mr.get_default_recordings_params()
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
