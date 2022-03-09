@@ -648,7 +648,7 @@ class TestGenerators(unittest.TestCase):
                 recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                               n_jobs=n)
 
-                assert np.allclose(recgen_np.recordings, np.array(recgen_memmap.recordings), atol=1e-4)
+                assert np.allclose(np.array(recgen_memmap.recordings), np.array(recgen_np.recordings), atol=1e-4)
                 del recgen_memmap, recgen_np
 
     def test_recordings_seeds(self):
@@ -684,7 +684,7 @@ class TestGenerators(unittest.TestCase):
                 recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                             n_jobs=n)
 
-                assert np.allclose(recgen1.recordings, np.array(recgen2.recordings), atol=1e-4)
+                assert np.allclose(np.array(recgen1.recordings), np.array(recgen2.recordings), atol=1e-4)
                 del recgen1, recgen2
 
     def test_recordings_dtype(self):
