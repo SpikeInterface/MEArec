@@ -1928,8 +1928,9 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
         Number of consecutive spikes computed for each spike
 
     """
-
     import elephant.statistics as stat
+    
+    bursting_model = "mearec"
 
     if n_el == 1:
         ISI = stat.isi(st).rescale('ms')
@@ -1947,6 +1948,7 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                 if isi > max_burst_duration:
                     mod[i + 1] = sdrand * np.random.randn() + mrand
                 else:
+                    
                     mod[i + 1] = isi.magnitude ** exp * (1. / max_burst_duration.magnitude ** exp) \
                                  + sdrand * np.random.randn()
             else:
@@ -1963,22 +1965,35 @@ def compute_modulation(st, n_el=1, mrand=1, sdrand=0.05, n_spikes=1, exp=0.2, ma
                     if st[i + 1] - st[consecutive_idx[0]] >= max_burst_duration:
                         last_burst_event = st[i + 1] - 0.001 * pq.ms
                         consecutive = 0
-
-                if consecutive == 0:
-                    mod[i + 1] = sdrand * np.random.randn() + mrand
-                elif consecutive == 1:
-                    amp = (isi / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
-                    # scale std by amp
-                    mod[i + 1] = amp + amp * sdrand * np.random.randn()
-                else:
-                    if i != len(ISI):
-                        isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
+                # MODEL
+                if bursting_model == "exp_isi":
+                    if consecutive == 0:
+                        mod[i + 1] = sdrand * np.random.randn() + mrand
+                    elif consecutive == 1:
+                        amp = (isi / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
+                        # scale std by amp
+                        mod[i + 1] = amp + amp * sdrand * np.random.randn()
                     else:
-                        isi_mean = np.mean(ISI[i - consecutive + 1:])
-                    amp = (isi_mean / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
-                    # scale std by amp
+                        if i != len(ISI):
+                            isi_mean = np.mean(ISI[i - consecutive + 1:i + 1])
+                        else:
+                            isi_mean = np.mean(ISI[i - consecutive + 1:])
+                        amp = (isi_mean / float(consecutive)) ** exp * (1. / max_burst_duration.magnitude ** exp)
+                        # scale std by amp
+                        mod[i + 1] = amp + amp * sdrand * np.random.randn()
+                elif bursting_model == "recovery":
+                    weight = 0.6
+                    exp_decay = 0.3
+                    recovery = 0.1 * exp_decay
+                    offset = -0.3
+                    if consecutive == 0:
+                        mod[i + 1] = sdrand * np.random.randn() + mrand
+                    else:
+                        amp = weight * np.exp(-exp_decay * consecutive) + (1 - np.exp(-recovery * isi)) + offset
+                        mod[i + 1] = amp + amp * sdrand * np.random.randn()
+                elif bursting_model == "exp":
+                    amp = np.exp(-exp_decay * consecutive)
                     mod[i + 1] = amp + amp * sdrand * np.random.randn()
-
                 cons[i + 1] = consecutive
     else:
         if n_spikes == 0:
@@ -2295,6 +2310,7 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         Maximum number of channels to be convolved
     recordings :  np.arrays
         Array to use for recordings. If None it is created
+
     Returns
     -------
     recordings: np.array
@@ -2317,6 +2333,8 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         recordings = np.zeros((n_samples, n_elec))
     else:
         assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
+        
+    dtype = recordings.dtype
 
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
@@ -2346,55 +2364,56 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
             else:
                 # electrode
-                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt.T
+                    snippet = mod_array[pos] * temp_jitt.T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt[:, diff:].T
+                    snippet = mod_array[pos] * temp_jitt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:, elec_idxs] += mod_array[pos] * temp_jitt[:, :diff].T
+                    snippet = mod_array[pos] * temp_jitt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
             else:
                 # electrode
-                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt)]).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1], elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]).T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:, elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]).T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
 
     return recordings
 
