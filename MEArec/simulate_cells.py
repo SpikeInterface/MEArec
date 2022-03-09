@@ -30,6 +30,12 @@ def import_LFPy_neuron():
             "LFPy is not installed. Install it with 'pip install LFPy'")
 
     try:
+        # disable DISPLAY if running in parallel
+        display = os.environ.get("DISPLAY", None)
+        if display is not None:
+            print("Disabling display")
+            os.environ["DISPLAY"] = ""
+            print(os.environ.get("DISPLAY"))
         import neuron
     except:
         raise ModuleNotFoundError(
