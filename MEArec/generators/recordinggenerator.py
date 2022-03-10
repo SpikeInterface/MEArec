@@ -286,6 +286,8 @@ class RecordingGenerator:
         else:
             params['recordings']['dtype'] = rec_params['dtype']
         dtype = params['recordings']['dtype']
+        if verbose_1:
+            print(f"dtype {dtype}")
 
         if 'noise_mode' not in rec_params.keys():
             params['recordings']['noise_mode'] = 'uncorrelated'

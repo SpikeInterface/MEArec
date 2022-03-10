@@ -5,3 +5,4 @@ MEAutility
 elephant
 click
 h5py
+scipy<1.8
