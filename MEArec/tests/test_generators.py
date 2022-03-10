@@ -17,7 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-local_temp = False
+LOCAL_TMP = False
 
 
 class TestGenerators(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestGenerators(unittest.TestCase):
         # Set seed
         np.random.seed(2308)
 
-        if not local_temp:
+        if not LOCAL_TMP:
             self.test_dir = Path(tempfile.mkdtemp())
         else:
             self.test_dir = Path('./tmp')
@@ -50,7 +50,8 @@ class TestGenerators(unittest.TestCase):
             templates_params['min_amp'] = 10
             print(templates_params)
             self.tempgen = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
-                                            params=templates_params, parallel=True, delete_tmp=True, verbose=True)
+                                            params=templates_params, parallel=True, delete_tmp=True, 
+                                            verbose=False)
             self.templates_params = deepcopy(templates_params)
             self.num_templates, self.num_chan, self.num_samples = self.tempgen.templates.shape
 
@@ -61,7 +62,8 @@ class TestGenerators(unittest.TestCase):
             templates_params['min_amp'] = 10
             print('Generating drifting templates')
             self.tempgen_drift = mr.gen_templates(cell_models_folder, templates_tmp_folder=templates_folder,
-                                                  params=templates_params, parallel=True, delete_tmp=True, verbose=True)
+                                                  params=templates_params, parallel=True, delete_tmp=True, 
+                                                  verbose=False)
             self.templates_params_drift = deepcopy(templates_params)
             self.num_steps_drift = self.tempgen_drift.templates.shape[1]
 
@@ -98,7 +100,7 @@ class TestGenerators(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         # Remove the directory after the test
-        if not local_temp:
+        if not LOCAL_TMP:
             shutil.rmtree(self.test_dir)
 
     def test_gen_templates(self):
@@ -648,7 +650,7 @@ class TestGenerators(unittest.TestCase):
                 recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                               n_jobs=n)
 
-                assert np.allclose(np.array(recgen_memmap.recordings), np.array(recgen_np.recordings), atol=1e-4)
+                assert np.allclose(np.array(recgen_np.recordings), np.array(recgen_memmap.recordings), atol=1e-4)
                 del recgen_memmap, recgen_np
 
     def test_recordings_seeds(self):
@@ -676,15 +678,25 @@ class TestGenerators(unittest.TestCase):
 
         for n in n_jobs:
             for ch in chunk_durations:
-                print('Test recording backend with', n, 'jobs - chunk', ch)
+                print('Test recording seeds with', n, 'jobs - chunk', ch)
                 rec_params['chunk_duration'] = n
 
+                print("memmap")
                 recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
                                             verbose=False, n_jobs=n)
-                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
-                                            n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
+                                            verbose=False, n_jobs=n)
 
                 assert np.allclose(np.array(recgen1.recordings), np.array(recgen2.recordings), atol=1e-4)
+                del recgen1, recgen2
+
+                print("memory")
+                recgen1 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None,
+                                            verbose=False, n_jobs=n)
+                recgen2 = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None,
+                                            verbose=False, n_jobs=n)
+
+                assert np.allclose(np.array(recgen1.recordings), recgen2.recordings, atol=1e-4)
                 del recgen1, recgen2
 
     def test_recordings_dtype(self):
@@ -693,22 +705,26 @@ class TestGenerators(unittest.TestCase):
         ni = 1
         duration = 1
 
-        dtypes = ['float16', 'float32', 'float64']
+        dtypes = ['int16', 'int32', 'float16', 'float32', 'float64']
+        modulations = ['none', 'template', 'electrode']
+
         rec_params = mr.get_default_recordings_params()
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
         rec_params['spiketrains']['duration'] = duration
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
-        rec_params['recordings']['modulation'] = 'none'
 
         for i, dt in enumerate(dtypes):
-            print('Dtype:', dt)
-            rec_params['recordings']['dtype'] = dt
-            recgen_dt = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+            for mod in modulations:
+                rec_params['recordings']['modulation'] = mod
 
-            assert recgen_dt.recordings[0, 0].dtype == dt
-            del recgen_dt
+                print('Dtype:', dt, 'modulation', mod)
+                rec_params['recordings']['dtype'] = dt
+                recgen_dt = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+
+                assert recgen_dt.recordings[0, 0].dtype == dt
+                del recgen_dt
 
     def test_default_params(self):
         print('Test default params')
@@ -812,4 +828,5 @@ if __name__ == '__main__':
     # ~ unittest.main()
 
     TestGenerators().setUpClass()
+    TestGenerators().test_recordings_seeds()
     TestGenerators().test_recordings_backend()
