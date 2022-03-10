@@ -17,7 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-LOCAL_TMP = True
+LOCAL_TMP = False
 
 
 class TestGenerators(unittest.TestCase):
