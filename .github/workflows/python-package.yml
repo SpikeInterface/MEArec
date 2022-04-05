@@ -26,6 +26,7 @@ jobs:
         run: |
           conda install mpi mpi4py
           pip install scipy==1.7
+          pip install elephant==0.10
           pip install neuron
           pip install LFPy
           pip install .
