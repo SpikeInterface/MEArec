@@ -1157,11 +1157,16 @@ class RecordingGenerator:
             run_several_chunks(chunk_apply_filter, chunk_indexes, fs, lsb, args,
                                self.n_jobs, self.tmp_mode, assignment_dict)
 
+        if gain is not None:
+            gain_to_uV = 1. / gain
+        else:
+            gain_to_uv = 1.
+        
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
         self.timestamps = timestamps
-        self.gain_to_uV = 1. / gain
+        self.gain_to_uv = 1.
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
         self.template_locations = template_locs
