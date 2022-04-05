@@ -639,6 +639,7 @@ class RecordingGenerator:
             template_rots = np.array([])
             template_celltypes = np.array([])
             overlapping = np.array([])
+            gain = None
         else:
             if tempgen is not None:
                 if celltype_params is not None:
@@ -821,6 +822,7 @@ class RecordingGenerator:
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
             else:
+                gain = None
                 templates = self.templates
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
@@ -1160,13 +1162,13 @@ class RecordingGenerator:
         if gain is not None:
             gain_to_uV = 1. / gain
         else:
-            gain_to_uv = 1.
+            gain_to_uV = 1.
         
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
         self.timestamps = timestamps
-        self.gain_to_uv = 1.
+        self.gain_to_uV = gain_to_uV
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
         self.template_locations = template_locs

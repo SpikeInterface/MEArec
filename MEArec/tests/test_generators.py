@@ -743,6 +743,7 @@ class TestGenerators(unittest.TestCase):
         n_jitter = 3
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['dtype'] = "int16"
+        rec_params['recordings']['filter'] = False
 
         for bd in bit_depths:
             for lsb in lsbs:
@@ -752,7 +753,7 @@ class TestGenerators(unittest.TestCase):
                 print('ADC bit depth:', bd, 'lsb', lsb)
                 recgen_adc_lsb = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
 
-                assert np.ptp(recgen_adc_lsb) / lsb <= 2 ** bd
+                assert np.ptp(recgen_adc_lsb.recordings) / lsb <= 2 ** bd
                 lsb_rec = np.min(np.diff(np.sort(np.unique(recgen_adc_lsb.recordings.ravel()))))
                 assert lsb_rec == lsb
 
