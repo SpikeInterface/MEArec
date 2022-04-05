@@ -726,6 +726,46 @@ class TestGenerators(unittest.TestCase):
                 assert recgen_dt.recordings[0, 0].dtype == dt
                 del recgen_dt
 
+    def test_adc_bit_depth_lsb(self):
+        print('Test recording generation - adc depth and lsb')
+        ne = 2
+        ni = 1
+        duration = 1
+
+        dtypes = 'int16'
+        bit_depths = [10, 11, 12]
+        lsbs = [1, 2, 4]
+
+        rec_params = mr.get_default_recordings_params()
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = duration
+        n_jitter = 3
+        rec_params['templates']['n_jitters'] = n_jitter
+        rec_params['recordings']['dtype'] = "int16"
+
+        for bd in bit_depths:
+            for lsb in lsbs:
+                rec_params['recordings']['adc_bit_depth'] = bd
+                rec_params['recordings']['lsb'] = lsb
+
+                print('ADC bit depth:', bd, 'lsb', lsb)
+                recgen_adc_lsb = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+
+                assert np.ptp(recgen_adc_lsb) / lsb <= 2 ** bd
+                lsb_rec = np.min(np.diff(np.sort(np.unique(recgen_adc_lsb.recordings.ravel()))))
+                assert lsb_rec == lsb
+
+                # save and reload gain
+                save_path = self.test_dir / f"{bd}_{lsb}.h5"
+                mr.save_recording_generator(recgen_adc_lsb, save_path)
+                recgen_loaded = mr.load_recordings(save_path)
+                assert recgen_loaded.gain_to_uV == recgen_adc_lsb.gain_to_uV
+
+                del recgen_adc_lsb
+                save_path.unlink()
+
+
     def test_default_params(self):
         print('Test default params')
         info, info_folder = mr.get_default_config()

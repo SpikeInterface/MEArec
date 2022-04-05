@@ -286,8 +286,17 @@ class RecordingGenerator:
         else:
             params['recordings']['dtype'] = rec_params['dtype']
         dtype = params['recordings']['dtype']
+        params['recordings']['adc_bit_depth'] = rec_params.get('adc_bit_depth', None)
+        adc_bit_depth = params['recordings']['adc_bit_depth']
+        params['recordings']['lsb'] = rec_params.get('lsb', None)
+        lsb = params['recordings']['lsb']
+        if lsb is None:
+            lsb = 1
+
         if verbose_1:
             print(f"dtype {dtype}")
+            if np.dtype(dtype).kind == "i":
+                print(f"ADC bit depth: {adc_bit_depth} -- LSB: {lsb}")
 
         if 'noise_mode' not in rec_params.keys():
             params['recordings']['noise_mode'] = 'uncorrelated'
@@ -725,7 +734,6 @@ class RecordingGenerator:
                     template_rots = np.array(rots)[reordered_idx_cells]
                     template_bin = np.array(bin_cat)[reordered_idx_cells]
                     templates = np.array(eaps)[reordered_idx_cells]
-                    self.original_templates = templates
                     self.template_ids = reordered_idx_cells
                 else:
                     print(f"Using provided template ids: {self.template_ids}")
@@ -734,7 +742,26 @@ class RecordingGenerator:
                     template_rots = np.array(rots)[self.template_ids]
                     template_bin = np.array(bin_cat)[self.template_ids]
                     templates = np.array(eaps)[self.template_ids]
-                    self.original_templates = templates
+
+                gain = None
+                if np.dtype(dtype).kind == "i":
+                    if adc_bit_depth is not None:
+                        signal_range = lsb * (2**adc_bit_depth)
+                        dtype_depth = np.dtype(dtype).itemsize * 8
+                        assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
+                                                                  f"selected dtype {dtype}. Try reducing them or using "
+                                                                  f"a larger dtype")
+                        max_template_noise = np.max(np.abs(templates)) + 3 * noise_level
+                        templates_noise_range = 2 * (max_template_noise)
+                        gain = signal_range / templates_noise_range
+                        if verbose_1:
+                            print(f'Templates and noise scaled by gain: {gain}')
+                
+                if gain is not None:
+                    templates *= gain
+                    noise_level *= gain
+
+                self.original_templates = templates
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
@@ -939,8 +966,8 @@ class RecordingGenerator:
             assignment_dict = {
                 'recordings': recordings,
                 'spike_traces': spike_traces}
-            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
-                                             self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+            output_list = run_several_chunks(chunk_convolution, chunk_indexes, fs, lsb, args,
+                                             self.n_jobs, self.tmp_mode, assignment_dict)
 
             # if drift then propagate annoations to spiketrains
             for st in np.arange(n_neurons):
@@ -983,8 +1010,8 @@ class RecordingGenerator:
                         fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
-                run_several_chunks(func, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(func, chunk_indexes, fs, lsb, args,
+                                   self.n_jobs, self.tmp_mode, assignment_dict)
 
             elif noise_mode == 'distance-correlated':
                 cov_dist = np.zeros((n_elec, n_elec))
@@ -1000,8 +1027,8 @@ class RecordingGenerator:
                         fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
-                run_several_chunks(func, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(func, chunk_indexes, fs, lsb, args,
+                                   self.n_jobs, self.tmp_mode, assignment_dict)
 
             elif noise_mode == 'far-neurons':
                 if self.tmp_mode == 'memmap':
@@ -1021,6 +1048,8 @@ class RecordingGenerator:
                 template_noise_locs = locs[idxs_cells]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
+                if gain is not None:
+                    template_noise *= gain
 
                 # pad spikes
                 pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
@@ -1080,8 +1109,8 @@ class RecordingGenerator:
                         cut_outs_samples, template_noise_locs, None, None, None, None, None, None,
                         verbose_2, None, None, False, None, False, None, dtype, seed_list_noise,)
                 assignment_dict = {'recordings': additive_noise}
-                run_several_chunks(chunk_convolution, chunk_indexes, fs, timestamps, args,
-                                   self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+                run_several_chunks(chunk_convolution, chunk_indexes, fs, lsb, args,
+                                   self.n_jobs, self.tmp_mode, assignment_dict)
 
                 # removing mean
                 for i, m in enumerate(np.mean(additive_noise, axis=0)):
@@ -1125,13 +1154,14 @@ class RecordingGenerator:
                 'filtered_chunk': recordings,
             }
             # Done in loop (as before) : this cannot be done in parralel because of bug transpose in joblib!!!!!!!!!!!!!
-            run_several_chunks(chunk_apply_filter, chunk_indexes, fs, timestamps, args,
-                               self.n_jobs, self.tmp_mode, self.tmp_folder, assignment_dict)
+            run_several_chunks(chunk_apply_filter, chunk_indexes, fs, lsb, args,
+                               self.n_jobs, self.tmp_mode, assignment_dict)
 
         # assign class variables
         params['templates']['overlapping'] = np.array(overlapping)
         self.recordings = recordings
         self.timestamps = timestamps
+        self.gain_to_uV = 1. / gain
         self.channel_positions = mea_pos
         self.templates = np.squeeze(templates)
         self.template_locations = template_locs
@@ -1237,7 +1267,7 @@ def make_chunk_indexes(total_duration, chunk_duration, fs):
     return chunk_indexes
 
 
-def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mode, tmp_folder, assignment_dict):
+def run_several_chunks(func, chunk_indexes, fs, lsb, args, n_jobs, tmp_mode, assignment_dict):
     """
     Run a function on a list of chunks.
     
@@ -1255,7 +1285,7 @@ def run_several_chunks(func, chunk_indexes, fs, timestamps, args, n_jobs, tmp_mo
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
         chunk_start = (i_start / fs).rescale('s')
 
-        arg_task = (ch, i_start, i_stop, chunk_start,) + args
+        arg_task = (ch, i_start, i_stop, chunk_start, lsb) + args
         arg_tasks.append(arg_task)
 
         karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode)
