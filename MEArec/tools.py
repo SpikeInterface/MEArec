@@ -2368,6 +2368,8 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
     else:
         assert recordings.shape == (n_samples, n_elec), "'recordings' has the wrong shape"
 
+    dtype = recordings.dtype
+
     if cut_out is None:
         cut_out = [len_spike // 2, len_spike // 2]
 
@@ -2405,55 +2407,56 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
             else:
                 # electrode
-                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos - cut_out[0] + len_spike <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[:spos + cut_out[1], elec_idxs] += temp_filt[:, diff:].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    temp_filt = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)
-                    recordings[spos - cut_out[0]:, elec_idxs] += temp_filt[:, :diff].T
+                    snippet = compute_stretched_template(temp_jitt, mod_array[pos], shape_stretch)[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
         else:
             if not isinstance(mod_array[0], (list, tuple, np.ndarray)):
                 # template + none
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt.T
+                    snippet = mod_array[pos] * temp_jitt.T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1], elec_idxs] += mod_array[pos] * temp_jitt[:, diff:].T
+                    snippet = mod_array[pos] * temp_jitt[:, diff:].T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:, elec_idxs] += mod_array[pos] * temp_jitt[:, :diff].T
+                    snippet = mod_array[pos] * temp_jitt[:, :diff].T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
             else:
                 # electrode
-                mod_values = mod_array[pos][elec_idxs]
                 if spos - cut_out[0] >= 0 and spos + cut_out[1] <= n_samples:
-                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt)])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt)]).T
+                    recordings[spos - cut_out[0]:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 elif spos - cut_out[0] < 0:
                     diff = -(spos - cut_out[0])
-                    recordings[:spos + cut_out[1], elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, diff:])]).T
+                    recordings[:spos + cut_out[1], elec_idxs] += snippet.astype(dtype)
                 else:
                     diff = n_samples - (spos - cut_out[0])
-                    recordings[spos - cut_out[0]:, elec_idxs] += \
-                        np.transpose([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])])
+                    snippet = np.array([a * t for (a, t) in zip(mod_array[pos], temp_jitt[:, :diff])]).T
+                    recordings[spos - cut_out[0]:, elec_idxs] += snippet.astype(dtype)
 
     return recordings
 
