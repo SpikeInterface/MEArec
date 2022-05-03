@@ -292,6 +292,8 @@ class RecordingGenerator:
         lsb = params['recordings']['lsb']
         if lsb is None:
             lsb = 1
+        params['recordings']['gain'] = rec_params.get('gain', None)
+        gain = params['recordings']['gain']
 
         if verbose_1:
             print(f"dtype {dtype}")
@@ -639,7 +641,23 @@ class RecordingGenerator:
             template_rots = np.array([])
             template_celltypes = np.array([])
             overlapping = np.array([])
-            gain = None
+            
+            # compute gain
+            gain_to_int = None
+            if np.dtype(dtype).kind == "i":
+                if gain is None:
+                    if adc_bit_depth is not None:
+                        signal_range = lsb * (2**adc_bit_depth)
+                        dtype_depth = np.dtype(dtype).itemsize * 8
+                        assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
+                                                                  f"selected dtype {dtype}. Try reducing them or using "
+                                                                  f"a larger dtype")
+                        # in this case we use 4 times the noise level (times 2 for positive-negative)
+                        max_noise = 2 * (4 * noise_level)
+                        gain_to_int = signal_range / max_noise
+                        gain = 1. / gain_to_int
+                else:
+                    gain_to_int = 1. / gain
         else:
             if tempgen is not None:
                 if celltype_params is not None:
@@ -743,24 +761,30 @@ class RecordingGenerator:
                     template_rots = np.array(rots)[self.template_ids]
                     template_bin = np.array(bin_cat)[self.template_ids]
                     templates = np.array(eaps)[self.template_ids]
-
-                gain = None
-                if np.dtype(dtype).kind == "i":
-                    if adc_bit_depth is not None:
-                        signal_range = lsb * (2**adc_bit_depth)
-                        dtype_depth = np.dtype(dtype).itemsize * 8
-                        assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
-                                                                  f"selected dtype {dtype}. Try reducing them or using "
-                                                                  f"a larger dtype")
-                        max_template_noise = np.max(np.abs(templates)) + 3 * noise_level
-                        templates_noise_range = 2 * (max_template_noise)
-                        gain = signal_range / templates_noise_range
-                        if verbose_1:
-                            print(f'Templates and noise scaled by gain: {gain}')
                 
-                if gain is not None:
-                    templates *= gain
-                    noise_level *= gain
+                # compute gain
+                gain_to_int = None
+                if np.dtype(dtype).kind == "i":
+                    if gain is None:
+                        if adc_bit_depth is not None:
+                            signal_range = lsb * (2**adc_bit_depth)
+                            dtype_depth = np.dtype(dtype).itemsize * 8
+                            assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
+                                                                      f"selected dtype {dtype}. Try reducing them or "
+                                                                      f"using a larger dtype")
+                            # in this case we add 3 times the noise level to the amplitude to allow some margin
+                            max_template_noise = np.max(np.abs(templates)) + 3 * noise_level
+                            templates_noise_range = 2 * (max_template_noise)
+                            gain_to_int = signal_range / templates_noise_range
+                            gain = 1. / gain_to_int
+                    else:
+                        gain_to_int = 1. / gain
+                
+                if gain_to_int is not None:
+                    if verbose_1:
+                        print(f'Templates and noise scaled by gain: {gain_to_int}')
+                    templates *= gain_to_int
+                    noise_level *= gain_to_int
 
                 self.original_templates = templates
 
@@ -822,7 +846,7 @@ class RecordingGenerator:
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
             else:
-                gain = None
+                gain_to_int = None
                 templates = self.templates
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
@@ -1050,8 +1074,8 @@ class RecordingGenerator:
                 template_noise_locs = locs[idxs_cells]
                 if drifting:
                     templates_noise = templates_noise[:, 0]
-                if gain is not None:
-                    template_noise *= gain
+                if gain_to_int is not None:
+                    template_noise *= gain_to_int
 
                 # pad spikes
                 pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
@@ -1160,7 +1184,7 @@ class RecordingGenerator:
                                self.n_jobs, self.tmp_mode, assignment_dict)
 
         if gain is not None:
-            gain_to_uV = 1. / gain
+            gain_to_uV = gain
         else:
             gain_to_uV = 1.
         
