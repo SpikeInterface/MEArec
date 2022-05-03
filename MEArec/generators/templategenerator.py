@@ -21,6 +21,10 @@ def simulate_cell_templates(i, simulate_script, tot, cell_model,
     model_folder = Path(model_folder)
     print(f"Starting {i + 1}")
     print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
+    if verbose:
+        verbose = 1
+    else:
+        verbose = 0
     os.system(
         f'python {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
     print(f"Exiting {i + 1}")

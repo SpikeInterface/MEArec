@@ -80,7 +80,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     neurons = [f for f in cell_folder.iterdir() if 'mods' not in str(f)
                and not f.name.startswith('.')]
 
-    if verbose:
+    if verbose >= 1:
         print(neurons)
 
     for neuron in neurons:
@@ -91,7 +91,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
                         _command = 'copy'
                     else:
                         _command = 'cp'
-                    if verbose:
+                    if verbose >= 1:
                         print(f"{_command} {nmodl} {cell_folder / 'mods'}")
                     os.system(f"{_command} {nmodl} {cell_folder / 'mods'}")
     starting_dir = os.getcwd()
@@ -100,7 +100,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     os.chdir(starting_dir)
 
 
-def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
+def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=0):
     """ Function to load cell models
     
     Parameters:
@@ -125,7 +125,7 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=False):
 
     cwd = os.getcwd()
     os.chdir(cell_folder)
-    if verbose:
+    if verbose >= 1:
         print(f"Simulating {cell_folder}")
 
     neuron.load_mechanisms(str(Path(cell_folder).parent / 'mods'))
@@ -297,8 +297,8 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
     -----------
     cell_model_folder : string
         Path to folder where cell model is saved.
-    verbose : bool
-        If True, output is verbose
+    verbose : int
+        If 1, output is verbose
     save : bool
         If True, currents and membrane potentials are saved in 'sim_folder'. If False the function returns the simulated
         cell, the soma potentials of the spikes, and the transmembrane currents of the spikes
@@ -367,7 +367,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 spikes = list(np.array(spikes) + cut_out[0])
                 num_spikes = len(spikes)
 
-                if verbose:
+                if verbose >= 1:
                     print(f"Input weight: {weight} - Num Spikes: {num_spikes}")
                 if num_spikes >= target_spikes[1]:
                     weight *= weights[0]
@@ -398,7 +398,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                 str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
 
         else:
-            if verbose:
+            if verbose >= 1:
                 print(
                     '\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
     else:
@@ -432,7 +432,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
             spikes = list(np.array(spikes) + cut_out[0])
             num_spikes = len(spikes)
 
-            if verbose:
+            if verbose >= 1:
                 print(f"Input weight: {weight} - Num Spikes: {num_spikes}")
             if num_spikes >= target_spikes[1]:
                 weight *= weights[0]
@@ -511,7 +511,7 @@ def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, ro
 
 
 def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=None, seed=0,
-                       verbose=False, position=None,
+                       verbose=0, position=None,
                        custom_return_cell_function=None, cell_locations=None,
                        cell_rotations=None, save=True, max_iterations=1000,
                        timeout=300, **kwargs):
@@ -558,7 +558,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
     cell_name = cell_model_folder.parts[-1]
     cell_save_name = cell_name
     load_sim_folder = Path(load_sim_folder)
-    if verbose:
+    if verbose >= 1:
         print(f"Seed = {seed + i}")
     np.random.seed(seed + i)
 
@@ -629,7 +629,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
         save_folder = sim_folder / f'tmp_{target_num_spikes}_{MEAname}'
         save_folder.mkdir(exist_ok=True, parents=True)
 
-    if verbose:
+    if verbose >= 1:
         print(f'Cell {cell_save_name} extracellular spikes to be simulated')
 
     mea = mu.return_mea(MEAname)
@@ -676,7 +676,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
         start_time = time.time()
         while len(saved_eaps) < target_num_spikes and tested_loc_idx < n_rand_positions:
             if i > max_iterations * target_num_spikes:
-                if verbose:
+                if verbose >= 1:
                     print(
                         f"Gave up finding spikes above noise level for {cell_name}")
                 break
@@ -715,14 +715,14 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                     saved_eaps.append(espikes)
                     saved_positions.append(pos)
                     saved_rotations.append(rot)
-                    if verbose:
+                    if verbose >= 1:
                         print(
                             f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
                     saved += 1
             else:
                 if check_espike(espikes, min_amp):
-                    if verbose:
-                        print('Amp:', np.round(np.abs(np.min(espikes)), 1))
+                    if verbose >= 2:
+                        print('template amplitude:', np.round(np.abs(np.min(espikes)), 1))
 
                     drift_ok = False
                     # fix rotation while drifting
@@ -747,12 +747,12 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                         if drift_within_bounds:
                             if not (x_lim[0] < x_rand < x_lim[1] and y_lim[0] < y_rand < y_lim[1] and
                                     z_lim[0] < z_rand < z_lim[1]):
-                                if verbose:
+                                if verbose == 2:
                                     print(
                                         f"Discarded for final drift position {cell_name}")
                                 tr += 1
                                 continue
-                        if max_drift > drift_dist > min_drift:
+                        if max_drift >= drift_dist >= min_drift:
                             if check_for_drift_amp:
                                 # check final position spike amplitude
                                 espikes, pos, rot_, found_position = return_extracellular_spike(cell=cell,
@@ -772,12 +772,12 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                                     espikes = espikes * 2
 
                                 if check_espike(espikes, min_amp):
-                                    if verbose:
+                                    if verbose == 2:
                                         print('Found final drifting position')
                                     drift_ok = True
                                 else:
                                     tr += 1
-                                    if verbose:
+                                    if verbose == 2:
                                         print(
                                             f"Discarded for final drift amplitude {cell_name}")
                                     continue
@@ -785,7 +785,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                                 drift_ok = True
                         else:
                             tr += 1
-                            if verbose:
+                            if verbose == 2:
                                 print(
                                     f"Discarded for drift distance {cell_name}")
 
@@ -822,7 +822,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
 
                         drift_spikes = np.array(drift_spikes)
                         drift_pos = np.array(drift_pos)
-                        if verbose:
+                        if verbose == 2:
                             print(f'Drift done from {np.round(init_pos, 1)} to {np.round(final_pos, 1)} um'
                                   f' with {drift_steps} steps')
 
@@ -832,22 +832,22 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                         saved_eaps.append(drift_spikes)
                         saved_positions.append(drift_pos)
                         saved_rotations.append(rot)
-                        if verbose:
+                        if verbose >= 1:
                             print(
                                 f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
                         saved += 1
                     else:
-                        if verbose:
+                        if verbose == 2:
                             print(f'Discarded for trials {cell_name}')
                 else:
-                    if verbose:
+                    if verbose == 2:
                         print(f"Discarded for minimum amp {cell_name}")
                     pass
             i += 1
 
             if timeout is not None:
                 if time.time() - start_time > timeout:
-                    if verbose:
+                    if verbose >= 1:
                         print(f"Timeout finding spikes above noise level for "
                               f"{cell_name}, more than {timeout}")
                     break
@@ -917,14 +917,14 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
             cell.set_rotation(rev_rot[0], rev_rot[1],
                               rev_rot[2], rotation_order='zyx')
 
-            if verbose:
+            if verbose >= 1:
                 print(
                     f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
             saved += 1
         else:
             pass
 
-    if verbose:
+    if verbose >= 1:
         print(f"Done generating EAPs for {cell_name}")
 
     saved_eaps = np.array(saved_eaps)
@@ -1034,7 +1034,7 @@ def skip_duplicate(pos, saved_positions, drifting, verbose=False):
             else:
                 test_pos = pos_s[0]
             if np.all(np.round(test_pos, 2) == np.round(pos, 2)):
-                if verbose:
+                if verbose >= 2:
                     print(
                         f"Duplicated position: {np.round(pos, 2)} -- {np.round(pos_s, 2)}. Skipping")
                 skip_pos = True
@@ -1443,7 +1443,7 @@ if __name__ == '__main__':
         cell_model = sys.argv[2]
         intraonly = str2bool(sys.argv[3])
         params_path = sys.argv[4]
-        verbose = str2bool(sys.argv[5])
+        verbose = int(sys.argv[5])
 
         with open(params_path, 'r') as f:
             if use_loader:
