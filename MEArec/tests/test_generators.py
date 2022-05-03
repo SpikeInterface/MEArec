@@ -17,7 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-LOCAL_TMP = True
+LOCAL_TMP = False
 
 
 class TestGenerators(unittest.TestCase):
@@ -888,5 +888,5 @@ class TestGenerators(unittest.TestCase):
 
 if __name__ == '__main__':
     TestGenerators().setUpClass()
-    # TestGenerators().test_recordings_seeds()
-    TestGenerators().test_adc_bit_depth_lsb_gain()
+    TestGenerators().test_gen_recordings_far_neurons()
+    # TestGenerators().test_adc_bit_depth_lsb_gain()

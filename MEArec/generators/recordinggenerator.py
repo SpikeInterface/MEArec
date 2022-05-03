@@ -641,6 +641,23 @@ class RecordingGenerator:
             template_rots = np.array([])
             template_celltypes = np.array([])
             overlapping = np.array([])
+            
+            # compute gain
+            gain_to_int = None
+            if np.dtype(dtype).kind == "i":
+                if gain is None:
+                    if adc_bit_depth is not None:
+                        signal_range = lsb * (2**adc_bit_depth)
+                        dtype_depth = np.dtype(dtype).itemsize * 8
+                        assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
+                                                                  f"selected dtype {dtype}. Try reducing them or using "
+                                                                  f"a larger dtype")
+                        # in this case we use 4 times the noise level (times 2 for positive-negative)
+                        max_noise = 2 * (4 * noise_level)
+                        gain_to_int = signal_range / max_noise
+                        gain = 1. / gain_to_int
+                else:
+                    gain_to_int = 1. / gain
         else:
             if tempgen is not None:
                 if celltype_params is not None:
@@ -744,7 +761,8 @@ class RecordingGenerator:
                     template_rots = np.array(rots)[self.template_ids]
                     template_bin = np.array(bin_cat)[self.template_ids]
                     templates = np.array(eaps)[self.template_ids]
-
+                
+                # compute gain
                 gain_to_int = None
                 if np.dtype(dtype).kind == "i":
                     if gain is None:
@@ -752,8 +770,9 @@ class RecordingGenerator:
                             signal_range = lsb * (2**adc_bit_depth)
                             dtype_depth = np.dtype(dtype).itemsize * 8
                             assert signal_range <= 2 ** dtype_depth, (f"ADC bit depth and LSB exceed the range of the "
-                                                                    f"selected dtype {dtype}. Try reducing them or using "
-                                                                    f"a larger dtype")
+                                                                      f"selected dtype {dtype}. Try reducing them or "
+                                                                      f"using a larger dtype")
+                            # in this case we add 3 times the noise level to the amplitude to allow some margin
                             max_template_noise = np.max(np.abs(templates)) + 3 * noise_level
                             templates_noise_range = 2 * (max_template_noise)
                             gain_to_int = signal_range / templates_noise_range
