@@ -223,8 +223,8 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
         If True, cell models are recompiled
     delete_tmp :
         if True, the temporary files are deleted
-    verbose : bool
-        If True, the output is verbose
+    verbose : bool, or int
+        If True, the output is verbose (1). If verbose is 2, every step produces an output
 
     Returns
     -------

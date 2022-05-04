@@ -726,15 +726,15 @@ class TestGenerators(unittest.TestCase):
                 assert recgen_dt.recordings[0, 0].dtype == dt
                 del recgen_dt
 
-    def test_adc_bit_depth_lsb(self):
+    def test_adc_bit_depth_lsb_gain(self):
         print('Test recording generation - adc depth and lsb')
         ne = 2
         ni = 1
         duration = 1
 
-        dtypes = 'int16'
         bit_depths = [10, 11, 12]
         lsbs = [1, 2, 4]
+        gains = [0.1, 0.2, 0.3]
 
         rec_params = mr.get_default_recordings_params()
         rec_params['spiketrains']['n_exc'] = ne
@@ -764,6 +764,27 @@ class TestGenerators(unittest.TestCase):
                 assert recgen_loaded.gain_to_uV == recgen_adc_lsb.gain_to_uV
 
                 del recgen_adc_lsb
+                save_path.unlink()
+                
+        for gain in gains:
+            for lsb in lsbs:
+                rec_params['recordings']['gain'] = gain
+                rec_params['recordings']['lsb'] = lsb
+
+                print('Gain:', gain, 'lsb', lsb)
+                recgen_gain_lsb = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+
+                assert recgen_gain_lsb.gain_to_uV == gain
+                lsb_rec = np.min(np.diff(np.sort(np.unique(recgen_gain_lsb.recordings.ravel()))))
+                assert lsb_rec == lsb
+
+                # save and reload gain
+                save_path = self.test_dir / f"{gain}_{lsb}.h5"
+                mr.save_recording_generator(recgen_gain_lsb, save_path)
+                recgen_loaded = mr.load_recordings(save_path)
+                assert recgen_loaded.gain_to_uV == recgen_gain_lsb.gain_to_uV
+
+                del recgen_gain_lsb
                 save_path.unlink()
 
 
@@ -866,8 +887,6 @@ class TestGenerators(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # ~ unittest.main()
-
     TestGenerators().setUpClass()
-    TestGenerators().test_recordings_seeds()
-    TestGenerators().test_recordings_backend()
+    TestGenerators().test_gen_recordings_far_neurons()
+    # TestGenerators().test_adc_bit_depth_lsb_gain()
