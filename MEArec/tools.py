@@ -353,6 +353,8 @@ def load_recordings(recordings, return_h5_objects=True,
     if not return_h5_objects:
         f.close()
     recgen = RecordingGenerator(rec_dict=rec_dict, info=info)
+    if "gain_to_uV" in rec_dict:
+        recgen.gain_to_uV = rec_dict["gain_to_uV"]
     return recgen
 
 def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
@@ -415,6 +417,8 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
             if need_transpose:
                 arr = arr.T
             rec_dict['recordings'] = arr
+        if "gain_to_uV" in f.get(path + 'recordings').attrs:
+            rec_dict["gain_to_uV"] = f.get(path + 'recordings').attrs["gain_to_uV"]
     if f.get(path + 'spike_traces') is not None and 'spike_traces' in load:
         if return_h5_objects:
             if need_transpose:
@@ -560,6 +564,8 @@ def save_recording_to_file(recgen, f, path=""):
         f.create_dataset(path + 'channel_positions', data=recgen.channel_positions)
     if len(recgen.recordings) > 0:
         f.create_dataset(path + 'recordings', data=recgen.recordings)
+        if recgen.gain_to_uV is not None:
+            f['recordings'].attrs["gain_to_uV"] = recgen.gain_to_uV
     if len(recgen.spike_traces) > 0:
         f.create_dataset(path + 'spike_traces', data=recgen.spike_traces)
     if len(recgen.spiketrains) > 0:

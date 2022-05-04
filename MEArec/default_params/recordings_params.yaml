@@ -50,6 +50,8 @@ templates:
 recordings:
   fs: null # sampling frequency in Hz (if null it is computed form the templates)
   dtype: float32 # dtype of generated recordings
+  adc_bit_depth: null # if dtype is int, the number of bit of the ADC
+  lsb: null # if dtype is int, the int16 lsb. lsb and adc_bit_depth will determine the signal range
   overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
   extract_waveforms: False # if True, waveforms are extracted from recordings
   sync_rate: null # added synchrony rate for spatially overlapping templates

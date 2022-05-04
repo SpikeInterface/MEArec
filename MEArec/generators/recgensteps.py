@@ -49,14 +49,10 @@ class FuncThenAddChunk:
         return return_dict
 
 
-def chunk_convolution_(ch, i_start, i_stop, chunk_start,
+def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
                        st_idxs, pad_samples, modulation, drifting,
-                       # drift_mode,
                        drifting_units, templates,
                        cut_outs_samples, drift_vectors,
-                       #~ template_locs, velocity_vector, fast_drift_period, fast_drift_min_jump,
-                       #~ fast_drift_max_jump, t_start_drift, fs, 
-                       
                        verbose, amp_mod, bursting_units, shape_mod,
                        shape_stretch, extract_spike_traces, voltage_peaks, dtype, seed_list):
     """
@@ -72,6 +68,8 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
         last index of chunk (exclude)
     chunk_start: quantity
         Start time for current chunk
+    lsb: int or None
+        If given, the signal is quantized given the lsb value
     st_idxs: list
         list of spike indexes for each spike train
     pad_samples: int
@@ -251,11 +249,18 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
 
     return_dict = dict()
     if pad_samples > 0:
-        return_dict['recordings'] = recordings[pad_samples:-pad_samples]
+        recordings_ret = recordings[pad_samples:-pad_samples]
     else:
-        return_dict['recordings'] = recordings
+        recordings_ret = recordings
+
     if extract_spike_traces:
         return_dict['spike_traces'] = spike_traces[pad_samples:-pad_samples]
+
+    if lsb is not None:
+        recordings_ret = np.floor_divide(recordings_ret, lsb) * lsb
+    
+    return_dict['recordings'] = recordings_ret.astype(dtype)
+    return_dict['template_idxs'] = template_idxs
 
     return return_dict
 
@@ -263,24 +268,25 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start,
 chunk_convolution = FuncThenAddChunk(chunk_convolution_)
 
 
-def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start,
+def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start, lsb, 
                               num_chan, noise_level, noise_color, color_peak, color_q, color_noise_floor, fs, dtype,
                               seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
-    additive_noise = noise_level * np.random.randn(length, num_chan).astype(dtype)
+    additive_noise = noise_level * np.random.randn(length, num_chan)
 
     if noise_color:
         # iir peak filter
         b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
         additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=0, padlen=1000)
-        additive_noise = additive_noise.astype(dtype)
         additive_noise += color_noise_floor * np.std(additive_noise) * \
                           np.random.randn(additive_noise.shape[0], additive_noise.shape[1])
         additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
     return_dict = {}
-    return_dict['additive_noise'] = additive_noise
+    if lsb is not None:
+        additive_noise = np.floor_divide(additive_noise, lsb) * lsb
+    return_dict['additive_noise'] = additive_noise.astype(dtype)
 
     return return_dict
 
@@ -288,14 +294,14 @@ def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start,
 chunk_uncorrelated_noise = FuncThenAddChunk(chunk_uncorrelated_noise_)
 
 
-def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
+def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start, lsb,
                                      noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
                                      fs, dtype, seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
 
     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist,
-                                                                 size=length).astype(dtype)
+                                                                 size=length)
     if noise_color:
         # iir peak filter
         b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
@@ -306,7 +312,9 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
     additive_noise = additive_noise * (noise_level / np.std(additive_noise))
 
     return_dict = {}
-    return_dict['additive_noise'] = additive_noise
+    if lsb is not None:
+        additive_noise = np.floor_divide(additive_noise, lsb) * lsb
+    return_dict['additive_noise'] = additive_noise.astype(dtype)
 
     return return_dict
 
@@ -314,7 +322,7 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start,
 chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noise_)
 
 
-def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
+def chunk_apply_filter_(ch, i_start, i_stop, chunk_start, lsb,
                         recordings, pad_samples, cutoff, order, fs, dtype):
     n_samples = recordings.shape[0]
 
@@ -346,12 +354,14 @@ def chunk_apply_filter_(ch, i_start, i_stop, chunk_start,
         else:
             filtered_chunk = filter_analog_signals(recordings[i_start_pad:i_stop_pad], freq=cutoff, fs=fs)
 
-    filtered_chunk = filtered_chunk.astype(dtype)
+    filtered_chunk = filtered_chunk
     if pad_samples > 0:
         filtered_chunk = filtered_chunk[pad_start_samples:filtered_chunk.shape[0] - pad_stop_samples]
 
     return_dict = {}
-    return_dict['filtered_chunk'] = filtered_chunk
+    if lsb is not None:
+        filtered_chunk = np.floor_divide(filtered_chunk, lsb) * lsb
+    return_dict['filtered_chunk'] = filtered_chunk.astype(dtype)
 
     return return_dict
 
