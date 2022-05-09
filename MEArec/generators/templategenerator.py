@@ -1,3 +1,4 @@
+import sys
 import time
 import numpy as np
 from MEArec.tools import *
@@ -21,12 +22,13 @@ def simulate_cell_templates(i, simulate_script, tot, cell_model,
     model_folder = Path(model_folder)
     print(f"Starting {i + 1}")
     print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
+    python = sys.executable
     if verbose:
         verbose = 1
     else:
         verbose = 0
     os.system(
-        f'python {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
+        f'{python} {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
     print(f"Exiting {i + 1}")
 
 
@@ -133,7 +135,8 @@ class TemplateGenerator:
         if not (cell_models_folder / 'mods').is_dir() or recompile:
             if self._verbose:
                 print('Compiling NEURON models')
-            os.system(f'python {simulate_script} compile {cell_models_folder}')
+            python = sys.executable
+            os.system(f'{python} {simulate_script} compile {cell_models_folder}')
 
         # sort cell model names
         cell_models = np.array(cell_models)[

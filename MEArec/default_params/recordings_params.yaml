@@ -57,7 +57,7 @@ recordings:
   extract_waveforms: False # if True, waveforms are extracted from recordings
   sync_rate: null # added synchrony rate for spatially overlapping templates
   sync_jitt: 1 # jitter in ms for added spikes
-  chunk_duration: 0 # chunk duration for convolution, noise, and filter
+  chunk_duration: 10 # chunk duration for convolution, noise, and filter
 
   modulation: electrode # type of spike modulation [none (no modulation) |
     # template (each spike instance is modulated with the same value on each electrode) |
