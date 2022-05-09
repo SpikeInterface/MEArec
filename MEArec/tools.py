@@ -481,10 +481,14 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
             st.annotations = annotations
             spiketrains.append(st)
         rec_dict['spiketrains'] = spiketrains
-    if f.get(path + 'drift_dict') is not None:
-        rec_dict['drift_dict'] = load_dict_from_hdf5(f, path + 'drift_dict/')
+    if f.get(path + 'drift_list') is not None:
+        drift_list = []
+        for i in f.get(path + 'drift_list').keys():
+            drift_dict = load_dict_from_hdf5(f, path + 'drift_dict/' + str(i) + '/')
+            drift_list.append(drift_dict)
+        rec_dict['drift_list'] = drift_list
     else:
-        rec_dict['drift_dict'] = None
+        rec_dict['drift_list'] = None
 
     return rec_dict, info
 
@@ -592,8 +596,10 @@ def save_recording_to_file(recgen, f, path=""):
     if hasattr(recgen, 'template_ids'):
         if recgen.template_ids is not None:
             f.create_dataset(path + 'template_ids', data=recgen.template_ids)
-    if recgen.drift_dict is not None:
-        save_dict_to_hdf5(recgen.drift_dict, f, path + 'drift_dict/')
+    if recgen.drift_list is not None:
+        for i, drift_dict in enumerate(recgen.drift_list):
+            print(i, drift_dict)
+            save_dict_to_hdf5(drift_dict, f, path + 'drift_list/' + str(i) + '/')
 
 
 def save_dict_to_hdf5(dic, h5file, path):
