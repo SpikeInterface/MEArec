@@ -474,6 +474,8 @@ class TestGenerators(unittest.TestCase):
         assert np.isclose(np.std(recgen_noise.recordings), noise_level, atol=1)
         del recgen_noise
 
+    
+    # TODO extend tests
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
         ne = 1
@@ -488,47 +490,50 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['duration'] = 5
         n_jitter = [1, 3]
         rec_params['recordings']['drifting'] = True
-        rec_params['recordings']['drift_velocity'] = 500
+        rec_params['recordings']['slow_drift_velocity'] = 500
         rec_params['templates']['min_dist'] = 1
         chunk_rec = [0, 2]
 
         modulations = ['none', 'template', 'electrode']
         bursting = [False, True]
-        drift_modes = ['slow', 'fast', 'slow+fast']
+        drift_mode_speeds = ['slow', 'fast', 'slow+fast']
+        drift_mode_probes = ['rigid', 'non-rigid']
 
         for i, mod in enumerate(modulations):
-            for dm in drift_modes:
-                for b in bursting:
-                    for j in n_jitter:
-                        for ch in chunk_rec:
-                            print('Drifting: modulation', mod, 'bursting', b, 'jitter', j, 'drift mode', dm,
-                                  'chunk', ch)
-                            rec_params['templates']['n_jitters'] = j
-                            rec_params['recordings']['modulation'] = mod
-                            rec_params['recordings']['bursting'] = b
-                            rec_params['recordings']['chunk_duration'] = ch
-                            rec_params['recordings']['drift_mode'] = dm
+            for dms in drift_mode_speeds:
+                for dmp in drift_mode_probes:
+                    for b in bursting:
+                        for j in n_jitter:
+                            for ch in chunk_rec:
+                                print('Drifting: modulation', mod, 'bursting', b, 'jitter', j, 'drift mode speed', dms,
+                                      'drift mode probe', dmp,'chunk', ch)
+                                rec_params['templates']['n_jitters'] = j
+                                rec_params['recordings']['modulation'] = mod
+                                rec_params['recordings']['bursting'] = b
+                                rec_params['recordings']['chunk_duration'] = ch
+                                rec_params['recordings']['drift_mode_speed'] = dms
+                                rec_params['recordings']['drift_mode_probe'] = dmp
 
-                            if i == len(modulations) - 1:
-                                rec_params['recordings']['fs'] = 30000
-                                rec_params['recordings']['n_drifting'] = 1
-                            if mod == 'electrode' and b is True and j == 5:
-                                rec_params['cell_types'] = None
-                                rec_params['recordings']['shape_mod'] = True
-                            recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift,
-                                                             verbose=False)
-                            assert recgen_drift.recordings.shape[1] == num_chan
-                            assert len(recgen_drift.spiketrains) == n_neurons
-                            assert recgen_drift.channel_positions.shape == (num_chan, 3)
-                            if j == 1:
-                                assert recgen_drift.templates.shape[0] == n_neurons
-                                assert recgen_drift.templates.shape[2] == num_chan
-                            else:
-                                assert recgen_drift.templates.shape[0] == n_neurons
-                                assert recgen_drift.templates.shape[2] == j
-                                assert recgen_drift.templates.shape[3] == num_chan
-                            assert recgen_drift.spike_traces.shape[1] == n_neurons
-                            del recgen_drift
+                                if i == len(modulations) - 1:
+                                    rec_params['recordings']['fs'] = 30000
+                                    rec_params['recordings']['n_drifting'] = 1
+                                if mod == 'electrode' and b is True and j == 5:
+                                    rec_params['cell_types'] = None
+                                    rec_params['recordings']['shape_mod'] = True
+                                recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift,
+                                                                verbose=False)
+                                assert recgen_drift.recordings.shape[1] == num_chan
+                                assert len(recgen_drift.spiketrains) == n_neurons
+                                assert recgen_drift.channel_positions.shape == (num_chan, 3)
+                                if j == 1:
+                                    assert recgen_drift.templates.shape[0] == n_neurons
+                                    assert recgen_drift.templates.shape[2] == num_chan
+                                else:
+                                    assert recgen_drift.templates.shape[0] == n_neurons
+                                    assert recgen_drift.templates.shape[2] == j
+                                    assert recgen_drift.templates.shape[3] == num_chan
+                                assert recgen_drift.spike_traces.shape[1] == n_neurons
+                                del recgen_drift
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir / 'templates.h5', verbose=True)

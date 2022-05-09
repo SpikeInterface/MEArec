@@ -49,10 +49,10 @@ class FuncThenAddChunk:
         return return_dict
 
 
-def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
+def chunk_convolution_(ch, i_start, i_stop, fs, lsb,
                        st_idxs, pad_samples, modulation, drifting,
                        drifting_units, templates,
-                       cut_outs_samples, drift_vectors,
+                       cut_outs_samples, drift_list,
                        verbose, amp_mod, bursting_units, shape_mod,
                        shape_stretch, extract_spike_traces, voltage_peaks, dtype, seed_list):
     """
@@ -66,8 +66,8 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
         first index of chunk
     i_stop: 
         last index of chunk (exclude)
-    chunk_start: quantity
-        Start time for current chunk
+    fs: float
+        Sampling frequency in Hz
     lsb: int or None
         If given, the signal is quantized given the lsb value
     st_idxs: list
@@ -78,32 +78,14 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
         Modulation type
     drifting: bool
         If True drifting is performed
-**    drift_mode :  str
-        Drift mode ['slow' | 'fast' | 'slow+fast']
     drifting_units: list
         List of drifting units (if None all units are drifted)
     templates: np.array
         Templates
     cut_outs_samples: list
         List with number of samples to cut out before and after spike peaks
-
-++    drift_vectors: None or np.array
-        Drift vectors
-
-**    template_locs: np.array
-        For drifting, array with drifting locations
-**    velocity_vector: np.array
-        For drifting, drifring direction
-**    fast_drift_period : Quantity
-        Periods between fast drifts
-**    fast_drift_min_jump : float
-        Min 'jump' in um for fast drifts
-**    fast_drift_max_jump : float
-        Max 'jump' in um for fast drifts
-**    t_start_drift: quantity
-        For drifting, start drift time
-**    fs: quantity
-        Sampling frequency
+    drift_list: list of dict
+        List of drift dictionaries
     verbose: bool
         If True output is verbose
     amp_mod: np.array
@@ -175,35 +157,59 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
             #~ st_idx_in_chunk_pad = st_idx[spike_idx_in_chunk_pad[0]] - i_start_pad
             st_idx_in_chunk_pad = st_idx[spike_in_chunk] - i_start_pad
 
-            if drifting and st in drifting_units:
-                if drift_vectors.ndim == 1:
-                    # rigid
-                    drift_vector = drift_vectors
-                else:
-                    # non-rigid
-                    drift_vector = drift_vectors[:, st]
-                # clip dirft vector. Pad with zeros for borders.
-                drift_vector_ = []
-                if i_start_pad <0:
-                    # left borders
-                    pad = np.zeros(-i_start_pad, dtype=drift_vector.dtype)
-                    drift_vector_.append(pad)
-                drift_vector_.append(drift_vector[max(0,i_start_pad): min(drift_vector.size, i_stop_pad)])
-                if i_stop_pad >= drift_vector.size:
-                    # right borders
-                    pad = np.zeros(i_stop_pad-drift_vector.size, dtype=drift_vector.dtype)
-                    drift_vector_.append(pad)
-                if len(drift_vector_) == 1:
-                    drift_vector = drift_vector_[0]
-                else:
-                    # with zeros padding
-                    drift_vector = np.concatenate(drift_vector_, axis=0)
+            if drifting:
+                drift_idxs_in_chunk = np.zeros(len(st_idx_in_chunk_pad), dtype="uint16")
+                
+                # pre-compute drift index in chunk
+                for drift_dict in drift_list:
+                    drift_vector = drift_dict["drift_vector_idxs"]
+                    drift_fs = drift_dict["drift_fs"]
+                    mask_value = drift_dict["drift_mask"][st]
+                    
+                    spike_times_in_chunk = st_idx[spike_in_chunk]
+                    drift_idxs_i = drift_vector[(spike_times_in_chunk / fs * drift_fs).astype("uint16")]
+                    drift_idxs_in_chunk += drift_idxs_i
+
+            
+            # # assemble drift for current cell
+            # drift_vectors = drift_dict["drift_vectors_idxs"]
+            # drift_fs = drift_dict["drift_fs"]
+            
+            # i_start_pad_drift = int(i_start_pad / fs * drift_fs)
+            # i_stop_pad_drift = int(i_stop_pad / fs * drift_fs)
+            
+            # # TODO handle different sampling rate
+            # if drifting and st in drifting_units:
+            #     if drift_vectors.ndim == 1:
+            #         # rigid
+            #         drift_vector = drift_vectors
+            #     else:
+            #         # non-rigid
+            #         drift_vector = drift_vectors[:, st]
+            #     # clip dirft vector. Pad with zeros for borders.
+            #     drift_vector_ = []
+            #     if i_start_pad_drift < 0:
+            #         # left borders
+            #         pad = np.zeros(-i_start_pad_drift, dtype=drift_vector.dtype)
+            #         drift_vector_.append(pad)
+            #     drift_vector_.append(drift_vector[max(0, i_start_pad_drift): min(drift_vector.size, i_stop_pad_drift)])
+            #     if i_stop_pad_drift >= drift_vector.size:
+            #         # right borders
+            #         pad = np.zeros(i_stop_pad_drift - drift_vector.size, dtype=drift_vector.dtype)
+            #         drift_vector_.append(pad)
+            #     if len(drift_vector_) == 1:
+            #         drift_vector = drift_vector_[0]
+            #     else:
+            #         # with zeros padding
+            #         drift_vector = np.concatenate(drift_vector_, axis=0)
 
                 # 4d
                 template = templates[st, :, :, :, :]
                 if extract_spike_traces:
                     central_template = templates[st, default_drift_ind, :, max_electrode, :]
             else:
+                drift_vector = None
+                drift_fs = None
                 if templates.ndim == 4:
                     drift_vector = None
                     # 3d no drift
@@ -222,6 +228,7 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
             recordings = convolve_templates_spiketrains(st, st_idx_in_chunk_pad, 
                                                         template,
                                                         n_samples=n_samples,
+                                                        fs=fs,
                                                         cut_out=cut_outs_samples,
                                                         modulation=mod_bool,
                                                         mod_array=mod_array,
@@ -229,7 +236,9 @@ def chunk_convolution_(ch, i_start, i_stop, chunk_start, lsb,
                                                         shape_stretch=shape_stretch,
                                                         verbose=verbose,
                                                         recordings=recordings,
-                                                        drift_vector=drift_vector)
+                                                        drift_idxs=drift_idxs_in_chunk)
+                                                        # drift_vector=drift_vector,
+                                                        # drift_fs=drift_fs)
             np.random.seed(seed)
             if extract_spike_traces:
                 spike_traces[:, st] = convolve_single_template(st, st_idx_in_chunk_pad,
@@ -294,9 +303,9 @@ def chunk_uncorrelated_noise_(ch, i_start, i_stop, chunk_start, lsb,
 chunk_uncorrelated_noise = FuncThenAddChunk(chunk_uncorrelated_noise_)
 
 
-def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start, lsb,
+def chunk_distance_correlated_noise_(ch, i_start, i_stop, fs, lsb,
                                      noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
-                                     fs, dtype, seed_list):
+                                     dtype, seed_list):
     np.random.seed(seed_list[ch])
     length = i_stop - i_start
 
@@ -322,8 +331,8 @@ def chunk_distance_correlated_noise_(ch, i_start, i_stop, chunk_start, lsb,
 chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noise_)
 
 
-def chunk_apply_filter_(ch, i_start, i_stop, chunk_start, lsb,
-                        recordings, pad_samples, cutoff, order, fs, dtype):
+def chunk_apply_filter_(ch, i_start, i_stop, fs, lsb,
+                        recordings, pad_samples, cutoff, order, dtype):
     n_samples = recordings.shape[0]
 
     # compute padding idxs

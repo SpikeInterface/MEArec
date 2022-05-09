@@ -389,7 +389,7 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
 
     if load is None:
         load = ['recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', 'timestamps',
-                'spike_traces', 'templates', 'template_ids', 'drift_vectors']
+                'spike_traces', 'templates', 'template_ids', 'drift_dict']
     else:
         assert isinstance(load, list), "'load' should be a list with strings of what to be loaded " \
                                        "('recordings', 'channel_positions', 'voltage_peaks', 'spiketrains', " \
@@ -481,10 +481,10 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None,
             st.annotations = annotations
             spiketrains.append(st)
         rec_dict['spiketrains'] = spiketrains
-    if f.get(path + 'drift_vectors') is not None:
-        rec_dict['drift_vectors'] = f.get(path + 'drift_vectors')
+    if f.get(path + 'drift_dict') is not None:
+        rec_dict['drift_dict'] = load_dict_from_hdf5(f, path + 'drift_dict/')
     else:
-        rec_dict['drift_vectors'] = None
+        rec_dict['drift_dict'] = None
 
     return rec_dict, info
 
@@ -592,8 +592,9 @@ def save_recording_to_file(recgen, f, path=""):
     if hasattr(recgen, 'template_ids'):
         if recgen.template_ids is not None:
             f.create_dataset(path + 'template_ids', data=recgen.template_ids)
-    if recgen.drift_vectors is not None:
-        f.create_dataset(path + 'drift_vectors', data=recgen.drift_vectors)
+    if recgen.drift_dict is not None:
+        save_dict_to_hdf5(recgen.drift_dict, f, path + 'drift_dict/')
+
 
 def save_dict_to_hdf5(dic, h5file, path):
     """
@@ -2305,11 +2306,13 @@ def convolve_single_template(spike_id, st_idx, template, n_samples, cut_out=None
     return spike_trace
 
 
-def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_out=None, modulation=False,
+def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, fs, cut_out=None, modulation=False,
                                    mod_array=None, verbose=False, bursting=False, shape_stretch=None,
-                                   max_channels_per_template=None, recordings=None, drift_vector=None):
+                                   max_channels_per_template=None, recordings=None, drift_idxs=None):
+                                  #, drift_vector=None, drift_fs=None):
     """
     Convolve template with spike train on all electrodes. Used to compute 'recordings'.
+    
     Parameters
     ----------
     spike_id : int
@@ -2320,6 +2323,8 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         Array with template
     n_samples : int
         Number of samples in chunk
+    fs : float
+        Sampling frequency in Hz
     cut_out : list
         Number of samples before and after the peak
     modulation : bool
@@ -2338,13 +2343,16 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         Array to use for recordings. If None it is created
     drift_vector: None or np.array 1d
         Optionally the drift vector related to the chunk!!!
+    drift_fs: None or float
+        Sampling frequency of the drift signal
     Returns
     -------
     recordings: np.array
         Trace with convolved signals (n_elec, n_samples)
     """
     
-    drifting = drift_vector is not None
+    # drifting = drift_vector is not None
+    drifting = drift_idxs is not None
     if drifting:
         assert template.ndim == 4
     else:
@@ -2363,11 +2371,6 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         n_jitt = template.shape[0]
         n_elec = template.shape[1]
         len_spike = template.shape[2]
-        
-        if drifting:
-            # template could drift but we don't want
-            default_drift_ind = 0
-            default_drift_ind = template.shape[0] // 2 
 
     if recordings is None:
         recordings = np.zeros((n_samples, n_elec))
@@ -2386,20 +2389,14 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
         assert mod_array is not None, " For 'electrode' and 'template' modulations provide 'mod_array'"
 
     for pos, spos in enumerate(st_idx):
-        if drifting:
-            #~ print(spos, drift_vector.shape, st_idx)
-            drift_ind = drift_vector[spos]
-        
+
         rand_idx = np.random.randint(n_jitt)
         if drifting:
+            drift_ind = drift_idxs[pos] #int(spos / fs * drift_fs)
+            # drift_ind = drift_vector[spos_drift]
             temp_jitt = template[drift_ind, rand_idx]
         else:
             temp_jitt = template[rand_idx]
-
-        #~ if template_idxs is not None:
-            #~ temp_jitt = template[template_idxs[pos], rand_idx]
-        #~ else:
-            #~ temp_jitt = template[rand_idx]
 
         if max_channels_per_template is None:
             elec_idxs = np.arange(n_elec)
@@ -3058,13 +3055,13 @@ def plot_recordings(recgen, ax=None, start_time=None, end_time=None, overlay_tem
                 #~ if 'drifting' in recgen.spiketrains[i].annotations.keys():
                     #~ if recgen.spiketrains[i].annotations['drifting']:
                         #~ template_idxs = recgen.spiketrains[i].annotations['template_idxs']
-                if recgen.drift_vectors is None:
+                if recgen.drift_dict is None:
                     drift_vector = None
                 else:
-                    if recgen.drift_vectors.ndim == 1:
-                        drift_vector = recgen.drift_vectors
+                    if recgen.drift_dict["drift_vectors_idxs"].ndim == 1:
+                        drift_vector = recgen.drift_dict["drift_vectors_idxs"]
                     else:
-                        drift_vector = recgen.drift_vectors[:, i]
+                        drift_vector = recgen.drift_dict["drift_vectors_idxs"][:, i]
                 rec_t = convolve_templates_spiketrains(i, sp,
                                                         template, n_samples,
                                                         # template_idxs=template_idxs,

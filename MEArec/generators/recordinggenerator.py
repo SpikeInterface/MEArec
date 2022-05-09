@@ -32,6 +32,14 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
     use_loader = True
 else:
     use_loader = False
+    
+    
+debug = True
+
+if debug:
+    import matplotlib.pyplot as plt
+    plt.ion()
+    plt.show()
 
 
 class RecordingGenerator:
@@ -118,10 +126,10 @@ class RecordingGenerator:
                 self.template_ids = rec_dict['template_ids']
             else:
                 self.template_ids = None
-            if 'drift_vectors' in rec_dict.keys():
-                self.drift_vectors = rec_dict['drift_vectors']
+            if 'drift_list' in rec_dict.keys():
+                self.drift_list = rec_dict['drift_list']
             else:
-                self.drift_vectors = None
+                self.drift_list = None
 
             self.info = deepcopy(info)
             self.params = deepcopy(info)
@@ -180,7 +188,8 @@ class RecordingGenerator:
         self.recordings = None
         self.spike_traces = None
 
-    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, template_ids=None, n_jobs=0):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, template_ids=None, n_jobs=0,
+                            external_drift_list=None):
         """
         Generates recordings
 
@@ -569,30 +578,23 @@ class RecordingGenerator:
             preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
             angle_tol = rec_params['angle_tol']
             
-            #~ drift_velocity = rec_params['slow_drift_velocity']
-            #~ fast_drift_period = rec_params['fast_drift_period'] * pq.s
-            #~ fast_drift_max_jump = rec_params['fast_drift_max_jump']
-            #~ fast_drift_min_jump = rec_params['fast_drift_min_jump']
-            #~ drift_mode = rec_params['drift_mode']
-            #~ t_start_drift = rec_params['t_start_drift'] * pq.s
             if rec_params['n_drifting'] is None:
                 n_drifting = n_neurons
             else:
                 n_drifting = rec_params['n_drifting']
-            #~ if 'fast' in drift_mode:
-                #~ if chunk_duration > 0 and chunk_duration != duration:
-                    #~ print('Disabling chunking for fast drifts')
-                    #~ chunk_duration = duration
-            # fs_float = fs.rescale('Hz').magnitude
-            # drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
-            #             'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
-            #             'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
-            # drift_params = {k: rec_params[k] for k in drift_keys }
-            # drift_vectors = generate_drift_position_vector(
-            #         fs=fs.rescale('Hz').magnitude,
-            #         n_samples=n_samples,
-            #         template_locations=locs, **drift_params)
-            drift_vectors = None
+                        
+            # # TODO not sure this is needed!
+            # if 'fast' in drift_mode_speed:
+            #     if chunk_duration > 0 and chunk_duration != duration:
+            #         print('Disabling chunking for fast drifts')
+            #         chunk_duration = duration
+            drift_keys = ('t_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
+                          'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+                          'slow_drift_amplitude', 'slow_drift_waveform',
+                          'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+            drift_fs = rec_params["drift_fs"]
+            drift_params = {k: rec_params[k] for k in drift_keys }
+            
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:
@@ -604,16 +606,8 @@ class RecordingGenerator:
                 self.template_locs = self.template_locs[:, 0]
             preferred_dir = None
             angle_tol = None
-            drift_vectors = None
-            #~ drift_velocity = None
-            #~ fast_drift_period = None
-            #~ fast_drift_max_jump = None
-            #~ fast_drift_min_jump = None
-            #~ t_start_drift = None
+            drift_list = None
             n_drifting = None
-            #~ drift_mode = None
-        
-        self.drift_vectors = drift_vectors
         
         # load MEA info
         if temp_info is not None:
@@ -734,21 +728,9 @@ class RecordingGenerator:
 
                 if drifting:
                     drift_directions = np.array([(p[-1] - p[0]) / np.linalg.norm(p[-1] - p[0]) for p in locs])
-                    #~ drift_velocity_ums = drift_velocity / 60.
-                    #~ velocity_vector = drift_velocity_ums * preferred_dir
-                    #~ if verbose_1:
-                        #~ print('Drift mode: ', drift_mode)
-                        #~ if 'slow' in drift_mode:
-                            #~ print('Slow drift velocity', drift_velocity, 'um/min')
-                        #~ if 'fast' in drift_mode:
-                            #~ print('Fast drift period', fast_drift_period)
-                            #~ print('Fast drift max jump',
-                                  #~ fast_drift_max_jump)  # 'Fast drift min jump', fast_drift_min_jump)
                     n_elec = eaps.shape[2]
                 else:
                     drift_directions = None
-                    #~ preferred_dir = None
-                    #~ velocity_vector = None
                     n_elec = eaps.shape[1]
 
                 if n_neurons > 100 or drifting:
@@ -815,18 +797,30 @@ class RecordingGenerator:
                     noise_level *= gain_to_int
 
                 self.original_templates = templates
-
+                
                 if drifting:
-                    fs_float = fs.rescale('Hz').magnitude
-                    drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
-                                'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
-                                'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
-                    drift_params = {k: rec_params[k] for k in drift_keys }
-                    drift_vectors = generate_drift_position_vector(
-                            fs=fs.rescale('Hz').magnitude,
-                            n_samples=n_samples,
-                            template_locations=template_locs, **drift_params)
-                    self.drift_vectors = None
+                    
+                    drift_list = generate_drift_position_vector(
+                        drift_fs=drift_fs,
+                        duration=duration,
+                        template_locations=template_locs, 
+                        **drift_params)
+                    print(f"Num. of drift vectors shape {len(drift_list)} with "
+                          f"{[len(d['drift_vector_idxs']) for d in drift_list]} samples")
+
+                self.drift_list = drift_list
+
+                # if drifting:
+                #     fs_float = fs.rescale('Hz').magnitude
+                #     drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
+                #                   'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+                #                   'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+                #     drift_params = {k: rec_params[k] for k in drift_keys }
+                #     drift_vectors = generate_drift_position_vector(
+                #             fs=fs.rescale('Hz').magnitude,
+                #             n_samples=n_samples,
+                #             template_locations=template_locs, **drift_params)
+                #     self.drift_vectors = None
 
 
                 # find overlapping templates
@@ -1026,13 +1020,9 @@ class RecordingGenerator:
             pad_samples_conv = templates.shape[-1]
             # call the loop on chunks
             args = (spike_idxs, pad_samples_conv, modulation, drifting,
-                    # drift_mode, 
                     drifting_units, templates,
                     cut_outs_samples, 
-                    drift_vectors,
-                    #~ template_locs, velocity_vector, fast_drift_period,
-                    #~ fast_drift_min_jump, fast_drift_max_jump, t_start_drift, fs, 
-                    
+                    self.drift_list,
                     verbose_2,
                     amp_mod, bursting_units, shape_mod, shape_stretch,
                     True, voltage_peaks, dtype, seed_list_conv,)
@@ -1052,12 +1042,14 @@ class RecordingGenerator:
                         #~ template_idxs = np.concatenate((template_idxs, out['template_idxs'][st]))
                     #~ assert len(template_idxs) == len(spiketrains[st])
                     #~ spiketrains[st].annotate(template_idxs=template_idxs)
-                    if drift_vectors.ndim ==1:
-                        drift_vector = drift_vectors
-                    else:
-                        drift_vector = drift_vectors[:, st]
-                    drift_index = drift_vector[spike_idxs[st]]
-                    spiketrains[st].annotate(drift_index=drift_index)
+
+                    # TODO find correct drift index based on different sampling frequencies
+                    # if drift_vectors.ndim ==1:
+                    #     drift_vector = drift_vectors
+                    # else:
+                    #     drift_vector = drift_vectors[:, st]
+                    # drift_index = drift_vector[spike_idxs[st]]
+                    # spiketrains[st].annotate(drift_index=drift_index)
 
 
         #################
@@ -1088,7 +1080,7 @@ class RecordingGenerator:
             if noise_mode == 'uncorrelated':
                 func = chunk_uncorrelated_noise
                 args = (n_elec, noise_level, noise_color, color_peak, color_q, color_noise_floor,
-                        fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
+                        dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, lsb, args,
@@ -1105,7 +1097,7 @@ class RecordingGenerator:
 
                 func = chunk_distance_correlated_noise
                 args = (noise_level, cov_dist, n_elec, noise_color, color_peak, color_q, color_noise_floor,
-                        fs.rescale('Hz').magnitude, dtype, seed_list_noise,)
+                        dtype, seed_list_noise,)
                 assignment_dict = {'additive_noise': additive_noise}
 
                 run_several_chunks(func, chunk_indexes, fs, lsb, args,
@@ -1237,7 +1229,7 @@ class RecordingGenerator:
                 pad_samples_filt = 3 * int((1. / cutoff[0] * fs).magnitude)
 
             # call the loop on chunks
-            args = (recordings, pad_samples_filt, cutoff, order, fs, dtype,)
+            args = (recordings, pad_samples_filt, cutoff, order, dtype,)
             assignment_dict = {
                 'filtered_chunk': recordings,
             }
@@ -1376,9 +1368,9 @@ def run_several_chunks(func, chunk_indexes, fs, lsb, args, n_jobs, tmp_mode, ass
     arg_tasks = []
     karg_tasks = []
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
-        chunk_start = (i_start / fs).rescale('s')
+        fs_Hz = fs.rescale('Hz').magnitude
 
-        arg_task = (ch, i_start, i_stop, chunk_start, lsb) + args
+        arg_task = (ch, i_start, i_stop, fs, lsb) + args
         arg_tasks.append(arg_task)
 
         karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode)
