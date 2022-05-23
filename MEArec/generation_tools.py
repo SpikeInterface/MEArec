@@ -1,5 +1,5 @@
 import MEArec
-from MEArec.tools import load_templates, get_binary_cat
+from MEArec.tools import load_templates, get_binary_cat, get_default_recordings_params
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
 import yaml
 import os
@@ -16,7 +16,7 @@ else:
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
-                   tmp_mode='memmap', template_ids=None, tmp_folder=None, n_jobs=0):
+                   tmp_mode='memmap', template_ids=None, tmp_folder=None, n_jobs=0, drift_dicts=None):
     """
     Generates recordings.
 
@@ -59,7 +59,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     elif isinstance(params, dict):
         params_dict = params
     else:
-        params_dict = {}
+        params_dict = {} 
 
     if 'spiketrains' not in params_dict:
         params_dict['spiketrains'] = {}
@@ -143,7 +143,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     # Generate recordings
     recgen = RecordingGenerator(spgen, tempgen, params_dict)
     recgen.generate_recordings(tmp_mode=tmp_mode, tmp_folder=tmp_folder, template_ids=template_ids,
-                               n_jobs=n_jobs, verbose=verbose)
+                               n_jobs=n_jobs, verbose=verbose, drift_dicts=drift_dicts)
 
     if verbose >= 1:
         print('Elapsed time: ', time.perf_counter() - t_start)

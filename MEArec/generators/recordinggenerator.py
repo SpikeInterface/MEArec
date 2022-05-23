@@ -10,7 +10,7 @@ from MEArec.tools import (select_templates, find_overlapping_templates, get_bina
 from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
                           chunk_distance_correlated_noise, chunk_apply_filter)
 
-from ..drift_tools import generate_drift_position_vector
+from ..drift_tools import generate_drift_dict_from_params
 
 import random
 import string
@@ -18,7 +18,7 @@ import MEAutility as mu
 import yaml
 import os
 import shutil
-import h5py
+from warnings import warn
 import quantities as pq
 from distutils.version import StrictVersion
 import tempfile
@@ -188,8 +188,8 @@ class RecordingGenerator:
         self.recordings = None
         self.spike_traces = None
 
-    def generate_recordings(self, tmp_mode=None, tmp_folder=None, verbose=None, template_ids=None, n_jobs=0,
-                            external_drift_list=None):
+    def generate_recordings(self, tmp_mode=None, tmp_folder=None, n_jobs=0, template_ids=None, 
+                            drift_dicts=None, verbose=None):
         """
         Generates recordings
 
@@ -206,6 +206,8 @@ class RecordingGenerator:
         template_ids: list or None
             If None, templates are selected randomly based on selection rules. If a list of indices is provided, the
             indices are used to select templates (template selection is bypassed)
+        drift_dicts: list or None
+            List of drift dictionaries to construct multiple drift vectors. (see `MEArec.get_default_drift_dict()`)
         verbose: bool or int
             Determines the level of verbose. If 1 or True, low-level, if 2 high level, if False, not verbose
         """
@@ -250,9 +252,15 @@ class RecordingGenerator:
         st_params = self.params['spiketrains']
         seeds = self.params['seeds']
 
-        if self.n_jobs > 1 and (rec_params["chunk_duration"] == 0):
-            raise Exception(f'For n_jobs {self.n_jobs} you must set chunk_duration > 0')
-
+        if 'chunk_duration' not in rec_params.keys():
+            rec_params["chunk_duration"] = None
+        if rec_params["chunk_duration"] is None:
+            rec_params["chunk_duration"] = 0
+            
+        if self.n_jobs > 1 and rec_params["chunk_duration"] == 0:
+            warn(f'For n_jobs {self.n_jobs} you should set chunk_duration > 0. Setting chunk_duration to 5s')
+            rec_params["chunk_duration"] = 5
+            
         if 'cell_types' in self.params.keys():
             celltype_params = self.params['cell_types']
         else:
@@ -577,24 +585,23 @@ class RecordingGenerator:
             preferred_dir = np.array(rec_params['preferred_dir'])
             preferred_dir = preferred_dir / np.linalg.norm(preferred_dir)
             angle_tol = rec_params['angle_tol']
-            
             if rec_params['n_drifting'] is None:
                 n_drifting = n_neurons
             else:
                 n_drifting = rec_params['n_drifting']
-                        
-            # # TODO not sure this is needed!
-            # if 'fast' in drift_mode_speed:
-            #     if chunk_duration > 0 and chunk_duration != duration:
-            #         print('Disabling chunking for fast drifts')
-            #         chunk_duration = duration
-            drift_keys = ('t_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
-                          'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
+                
+            drift_keys = ('drift_fs', 't_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
+                          'non_rigid_gradient_mode', 'slow_drift_velocity',
                           'slow_drift_amplitude', 'slow_drift_waveform',
                           'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
-            drift_fs = rec_params["drift_fs"]
-            drift_params = {k: rec_params[k] for k in drift_keys }
-            
+            if drift_dicts is None:
+                drift_params = {k: rec_params[k] for k in drift_keys}
+                drift_dicts = [drift_params]
+            else:
+                if verbose:
+                    print(f"Using {len(drift_dicts)} custom drift signals")
+                for drift_params in drift_dicts:
+                    assert np.all([k in drift_params for k in drift_keys]), "'drift_dicts have some missing keys!"
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:
@@ -800,28 +807,18 @@ class RecordingGenerator:
                 
                 if drifting:
                     
-                    drift_list = generate_drift_position_vector(
-                        drift_fs=drift_fs,
-                        duration=duration,
-                        template_locations=template_locs, 
-                        **drift_params)
-                    print(f"Num. of drift vectors shape {len(drift_list)} with "
-                          f"{[len(d['drift_vector_idxs']) for d in drift_list]} samples")
+                    drift_list = []
+                    for drift_params in drift_dicts:
+                        drift_signal = generate_drift_dict_from_params(duration=duration,
+                                                                       template_locations=template_locs, 
+                                                                       preferred_dir=preferred_dir,
+                                                                       **drift_params)
+                        drift_list.append(drift_signal)
+                    if verbose_1:
+                        print(f"Num. of drift vectors shape {len(drift_list)} with "
+                            f"{[len(d['drift_vector_idxs']) for d in drift_list]} samples")
 
                 self.drift_list = drift_list
-
-                # if drifting:
-                #     fs_float = fs.rescale('Hz').magnitude
-                #     drift_keys = ('t_start_drift', 'drift_mode_probe', 'drift_mode_speed',
-                #                   'non_rigid_gradient_mode', 'preferred_dir', 'slow_drift_velocity',
-                #                   'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
-                #     drift_params = {k: rec_params[k] for k in drift_keys }
-                #     drift_vectors = generate_drift_position_vector(
-                #             fs=fs.rescale('Hz').magnitude,
-                #             n_samples=n_samples,
-                #             template_locations=template_locs, **drift_params)
-                #     self.drift_vectors = None
-
 
                 # find overlapping templates
                 overlapping = find_overlapping_templates(templates, thresh=overlap_threshold)
@@ -928,7 +925,7 @@ class RecordingGenerator:
             # find SNR and annotate
             if verbose_1:
                 print('Computing spike train SNR')
-            print('templates.shape', templates.shape)
+
             for t_i, temp in enumerate(templates):
                 min_peak = np.min(temp)
                 snr = np.abs(min_peak / float(noise_level))
@@ -1256,6 +1253,7 @@ class RecordingGenerator:
         self.voltage_peaks = voltage_peaks
         self.spike_traces = spike_traces
         self.info = params
+        self.fs = fs
 
         #############################
         # Step 4: extract waveforms #
@@ -1367,10 +1365,11 @@ def run_several_chunks(func, chunk_indexes, fs, lsb, args, n_jobs, tmp_mode, ass
     # create task list
     arg_tasks = []
     karg_tasks = []
+    
     for ch, (i_start, i_stop) in enumerate(chunk_indexes):
         fs_Hz = fs.rescale('Hz').magnitude
 
-        arg_task = (ch, i_start, i_stop, fs, lsb) + args
+        arg_task = (ch, i_start, i_stop, fs_Hz, lsb) + args
         arg_tasks.append(arg_task)
 
         karg_task = dict(assignment_dict=assignment_dict, tmp_mode=tmp_mode)

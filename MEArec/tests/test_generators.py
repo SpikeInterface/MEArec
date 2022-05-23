@@ -17,7 +17,7 @@ if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
 else:
     use_loader = False
 
-LOCAL_TMP = False
+LOCAL_TMP = True
 
 
 class TestGenerators(unittest.TestCase):
@@ -475,7 +475,6 @@ class TestGenerators(unittest.TestCase):
         del recgen_noise
 
     
-    # TODO extend tests
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
         ne = 1
@@ -496,7 +495,7 @@ class TestGenerators(unittest.TestCase):
 
         modulations = ['none', 'template', 'electrode']
         bursting = [False, True]
-        drift_mode_speeds = ['slow', 'fast', 'slow+fast']
+        drift_mode_speeds = ['slow', 'fast']
         drift_mode_probes = ['rigid', 'non-rigid']
 
         for i, mod in enumerate(modulations):
@@ -534,6 +533,67 @@ class TestGenerators(unittest.TestCase):
                                     assert recgen_drift.templates.shape[3] == num_chan
                                 assert recgen_drift.spike_traces.shape[1] == n_neurons
                                 del recgen_drift
+                                
+    def test_recording_custom_drifts(self):
+        print('Test recording generation - drift')
+        ne = 2
+        ni = 1
+        num_chan = self.num_chan
+        n_neurons = ne + ni
+
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 10
+        rec_params['recordings']['drifting'] = True
+        chunk_rec = [0, 2]
+
+        # generate drift signals
+        drift_dict1 = mr.get_default_drift_dict()
+        drift_dict2 = mr.get_default_drift_dict()
+        drift_dict3 = mr.get_default_drift_dict()
+        
+        drift_dict1["drift_mode_probe"] = "rigid"
+        drift_dict1["drift_fs"] = 5
+        drift_dict1["slow_drift_velocity"] = 10
+        drift_dict1["slow_drift_amplitude"] = 50
+        
+        drift_dict2["drift_mode_speed"] = "fast"
+        drift_dict2["fast_drift_period"] = 2
+        drift_dict2["fast_drift_max_jump"] = 15
+        
+        drift_dict3["drift_mode_probe"] = "non-rigid"
+        drift_dict3["drift_mode_speed"] = "slow"
+        drift_dict3["slow_drift_waveform"] = "sine"
+        drift_dict3["slow_drift_velocity"] = 80
+        drift_dict3["slow_drift_amplitude"] = 10
+        
+        drift_dicts = [drift_dict1, drift_dict2, drift_dict3]
+        
+        for ch in chunk_rec:
+            print('Drifting mixed: chunk', ch)
+            rec_params['recordings']['chunk_duration'] = ch
+
+            recgen_drift = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift,
+                                             verbose=False, drift_dicts=drift_dicts)
+            assert recgen_drift.recordings.shape[1] == num_chan
+            assert len(recgen_drift.spiketrains) == n_neurons
+            assert recgen_drift.channel_positions.shape == (num_chan, 3)
+            assert recgen_drift.spike_traces.shape[1] == n_neurons
+            assert len(recgen_drift.drift_list) == 3
+            
+            recgen_mixed_file = self.test_dir / 'recordings_drift_mixed.h5'
+            mr.save_recording_generator(recgen_drift, filename=recgen_mixed_file)
+            recgen_drift_loaded = mr.load_recordings(recgen_mixed_file)
+            assert len(recgen_drift_loaded.drift_list) == 3
+            
+            # test plotting drift
+            _ = mr.plot_cell_drifts(recgen_drift_loaded)
+            
+            del recgen_drift_loaded
+            del recgen_drift
+            recgen_mixed_file.unlink()
 
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir / 'templates.h5', verbose=True)
@@ -893,5 +953,6 @@ class TestGenerators(unittest.TestCase):
 
 if __name__ == '__main__':
     TestGenerators().setUpClass()
-    TestGenerators().test_gen_recordings_far_neurons()
-    # TestGenerators().test_adc_bit_depth_lsb_gain()
+    # TestGenerators().test_gen_recordings_drift()
+    # TestGenerators().test_default_params()
+    TestGenerators().test_recording_custom_drifts()

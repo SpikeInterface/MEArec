@@ -3,7 +3,7 @@ import scipy.signal
 
 
 
-def generate_drift_position_vector(
+def generate_drift_dict_from_params(
         drift_fs,
         duration,
         template_locations,
@@ -62,7 +62,7 @@ def generate_drift_position_vector(
             * "drift_fs" (float): sampling frequency
             * "drift_vector_um" (1d array): drift signals in um
             * "drift_vector_idxs" (1d array): drift signals in template idxs (centered on middle step)
-            * "drift_mask" (1d array): array with gradient for each unit for the drift signal
+            * "drift_factor" (1d array): array with gradient for each unit for the drift signal
                vector. For rigid motion, all values are 1.
     """
 
@@ -75,6 +75,7 @@ def generate_drift_position_vector(
     if t_end_drift is None:
         t_end_drift = duration
     
+    assert drift_mode_speed in ["slow", "fast"]
     assert t_start_drift < duration, f"'t_start_drift' must preceed 'duration'!"
     assert t_end_drift <= duration, f"'t_end_drift' must preceed 'duration'!"
     
@@ -95,7 +96,7 @@ def generate_drift_position_vector(
         
     step = dist_boundary / drift_steps
     
-    if 'slow' in drift_mode_speed:
+    if drift_mode_speed == "slow":
         
         # compute half period for a regular drift speed
         half_period = slow_drift_amplitude / (slow_drift_velocity / 60)
@@ -121,7 +122,7 @@ def generate_drift_position_vector(
         else:
             raise NotImplementedError('slow_drift_waveform')
         
-    if 'fast' in drift_mode_speed:
+    else: # 'fast' in drift_mode_speed:
         period_samples = int(fast_drift_period * drift_fs)
         n = int(np.round((end_drift_index - start_drift_index) / period_samples))
         
@@ -144,13 +145,6 @@ def generate_drift_position_vector(
             drift_vector_um[t_idx:] += jump
             t_idx += period_samples
     
-    # import matplotlib.pyplot as plt
-    # plt.figure()
-    # plt.plot(drift_times, drift_vector)
-    
-    # Alessio : how to handle the clipping ??
-    # fast + slow with similar period is impossible to avoid boundaries
-    
     # avoid possible clipping
     drift_vector_um = np.clip(drift_vector_um, -dist_boundary/2, dist_boundary/2)
     
@@ -158,8 +152,7 @@ def generate_drift_position_vector(
     drift_vector_um *= 0.99999
     
     if drift_mode_probe == 'rigid':
-        drift_mask = np.ones(num_cells)
-        
+        drift_factors = np.ones(num_cells)
     elif drift_mode_probe == 'non-rigid':
         assert non_rigid_gradient_mode in ('linear', )
         if non_rigid_gradient_mode == 'linear':
@@ -168,21 +161,13 @@ def generate_drift_position_vector(
             preferred_dir = np.array(preferred_dir).reshape(-1, 1)
             locs = template_locations[:, drift_steps //2 , :]
             proj = np.dot(locs, preferred_dir)
-            # print(proj[:8])
             non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
-            # print(non_rigid_gradient[:8])
-            # print(template_locations[:, drift_steps //2 , :][:8])
-            # raise Exception()
+
             non_rigid_gradient = 1 - non_rigid_gradient
-            drift_mask = non_rigid_gradient.squeeze()
+            drift_factors = non_rigid_gradient.squeeze()
         else:
             raise NotImplementedError
 
-        # drift_vectors = np.zeros((n_samples, num_cells), dtype='float32')
-        # drift_vectors[:, :] = drift_vector.reshape(-1, 1)
-        
-        # drift_vectors *= non_rigid_gradient.reshape(1, -1)
-    
     # shift to positive and to uint16
     drift_vector_idxs = drift_vector_um + slow_drift_amplitude / 2.
     drift_vector_idxs = np.floor(drift_vector_idxs / step).astype('uint16')
@@ -192,9 +177,9 @@ def generate_drift_position_vector(
     drift_dict["drift_vector_idxs"] = drift_vector_idxs
     drift_dict["drift_fs"] = drift_fs
     drift_dict["drift_times"] = drift_times
-    drift_dict["drift_mask"] = drift_mask
+    drift_dict["drift_factors"] = drift_factors
     
-    return [drift_dict]
+    return drift_dict
     
 
 
