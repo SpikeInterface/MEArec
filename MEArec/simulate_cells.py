@@ -31,8 +31,8 @@ def import_LFPy_neuron():
 
     try:
         # disable DISPLAY for subprocess
-        print("Disabling display")
-        os.environ["DISPLAY"] = ""
+        # print("Disabling display")
+        # os.environ["DISPLAY"] = ""
         import neuron
     except:
         raise ModuleNotFoundError(
@@ -311,6 +311,7 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
         Python function to to return an LFPy cell from the cell_model_folder
     **kwargs : keyword arguments
         Kwargs must include: 'sim_time', 'dt', 'delay', 'weights', 'target_spikes', 'cut_out', 'seed'
+
     Returns:
     --------
     cell : object
@@ -557,6 +558,10 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
         nothing, but saves the result
     """
     LFPy, neuron = import_LFPy_neuron()
+    
+    for sec in neuron.h.allsec():
+        neuron.h("%s{delete_section()}"%sec.name())
+    
     cell_model_folder = Path(cell_model_folder)
     cell_name = cell_model_folder.parts[-1]
     cell_save_name = cell_name

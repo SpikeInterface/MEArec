@@ -41,7 +41,7 @@ def cli():
               help='probe name from available electrodes (default=None)')
 @click.option('--n', '-n', default=None, type=int,
               help='number of observations per cell type (default=50)')
-@click.option('--njobs', '-nj', default=None, type=int,
+@click.option('--njobs', '-nj', default=0, type=int,
               help='number of jobs (default n_jobs=n_cpus)')
 @click.option('--dt', '-dt', default=None, type=float,
               help='time period in ms (default=0.03125)')
@@ -168,10 +168,8 @@ def gen_templates(params, **kwargs):
         parallel = False
     else:
         parallel = True
-    if kwargs['njobs'] is not None:
-        njobs = kwargs['njobs']
-    else:
-        njobs = None
+    njobs = kwargs['njobs']
+    
     recompile = kwargs['recompile']
     verbose = kwargs['verbose']
 
@@ -216,7 +214,7 @@ def gen_templates(params, **kwargs):
               help='recording output base folder')
 @click.option('--duration', '-d', default=None, type=float,
               help='duration in s (default=10)')
-@click.option('--njobs', '-nj', default=None, type=int,
+@click.option('--njobs', '-nj', default=0, type=int,
               help='number of jobs (default n_jobs=n_cpus)')
 @click.option('--n-exc', '-ne', default=None, type=int,
               help='number of excitatory cells (default=15)')
@@ -461,10 +459,7 @@ def gen_recordings(params, **kwargs):
         verbose = 2
     else:
         verbose = kwargs['verbose']
-    if kwargs['njobs'] is not None:
-        njobs = kwargs['njobs']
-    else:
-        njobs = None
+    njobs = kwargs['njobs']
 
     recgen = gt.gen_recordings(templates=kwargs['templates'], params=params_dict, verbose=verbose, n_jobs=njobs)
     info = recgen.info
