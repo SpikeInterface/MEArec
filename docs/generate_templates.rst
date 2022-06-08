@@ -79,7 +79,7 @@ The :code:`ncontacts` parameter can be used to simulate the spatial extent of th
 10 points will be randomly drawn from the area of each electrode and the resulting potential is computed as the average
 of the 10 electric potentials of those points.
 
-Only templates larger than the :code:`det_thresh` parameter (30 :math:`\mu V` by default) will be saved.
+Only templates larger than the :code:`min_amp` parameter (30 :math:`\mu V` by default) will be saved.
 
 For reproducibility, the :code:`seed` can be manually set by the user (if :code:`null` a random seed is used).
 
