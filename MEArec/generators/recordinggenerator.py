@@ -3,7 +3,7 @@
 import numpy as np
 import time
 from copy import deepcopy
-from MEArec.tools import (select_templates, find_overlapping_templates, get_binary_cat,
+from MEArec.tools import (select_templates, find_overlapping_templates, get_binary_cat, sigmoid,
                           resample_templates, jitter_templates, pad_templates, get_templates_features,
                           compute_modulation, annotate_overlapping_spikes, extract_wf)
 
@@ -537,6 +537,14 @@ class RecordingGenerator:
         if 'pad_len' not in temp_params.keys():
             params['templates']['pad_len'] = [3., 3.]
         pad_len = params['templates']['pad_len']
+        
+        if 'smooth_percent' not in temp_params.keys():
+            params['templates']['smooth_percent'] = 0.5
+        smooth_percent = params['templates']['smooth_percent']
+        
+        if 'smooth_strength' not in temp_params.keys():
+            params['templates']['smooth_strength'] = 1
+        smooth_strength = params['templates']['smooth_strength']
 
         if 'n_jitters' not in temp_params.keys():
             params['templates']['n_jitters'] = 10
@@ -874,6 +882,20 @@ class RecordingGenerator:
                 samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
                 samples_post_peak = templates.shape[-1] - samples_pre_peak
                 cut_outs_samples = [samples_pre_peak, samples_post_peak]
+                
+                # smooth edges
+                if smooth_percent > 0:
+                    sigmoid_samples = int(smooth_percent * pad_samples[0]) // 2 * 2
+                    sigmoid_x = np.arange(-sigmoid_samples//2, sigmoid_samples//2)
+                    b = smooth_strength
+                    sig = sigmoid(sigmoid_x, b) + 0.5
+                    window = np.ones(templates.shape[-1])
+                    window[:sigmoid_samples] = sig
+                    window[-sigmoid_samples:] = sig[::-1]
+                    
+                    if verbose_1:
+                        print('Smoothing templates')
+                    templates = templates * window
 
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
