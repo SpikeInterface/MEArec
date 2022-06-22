@@ -64,7 +64,7 @@ recordings:
     # electrode (each electrode is modulated separately)]
   sdrand:  0.05 # standard deviation of gaussian modulation
   bursting: False # if True, spikes are modulated in amplitude depending on the isi and in shape (if shape_mod is True)
-  bursting_units: null # if not None, list to indicate which units should br bursting
+  bursting_units: null # if not None, list to indicate which units should be bursting
   exp_decay: 0.2 # with bursting modulation experimental decay in amplitude between consecutive spikes
   n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
   max_burst_duration: 100 # duration in ms of maximum burst modulation
