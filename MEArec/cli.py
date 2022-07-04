@@ -1,7 +1,7 @@
 import os
 import pprint
 import time
-from distutils.version import StrictVersion
+from packaging.version import parse
 from pathlib import Path
 
 import MEArec.generation_tools as gt
@@ -11,7 +11,7 @@ import numpy as np
 import yaml
 from MEArec import save_template_generator, save_recording_generator, get_default_config
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False

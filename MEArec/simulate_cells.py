@@ -14,9 +14,9 @@ import MEAutility as mu
 import yaml
 import time
 from pathlib import Path
-from distutils.version import StrictVersion
+from packaging.version import parse
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False
@@ -38,7 +38,7 @@ def import_LFPy_neuron():
         raise ModuleNotFoundError(
             "NEURON is not installed. Install it from https://www.neuron.yale.edu/neuron/download")
 
-    if StrictVersion(LFPy.__version__) < StrictVersion('2.2'):
+    if parse(LFPy.__version__) < parse('2.2'):
         raise ImportError(
             "LFPy version must be >= 2.2. To use a previous LFPy version, downgrade MEArec to <= 1.4.1")
 

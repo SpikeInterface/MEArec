@@ -5,14 +5,14 @@ from pathlib import Path
 import shutil
 import yaml
 import elephant.statistics as stat
-from distutils.version import StrictVersion
+from packaging.version import parse
 import tempfile
 from copy import deepcopy
 from click.testing import CliRunner
 
 from MEArec.cli import cli
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False

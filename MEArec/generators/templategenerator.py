@@ -6,7 +6,7 @@ import MEAutility as mu
 import shutil
 import yaml
 import os
-from distutils.version import StrictVersion
+from packaging.version import parse
 from pathlib import Path
 from joblib import Parallel, delayed, cpu_count
 from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_on_tempgen
@@ -14,7 +14,7 @@ from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_
 from MEArec.tools import clean_dict_for_yaml
 
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False

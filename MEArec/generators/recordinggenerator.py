@@ -20,7 +20,7 @@ import os
 import shutil
 from warnings import warn
 import quantities as pq
-from distutils.version import StrictVersion
+from packaging.version import parse
 import tempfile
 from pathlib import Path
 
@@ -28,7 +28,7 @@ from joblib import Parallel, delayed
 
 from MEArec.generators import SpikeTrainGenerator
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False
