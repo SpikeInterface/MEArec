@@ -10,14 +10,14 @@ import MEAutility as mu
 import h5py
 from pathlib import Path
 from copy import deepcopy, copy
-from distutils.version import LooseVersion
+from packaging.version import parse
 from joblib import Parallel, delayed
 from datetime import datetime
 from lazy_ops import DatasetView
 
 from .version import version
 
-if LooseVersion(yaml.__version__) >= LooseVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False
@@ -344,7 +344,7 @@ def load_recordings(recordings, return_h5_objects=True,
         f = h5py.File(str(recordings), 'r')
         mearec_version = f.attrs.get('mearec_version', '1.4.0')
 
-        if LooseVersion(mearec_version) >= '1.5.0':
+        if parse(mearec_version) >= parse('1.5.0'):
             # version after 1.5.0 is (n_samples, n_channel) inside the h5 file
             need_transpose = False
         else:
@@ -804,7 +804,7 @@ def convert_recording_to_new_version(filename, new_filename=None):
     with h5py.File(filename, 'r+') as f:
         mearec_version = f.attrs.get('mearec_version', '1.4.0')
 
-        if LooseVersion(mearec_version) >= '1.5.0':
+        if parse(mearec_version) >= parse('1.5.0'):
             print("The provided mearec file is already up to date")
         else:
             # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file

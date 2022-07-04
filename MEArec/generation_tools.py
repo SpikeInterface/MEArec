@@ -3,13 +3,13 @@ from MEArec.tools import load_templates, get_binary_cat, get_default_recordings_
 from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
 import yaml
 import os
-from distutils.version import StrictVersion
+from packaging.version import parse
 import time
 from pathlib import Path
 import numpy as np
 import neo
 
-if StrictVersion(yaml.__version__) >= StrictVersion('5.0.0'):
+if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False
