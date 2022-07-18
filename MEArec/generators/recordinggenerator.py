@@ -1,5 +1,6 @@
 # don't enter here without a good guide! (only one person in the world)
 
+from distutils.log import DEBUG
 import numpy as np
 import time
 from copy import deepcopy
@@ -34,9 +35,9 @@ else:
     use_loader = False
     
     
-debug = True
+DEBUG = False
 
-if debug:
+if DEBUG:
     import matplotlib.pyplot as plt
     plt.ion()
     plt.show()
@@ -315,11 +316,14 @@ class RecordingGenerator:
         else:
             params['recordings']['dtype'] = rec_params['dtype']
         dtype = params['recordings']['dtype']
+        
+        assert np.dtype(dtype).kind in ("i", "f"), "Only integers and float dtypes are supported"
+        
         params['recordings']['adc_bit_depth'] = rec_params.get('adc_bit_depth', None)
         adc_bit_depth = params['recordings']['adc_bit_depth']
         params['recordings']['lsb'] = rec_params.get('lsb', None)
         lsb = params['recordings']['lsb']
-        if lsb is None:
+        if lsb is None and np.dtype(dtype).kind == "i":
             lsb = 1
         params['recordings']['gain'] = rec_params.get('gain', None)
         gain = params['recordings']['gain']
@@ -1380,8 +1384,6 @@ def run_several_chunks(func, chunk_indexes, fs, lsb, args, n_jobs, tmp_mode, ass
     or in paralell if n_jobs>1
     
     The function can return
-    
-    
     """
 
     # create task list

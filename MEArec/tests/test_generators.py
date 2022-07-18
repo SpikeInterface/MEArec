@@ -17,7 +17,12 @@ if parse(yaml.__version__) >= parse('5.0.0'):
 else:
     use_loader = False
 
-LOCAL_TMP = True
+DEBUG = False
+
+if DEBUG:
+    import matplotlib.pyplot as plt
+    plt.ion()
+    plt.show()
 
 
 class TestGenerators(unittest.TestCase):
@@ -36,7 +41,7 @@ class TestGenerators(unittest.TestCase):
         # Set seed
         np.random.seed(2308)
 
-        if not LOCAL_TMP:
+        if not DEBUG:
             self.test_dir = Path(tempfile.mkdtemp())
         else:
             self.test_dir = Path('./tmp').absolute()
@@ -100,7 +105,7 @@ class TestGenerators(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         # Remove the directory after the test
-        if not LOCAL_TMP:
+        if not DEBUG:
             shutil.rmtree(self.test_dir)
 
     def test_gen_templates(self):
@@ -693,14 +698,17 @@ class TestGenerators(unittest.TestCase):
         rec_params['spiketrains']['n_exc'] = ne
         rec_params['spiketrains']['n_inh'] = ni
         rec_params['spiketrains']['duration'] = duration
-        n_jitter = 2
+        n_jitter = 10
         rec_params['templates']['n_jitters'] = n_jitter
         rec_params['recordings']['modulation'] = 'none'
+        rec_params['recordings']['filter'] = False
+
 
         rec_params['seeds']['templates'] = 0
         rec_params['seeds']['spiketrains'] = 0
         rec_params['seeds']['convolution'] = 0
         rec_params['seeds']['noise'] = 0
+
 
         n_jobs = [1, 2]
         chunk_durations = [0, 1]
@@ -708,13 +716,12 @@ class TestGenerators(unittest.TestCase):
         for n in n_jobs:
             for ch in chunk_durations:
                 print('Test recording backend with', n, 'jobs - chunk', ch)
-                rec_params['chunk_duration'] = n
+                rec_params['recordings']['chunk_duration'] = ch
 
                 recgen_memmap = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode='memmap',
                                                   verbose=False, n_jobs=n)
                 recgen_np = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, tmp_mode=None, verbose=False,
                                               n_jobs=n)
-
                 assert np.allclose(np.array(recgen_np.recordings), recgen_memmap.recordings.copy(), atol=1e-4)
                 del recgen_memmap, recgen_np
 
@@ -955,4 +962,4 @@ if __name__ == '__main__':
     TestGenerators().setUpClass()
     # TestGenerators().test_gen_recordings_drift()
     # TestGenerators().test_default_params()
-    TestGenerators().test_recording_custom_drifts()
+    TestGenerators().test_recordings_backend()

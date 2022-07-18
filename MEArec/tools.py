@@ -3457,7 +3457,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
                 t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
             else:
                 t_jitt = temp_up
-            temp_down = ss.decimate(t_jitt, upsample, axis=1)
+            temp_down = t_jitt[:, ::upsample]
             templates_jitter[n] = temp_down
     else:
         if verbose:
