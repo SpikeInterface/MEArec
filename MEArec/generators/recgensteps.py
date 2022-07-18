@@ -6,8 +6,8 @@ They can be call in loop mode or with joblib.
 
 Important:
 
-When tmp_mode=='memmap' : theses functions must assign and add directly the buffer.
-When tmp_mode is Noe : theses functions return the buffer and the assignament is done externally.
+When tmp_mode=='memmap' : these functions must assign and add directly the buffer.
+When tmp_mode is None : these functions return the buffer and the assignament is done externally.
 
 
 

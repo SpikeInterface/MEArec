@@ -320,7 +320,7 @@ class RecordingGenerator:
         adc_bit_depth = params['recordings']['adc_bit_depth']
         params['recordings']['lsb'] = rec_params.get('lsb', None)
         lsb = params['recordings']['lsb']
-        if lsb is None:
+        if lsb is None and np.dtype(dtype).kind == "i":
             lsb = 1
         params['recordings']['gain'] = rec_params.get('gain', None)
         gain = params['recordings']['gain']
@@ -1381,8 +1381,6 @@ def run_several_chunks(func, chunk_indexes, fs, lsb, args, n_jobs, tmp_mode, ass
     or in paralell if n_jobs>1
     
     The function can return
-    
-    
     """
 
     # create task list
