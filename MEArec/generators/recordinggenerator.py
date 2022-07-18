@@ -316,6 +316,9 @@ class RecordingGenerator:
         else:
             params['recordings']['dtype'] = rec_params['dtype']
         dtype = params['recordings']['dtype']
+        
+        assert np.dtype(dtype).kind in ("i", "f"), "Only integers and float dtypes are supported"
+        
         params['recordings']['adc_bit_depth'] = rec_params.get('adc_bit_depth', None)
         adc_bit_depth = params['recordings']['adc_bit_depth']
         params['recordings']['lsb'] = rec_params.get('lsb', None)
