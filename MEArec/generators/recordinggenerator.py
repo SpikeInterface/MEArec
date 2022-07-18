@@ -1,5 +1,6 @@
 # don't enter here without a good guide! (only one person in the world)
 
+from distutils.log import DEBUG
 import numpy as np
 import time
 from copy import deepcopy
@@ -34,9 +35,9 @@ else:
     use_loader = False
     
     
-debug = True
+DEBUG = False
 
-if debug:
+if DEBUG:
     import matplotlib.pyplot as plt
     plt.ion()
     plt.show()
