@@ -851,7 +851,7 @@ class RecordingGenerator:
                 if verbose_1:
                     print('Padding template edges')
                 t_pad = time.time()
-                templates_pad = pad_templates(templates, pad_samples, drifting, dtype, verbose_2,
+                templates_pad = pad_templates(templates, pad_samples, drifting, np.float32, verbose_2,
                                               tmp_file=tmp_templates_pad, parallel=parallel_templates)
 
                 if verbose_1:
@@ -864,7 +864,7 @@ class RecordingGenerator:
                 spike_duration_pad = templates_pad.shape[-1]
                 if up != down:
                     n_resample = int(spike_duration_pad * (up / down))
-                    templates_rs = resample_templates(templates_pad, n_resample, up, down, drifting, dtype,
+                    templates_rs = resample_templates(templates_pad, n_resample, up, down, drifting, np.float32,
                                                       verbose_2, tmp_file=tmp_templates_rs,
                                                       parallel=parallel_templates)
                     if verbose_1:
@@ -876,7 +876,7 @@ class RecordingGenerator:
                     print('Creating time jittering')
                 jitter = 1. / fs
                 t_j = time.time()
-                templates = jitter_templates(templates_rs, upsample, fs, n_jitters, jitter, drifting, dtype,
+                templates = jitter_templates(templates_rs, upsample, fs, n_jitters, jitter, drifting, np.float32,
                                              verbose_2, tmp_file=tmp_templates_jit, parallel=parallel_templates)
                 if verbose_1:
                     print('Elapsed jitter time:', time.time() - t_j)
