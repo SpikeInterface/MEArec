@@ -44,7 +44,7 @@ class FuncThenAddChunk:
         elif tmp_mode == 'memmap':
             for key, full_arr in assignment_dict.items():
                 out_chunk = return_dict.pop(key)
-                full_arr[i_start:i_stop] += out_chunk
+                full_arr[i_start:i_stop] += out_chunk.astype(full_arr.dtype)
 
         return return_dict
 
@@ -105,6 +105,7 @@ def chunk_convolution_(ch, i_start, i_stop, fs, lsb,
         print('Start convolutions for chunk', ch)
     # set seed
     np.random.seed(seed_list[ch])
+    traces_dtype = np.float32
 
     # checking boundaries not needed here because the recordings are created on the fly
     i_start_pad = i_start - pad_samples
@@ -113,7 +114,7 @@ def chunk_convolution_(ch, i_start, i_stop, fs, lsb,
 
     template_idxs = []
     if extract_spike_traces:
-        spike_traces = np.zeros((n_samples, len(st_idxs)), dtype=dtype)
+        spike_traces = np.zeros((n_samples, len(st_idxs)), dtype=traces_dtype)
     if len(templates.shape) == 4:
         n_elec = templates.shape[2]
     elif len(templates.shape) == 5:
@@ -123,7 +124,7 @@ def chunk_convolution_(ch, i_start, i_stop, fs, lsb,
     else:
         raise AttributeError("Wrong 'templates' shape!")
 
-    recordings = np.zeros((n_samples, n_elec), dtype=dtype)
+    recordings = np.zeros((n_samples, n_elec), dtype=traces_dtype)
 
     for st, st_idx in enumerate(st_idxs):
         if extract_spike_traces:
