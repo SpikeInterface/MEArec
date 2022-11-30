@@ -2498,6 +2498,47 @@ def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_li
         drift_idxs += (drift_idxs_i * drift_factors[spike_index]).astype("uint16")
     return drift_idxs
 
+def extract_units_drift_vector(recgen=None, mearec_file=None):
+    """
+    Return the
+    
+    Parameters
+    ----------
+    recgen: RecordingGenerator or None
+        The RecordingGenerator
+    mearec_file: str or None
+        The MEArec filename
+    Returns
+    -------
+    drift_vectors: array
+        the drift vector in micro meters
+        shape (n_time_bin, n_units)
+    
+    
+    """
+    if mearec_file is not None:
+        recgen = load_recordings(mearec_file)
+
+    drift_list = recgen.drift_list
+    locations = recgen.template_locations
+    
+    length = drift_list[0].drift_dict["drift_vector_idxs"].shape[0]
+    n_units = len(recgen.spiketrains)
+    
+    drift_vectors = np.array((length, n_units), dtype='float32')
+    for spike_index in range(n_units):
+        drift_idxs = np.zeros(length, dtype="uint16")
+        for drift_dict in drift_list:
+            drift_vector = np.array(drift_dict["drift_vector_idxs"])
+            drift_factors = drift_dict["drift_factors"]
+            drift_fs = drift_dict["drift_fs"]
+            # TODO time vector
+            drift_idxs += (drift_vector * drift_factors[spike_index]).astype("uint16")
+        
+        drift_vectors[:, spike_index] = locations[spike_index][drift_idxs, 2]
+
+    return drift_vectors
+
 
 ### RECORDING OPERATION ###
 def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
