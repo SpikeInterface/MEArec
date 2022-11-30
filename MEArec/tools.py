@@ -2514,11 +2514,11 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
         The RecordingGenerator
     time_vector: array or None
         An external time vector to interpolate dirft.
-        If None the first drift vector is used to make this times vector.
+        If None the internal drift vector with hihest fs is used.
 
     Returns
     -------
-    drift_vectors: array
+    units_drift_vectors: array
         the drift vector in micro meters
         shape (n_time_bin, n_units)
     time_vector: array
@@ -2535,9 +2535,10 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
 
     if time_vector is None:
         # the main times constructed from the first drift
-        drift_dict = drift_list[0]
+        best = np.argmax([d["drift_fs"] for d in drift_list])
+        drift_dict = drift_list[best]
         main_fs = drift_dict["drift_fs"]
-        length = len(drift_list[0]["drift_vector_idxs"])
+        length = len(drift_list[best]["drift_vector_idxs"])
         time_vector = np.arange(length) / main_fs
     else:
         main_fs = np.median(np.diff(time_vector))
@@ -2557,7 +2558,7 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
         drift_dict['interpolated_drift_vector_idxs'] = interpolated_drift_vector_idxs
 
     n_units = len(recgen.spiketrains)
-    drift_vectors = np.zeros((time_vector.size, n_units), dtype='float32')
+    units_drift_vectors = np.zeros((time_vector.size, n_units), dtype='float32')
     for unit_index in range(n_units):
         summed_drift_idxs = np.zeros(time_vector.size, dtype="uint16")
         for drift_dict in drift_list:
@@ -2565,9 +2566,9 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
             drift_factors = drift_dict["drift_factors"]
             summed_drift_idxs += (interpolated_drift_vector_idxs * drift_factors[unit_index]).astype("uint16")
         locs = locations[unit_index, :, 2]
-        drift_vectors[:, unit_index] = locs[summed_drift_idxs]
+        units_drift_vectors[:, unit_index] = locs[summed_drift_idxs]
 
-    return drift_vectors, time_vector
+    return units_drift_vectors, time_vector
 
 
 
