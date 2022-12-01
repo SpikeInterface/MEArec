@@ -2498,6 +2498,79 @@ def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_li
         drift_idxs += (drift_idxs_i * drift_factors[spike_index]).astype("uint16")
     return drift_idxs
 
+def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
+    """
+    Retrieve drift vector per units.
+
+    Internally vector drift vector per units is constructed with a linear sum of 
+    of drift index multiplied by a factor per cell.
+    Then this drift index is converted to micrometer given the cell locations.
+    
+    Parameters
+    ----------
+    mearec_file: str or None
+        The MEArec filename
+    recgen: RecordingGenerator or None
+        The RecordingGenerator
+    time_vector: array or None
+        An external time vector to interpolate dirft.
+        If None the internal drift vector with hihest fs is used.
+
+    Returns
+    -------
+    units_drift_vectors: array
+        the drift vector in micro meters
+        shape (n_time_bin, n_units)
+    time_vector: array
+        time vector in second
+        shape (n_time_bin, n_units)
+    """
+    import scipy.interpolate
+
+    if mearec_file is not None:
+        recgen = load_recordings(mearec_file)
+
+    drift_list = recgen.drift_list
+    locations = np.array(recgen.template_locations)
+
+    if time_vector is None:
+        # the main times constructed from the first drift
+        best = np.argmax([d["drift_fs"] for d in drift_list])
+        drift_dict = drift_list[best]
+        main_fs = drift_dict["drift_fs"]
+        length = len(drift_list[best]["drift_vector_idxs"])
+        time_vector = np.arange(length) / main_fs
+    else:
+        main_fs = np.median(np.diff(time_vector))
+
+    # interpolate drift_vector_idxs on the same clock
+    for drift_dict in drift_list:
+        drift_vector_idxs = np.array(drift_dict["drift_vector_idxs"])
+        drift_fs = drift_dict["drift_fs"]
+        if drift_fs == main_fs and drift_vector_idxs.shape[0] == time_vector.shape[0]:
+            # no interpolation needed
+            interpolated_drift_vector_idxs = drift_vector_idxs
+        else:
+            # linear interpolation on the timevector
+            local_times = np.arange(drift_vector_idxs.shape[0]) / drift_fs
+            f = scipy.interpolate.interp1d(local_times, drift_vector_idxs)
+            interpolated_drift_vector_idxs = f(time_vector)
+        drift_dict['interpolated_drift_vector_idxs'] = interpolated_drift_vector_idxs
+
+    n_units = len(recgen.spiketrains)
+    units_drift_vectors = np.zeros((time_vector.size, n_units), dtype='float32')
+    for unit_index in range(n_units):
+        summed_drift_idxs = np.zeros(time_vector.size, dtype="uint16")
+        for drift_dict in drift_list:
+            interpolated_drift_vector_idxs = drift_dict["interpolated_drift_vector_idxs"]
+            drift_factors = drift_dict["drift_factors"]
+            summed_drift_idxs += (interpolated_drift_vector_idxs * drift_factors[unit_index]).astype("uint16")
+        locs = locations[unit_index, :, 2]
+        units_drift_vectors[:, unit_index] = locs[summed_drift_idxs]
+
+    return units_drift_vectors, time_vector
+
+
 
 ### RECORDING OPERATION ###
 def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
