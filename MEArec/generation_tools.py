@@ -113,7 +113,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
             if 'excitatory' in celltype_params.keys() and 'inhibitory' in celltype_params.keys():
                 exc_categories = celltype_params['excitatory']
                 inh_categories = celltype_params['inhibitory']
-                bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)
+                bin_cat = get_binary_cat(celltypes, exc_categories, inh_categories)[template_ids]
                 n_exc = int(np.sum(bin_cat == "E"))
                 n_inh = int(np.sum(bin_cat == "I"))
             else:
