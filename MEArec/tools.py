@@ -3517,13 +3517,15 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
         Array with one jittered template (n_jitters, n_channels, n_samples)
         or (n_drift, n_jitters, n_channels, n_samples) if drifting
     """
+    rng = np.random.RandomState(i)
+
     if not drifting:
         templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
         temp_up = ss.resample_poly(template, upsample, 1, axis=1)
         nsamples_up = temp_up.shape[1]
         for n in np.arange(n_jitters):
             # align waveform
-            shift = int((jitter * (np.random.random() - 0.5) * upsample * fs).magnitude)
+            shift = int((jitter * (rng.random() - 0.5) * upsample * fs).magnitude)
             if shift > 0:
                 t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
             elif shift < 0:
@@ -3541,7 +3543,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
             nsamples_up = temp_up.shape[1]
             for n in np.arange(n_jitters):
                 # align waveform
-                shift = int((jitter * np.random.randn() * upsample * fs).magnitude)
+                shift = int((jitter * rng.randn() * upsample * fs).magnitude)
                 if shift > 0:
                     t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], 'constant')[:, :nsamples_up]
                 elif shift < 0:
