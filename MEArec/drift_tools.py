@@ -178,6 +178,7 @@ def generate_drift_dict_from_params(
     drift_dict["drift_fs"] = drift_fs
     drift_dict["drift_times"] = drift_times
     drift_dict["drift_factors"] = drift_factors
+    drift_dict["drift_steps"] = drift_steps
     
     return drift_dict
     
