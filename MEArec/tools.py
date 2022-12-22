@@ -2492,10 +2492,11 @@ def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_li
         drift_vector = np.array(drift_dict["drift_vector_idxs"])
         drift_fs = drift_dict["drift_fs"]
         drift_factors = drift_dict["drift_factors"]
+        mid_point_idx = drift_dict["drift_steps"] // 2
         
         drift_spike_idxs = (spike_train_frames / fs * drift_fs).astype("int")
         drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += (drift_idxs_i * drift_factors[spike_index]).astype("uint16")
+        drift_idxs += ((drift_idxs_i - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
     return drift_idxs
 
 
