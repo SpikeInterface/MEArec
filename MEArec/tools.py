@@ -2496,7 +2496,7 @@ def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_li
         
         drift_spike_idxs = (spike_train_frames / fs * drift_fs).astype("int")
         drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += ((float(drift_idxs_i) - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
+        drift_idxs += ((drift_idxs_i.astype(np.float) - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
     return drift_idxs
 
 def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
