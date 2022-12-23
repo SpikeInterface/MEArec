@@ -2492,10 +2492,11 @@ def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_li
         drift_vector = np.array(drift_dict["drift_vector_idxs"])
         drift_fs = drift_dict["drift_fs"]
         drift_factors = drift_dict["drift_factors"]
+        mid_point_idx = drift_dict["drift_steps"] // 2
         
         drift_spike_idxs = (spike_train_frames / fs * drift_fs).astype("int")
         drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += (drift_idxs_i * drift_factors[spike_index]).astype("uint16")
+        drift_idxs += ((float(drift_idxs_i) - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
     return drift_idxs
 
 def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
@@ -2562,9 +2563,10 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
     for unit_index in range(n_units):
         summed_drift_idxs = np.zeros(time_vector.size, dtype="uint16")
         for drift_dict in drift_list:
+            mid_point_idx = drift_dict["drift_steps"] // 2
             interpolated_drift_vector_idxs = drift_dict["interpolated_drift_vector_idxs"]
             drift_factors = drift_dict["drift_factors"]
-            summed_drift_idxs += (interpolated_drift_vector_idxs * drift_factors[unit_index]).astype("uint16")
+            summed_drift_idxs += ((interpolated_drift_vector_idxs - mid_point_idx) * drift_factors[unit_index] + mid_point_idx).astype("uint16")
         locs = locations[unit_index, :, 2]
         units_drift_vectors[:, unit_index] = locs[summed_drift_idxs]
 
