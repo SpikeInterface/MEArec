@@ -582,6 +582,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
     x_distr = kwargs['x_distr']
     beta_distr_params = kwargs['beta_distr_params']
     min_amp = kwargs['min_amp']
+    check_shape = kwargs['check_eap_shape']
     MEAname = kwargs['probe']
     drifting = kwargs['drifting']
 
@@ -713,7 +714,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                 espikes = espikes * 2
 
             if not drifting:
-                if check_espike(espikes, min_amp):
+                if check_espike(espikes, min_amp, check_shape):
                     skip = skip_duplicate(
                         pos, saved_positions, drifting, verbose)
                     if skip:
@@ -728,7 +729,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                             f'Cell: {cell_name} Progress: [{len(saved_eaps)}/{target_num_spikes}]')
                     saved += 1
             else:
-                if check_espike(espikes, min_amp):
+                if check_espike(espikes, min_amp, check_shape):
                     if verbose >= 2:
                         print('template amplitude:', np.round(np.abs(np.min(espikes)), 1))
 
@@ -779,7 +780,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
                                 if elinfo['type'] == 'mea':
                                     espikes = espikes * 2
 
-                                if check_espike(espikes, min_amp):
+                                if check_espike(espikes, min_amp, check_shape):
                                     if verbose == 2:
                                         print('Found final drifting position')
                                     drift_ok = True
@@ -947,7 +948,7 @@ def calc_extracellular(i, cell_model_folder, load_sim_folder, save_sim_folder=No
         return saved_eaps, saved_positions, saved_rotations
 
 
-def check_espike(espikes, min_amp):
+def check_espike(espikes, min_amp, check_shape=True):
     """
     Check extracellular spike amplitude and shape (neg peak > pos peak)
 
@@ -957,13 +958,17 @@ def check_espike(espikes, min_amp):
         EAP (n_elec, n_samples)
     min_amp: float
         Minimum amplitude
+    check_shape: bool
+        If True, it checks that the minimum peak is larger than the maximum peak
 
     Returns
     -------
     valid: bool
         If True EAP is valid
     """
-    if np.abs(np.min(espikes)) < min_amp or np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
+    if np.abs(np.min(espikes)) < min_amp:
+        return False
+    elif check_shape and np.abs(np.min(espikes)) < np.abs(np.max(espikes)):
         return False
     else:
         return True

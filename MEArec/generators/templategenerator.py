@@ -186,6 +186,8 @@ class TemplateGenerator:
             self.params['det_thresh'] = 30
         if 'n' not in self.params.keys():
             self.params['n'] = 50
+        if 'check_eap_shape' not in self.params.keys():
+            self.params['check_eap_shape'] = True
         if 'min_amp' not in self.params.keys():
             self.params['min_amp'] = 30
         if 'seed' not in self.params.keys():
