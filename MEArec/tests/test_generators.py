@@ -959,7 +959,8 @@ class TestGenerators(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    TestGenerators().setUpClass()
+    test = TestGenerators()
+    test.setUpClass()
     # TestGenerators().test_gen_recordings_drift()
-    # TestGenerators().test_default_params()
-    TestGenerators().test_recordings_backend()
+    test.test_default_params()
+    # test.test_simulate_cell()
