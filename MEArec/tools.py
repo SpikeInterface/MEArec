@@ -140,14 +140,20 @@ def get_default_drift_dict():
             "drift_mode_probe": 'rigid',
             "drift_fs": 100,
             "non_rigid_gradient_mode": 'linear',
+            "non_rigid_linear_direction": 1,
+            "non_rigid_step_depth_boundary": None,
+            "non_rigid_step_factors": None,
             "slow_drift_velocity": 5,
             "slow_drift_amplitude": None,
             "slow_drift_waveform": 'triangluar',
             "fast_drift_period": 10,
             "fast_drift_max_jump": 20,
             "fast_drift_min_jump": 5,
-            "t_start_drift": 0,
-            "t_end_drift": None}
+            "t_start_drift": None,
+            "t_end_drift": None,
+            "external_drift_vector_um": None,
+            "external_drift_times": None,
+            "external_drift_factors": None}
     
 
 def available_probes():
@@ -2488,16 +2494,26 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_list, fs):
     # pre-compute drift idxs
     drift_idxs = np.zeros(len(spike_train_frames), dtype="uint16")
+    spike_times = spike_train_frames / fs
     for drift_dict in drift_list:
-        drift_vector = np.array(drift_dict["drift_vector_idxs"])
+        drift_vector = np.array(drift_dict["drift_vector_idxs"]) # 0 - num_steps
         drift_fs = drift_dict["drift_fs"]
         drift_factors = drift_dict["drift_factors"]
+        drift_times = drift_dict["drift_times"]
+        # if drift_times is not None:
+        #     # drift is only in a period
+        #     spike_times_drifting = spike_times[np.logical_and(spike_times >= drift_times[0],
+        #                                                       spike_times <= drift_times[-1])]
+        #     drift_spike_idxs = np.searchsorted(drift_times, spike_times_drifting)
+        # else:
+        #     # drift vector covers entire recording
+        drift_spike_idxs = (spike_times * drift_fs).astype("int")
+
         mid_point_idx = drift_dict["drift_steps"] // 2
-        
-        drift_spike_idxs = (spike_train_frames / fs * drift_fs).astype("int")
         drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += ((drift_idxs_i.astype(np.float) - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
+        drift_idxs += ((drift_idxs_i - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
     return drift_idxs
+
 
 def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
     """

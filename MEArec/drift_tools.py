@@ -39,7 +39,7 @@ def generate_drift_dict_from_params(
         Shape: (num_cells, drift_steps, 3)
         Template locations for every drift steps
     external_drift_vector_um : 1d array or None
-        External drift signal to apply. It needs to be consistent with drift_fs amd duration (or external_drift_times)
+        External drift signal to apply. It needs to be consistent with drift_fs and duration (or external_drift_times)
     external_drift_times : 1d array or None
         External drift times to use for external_drift_signal_um.
     t_start_drift: float
@@ -86,7 +86,7 @@ def generate_drift_dict_from_params(
     -------
     drift_list: list of dicts
         Each dict contains info for a drift signal:
-            * "drift_times" (1d array): times for different drift vectors
+            * "drift_times" (1d array): times for different drift vectors. (Only for external times)
             * "drift_fs" (float): sampling frequency
             * "drift_vector_um" (1d array): drift signals in um
             * "drift_vector_idxs" (1d array): drift signals in template idxs (centered on middle step)
@@ -95,12 +95,11 @@ def generate_drift_dict_from_params(
     """
 
     num_cells, drift_steps, _ = template_locations.shape
-
     n_samples = int(drift_fs * duration)
 
     drift_distances = np.linalg.norm(template_locations[:, -1] - template_locations[:, 0])
     mean_distance = np.mean(drift_distances)
-    assert all(np.max(drift_distances - mean_distance) < 0.05 * mean_distance), \
+    assert np.max(drift_distances - mean_distance) < 0.05 * mean_distance, \
         ("Drift distances are not constant across templates. You can control this by setting "
          "'max_drift' and 'min_drift' to the same value and 'drift_zlim = [desired_drift, desired_drift]' "
          "in the template parameters.")
@@ -109,6 +108,7 @@ def generate_drift_dict_from_params(
     loc1 = template_locations[:, -1, :]
     dist = np.sum((loc0 - loc1) ** 2, axis=1) ** 0.5
     dist_boundary = np.min(dist)
+    step = dist_boundary / drift_steps
 
     if external_drift_vector_um is None:
         assert drift_mode_speed in ["slow", "fast"]
@@ -120,14 +120,12 @@ def generate_drift_dict_from_params(
         end_drift_index = int(t_end_drift * drift_fs)
 
         drift_vector_um = np.zeros(n_samples, dtype="float32")
-        drift_times = np.arange(n_samples) / drift_fs
-
-        if slow_drift_amplitude is None:
-            slow_drift_amplitude = dist_boundary
-
-        step = dist_boundary / drift_steps
+        drift_times = None
+        # drift_times = np.arange(n_samples) / drift_fs
 
         if drift_mode_speed == "slow":
+            if slow_drift_amplitude is None:
+                slow_drift_amplitude = dist_boundary
 
             # compute half period for a regular drift speed
             half_period = slow_drift_amplitude / (slow_drift_velocity / 60)
@@ -197,16 +195,17 @@ def generate_drift_dict_from_params(
             # project locations over preferred direction
             preferred_dir = np.array(preferred_dir).reshape(-1, 1)
             locs = template_locations[:, drift_steps // 2, :]
-            proj = np.dot(locs, preferred_dir)
+            proj = np.dot(locs, preferred_dir).squeeze()
             if non_rigid_gradient_mode == "linear":
                 assert non_rigid_linear_direction > 0 or non_rigid_linear_direction < 0, \
                     "'non_rigid_linear_direction' cannot be zero!"
                 # vector with shape (num_cells, ) and value between 0 and 1 which is a factor of the velocity
                 # the upper units on the 'preferred_dir' vector get 0 the lower get 1
                 non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
+                print(f"Direction: {non_rigid_linear_direction}")
                 if non_rigid_linear_direction > 0:
                     non_rigid_gradient = 1 - non_rigid_gradient                    
-                drift_factors = non_rigid_gradient.squeeze()
+                drift_factors = non_rigid_gradient
             elif non_rigid_gradient_mode == 'step':
                 if non_rigid_step_depth_boundary is None:
                     non_rigid_step_depth_boundary = np.mean(proj)
@@ -226,7 +225,7 @@ def generate_drift_dict_from_params(
     else:
         assert len(external_drift_factors) == num_cells, \
             f"'external_drift_factors' must be defined for all {num_cells} cells"
-        assert all(0 <= d <= 1 for d in drift_factors), "'external_drift_factors' must be in the [0, 1] range"
+        assert all(0 <= d <= 1 for d in external_drift_factors), "'external_drift_factors' must be in the [0, 1] range"
         drift_factors = external_drift_factors
 
     # avoid possible clipping
@@ -236,8 +235,12 @@ def generate_drift_dict_from_params(
     drift_vector_um *= 0.99999
 
     # shift to positive and to uint16
+    # if slow_drift_amplitude is not None:
     drift_vector_idxs = drift_vector_um + slow_drift_amplitude / 2.0
+    # else:
+    #     drift_vector_idxs = drift_vector_um + np.min(drift_vector_um)
     drift_vector_idxs = np.floor(drift_vector_idxs / step).astype("uint16")
+    print(min(drift_vector_um), max(drift_vector_um))
 
     drift_dict = {}
     drift_dict["drift_vector_um"] = drift_vector_um
