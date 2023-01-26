@@ -89,7 +89,7 @@ def generate_drift_dict_from_params(
             * "drift_times" (1d array): times for different drift vectors. (Only for external times)
             * "drift_fs" (float): sampling frequency
             * "drift_vector_um" (1d array): drift signals in um
-            * "drift_vector_idxs" (1d array): drift signals in template idxs (centered on middle step)
+            * "drift_vector_idxs" (1d array): drift signals in template idxs (with respect to middle step)
             * "drift_factor" (1d array): array with gradient for each unit for the drift signal
                vector. For rigid motion, all values are 1.
     """
@@ -120,8 +120,8 @@ def generate_drift_dict_from_params(
         end_drift_index = int(t_end_drift * drift_fs)
 
         drift_vector_um = np.zeros(n_samples, dtype="float32")
+        # drift times is only used for external drift that are not defined over the entire recording
         drift_times = None
-        # drift_times = np.arange(n_samples) / drift_fs
 
         if drift_mode_speed == "slow":
             if slow_drift_amplitude is None:
@@ -234,13 +234,8 @@ def generate_drift_dict_from_params(
     # avoid boundary effect
     drift_vector_um *= 0.99999
 
-    # shift to positive and to uint16
-    # if slow_drift_amplitude is not None:
-    drift_vector_idxs = drift_vector_um + slow_drift_amplitude / 2.0
-    # else:
-    #     drift_vector_idxs = drift_vector_um + np.min(drift_vector_um)
-    drift_vector_idxs = np.floor(drift_vector_idxs / step).astype("uint16")
-    print(min(drift_vector_um), max(drift_vector_um))
+    # shift with respect to mid point in int16
+    drift_vector_idxs = (np.floor(drift_vector_um / step)).astype("int16")
 
     drift_dict = {}
     drift_dict["drift_vector_um"] = drift_vector_um

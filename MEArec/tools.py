@@ -2493,25 +2493,29 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 
 def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_list, fs):
     # pre-compute drift idxs
-    drift_idxs = np.zeros(len(spike_train_frames), dtype="uint16")
+    drift_idxs_displacements = np.zeros(len(spike_train_frames), dtype="int16")
     spike_times = spike_train_frames / fs
+    mid_point_idx = drift_list[0]["drift_steps"] // 2
+
     for drift_dict in drift_list:
-        drift_vector = np.array(drift_dict["drift_vector_idxs"]) # 0 - num_steps
+        drift_vector_idxs = np.array(drift_dict["drift_vector_idxs"]) # 0 - num_steps
         drift_fs = drift_dict["drift_fs"]
         drift_factors = drift_dict["drift_factors"]
-        drift_times = drift_dict["drift_times"]
-        # if drift_times is not None:
-        #     # drift is only in a period
-        #     spike_times_drifting = spike_times[np.logical_and(spike_times >= drift_times[0],
-        #                                                       spike_times <= drift_times[-1])]
-        #     drift_spike_idxs = np.searchsorted(drift_times, spike_times_drifting)
-        # else:
-        #     # drift vector covers entire recording
-        drift_spike_idxs = (spike_times * drift_fs).astype("int")
 
-        mid_point_idx = drift_dict["drift_steps"] // 2
-        drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += ((drift_idxs_i - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
+        drift_times = drift_dict["drift_times"]
+        if drift_times is not None:
+            # drift is only in a period
+            spike_mask = np.logical_and(spike_times >= drift_times[0],
+                                        spike_times <= drift_times[-1])
+            drift_spike_idxs = np.searchsorted(drift_times, spike_times[spike_mask])
+        else:
+            # drift vector covers entire recording
+            spike_mask = np.ones(len(spike_times), dtype=bool)
+            drift_spike_idxs = (spike_times * drift_fs).astype("int")
+
+        drift_idxs_disp_i = drift_vector_idxs[drift_spike_idxs]
+        drift_idxs_displacements[spike_mask] += (drift_idxs_disp_i * drift_factors[spike_index]).astype("int16")
+    drift_idxs = (drift_idxs_displacements + mid_point_idx).astype("uint16")
     return drift_idxs
 
 
