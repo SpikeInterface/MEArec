@@ -2580,13 +2580,14 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
 
     n_units = len(recgen.spiketrains)
     units_drift_vectors = np.zeros((time_vector.size, n_units), dtype='float32')
+    mid_point_idx = drift_list[0]["drift_steps"] // 2
     for unit_index in range(n_units):
-        summed_drift_idxs = np.zeros(time_vector.size, dtype="uint16")
+        summed_drift_idxs = np.zeros(time_vector.size, dtype="int16")
         for drift_dict in drift_list:
-            mid_point_idx = drift_dict["drift_steps"] // 2
             interpolated_drift_vector_idxs = drift_dict["interpolated_drift_vector_idxs"]
             drift_factors = drift_dict["drift_factors"]
-            summed_drift_idxs += ((interpolated_drift_vector_idxs - mid_point_idx) * drift_factors[unit_index] + mid_point_idx).astype("uint16")
+            summed_drift_idxs += ((interpolated_drift_vector_idxs) * drift_factors[unit_index]).astype('int16')
+        summed_drift_idxs = (summed_drift_idxs + mid_point_idx).astype('uint16')
         locs = locations[unit_index, :, 2]
         units_drift_vectors[:, unit_index] = locs[summed_drift_idxs]
 
@@ -3572,7 +3573,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
                     t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
                 else:
                     t_jitt = temp_up
-                temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                temp_down = t_jitt[:, ::upsample]
                 templates_jitter[tp, n] = temp_down
     return templates_jitter
 
