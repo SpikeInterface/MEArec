@@ -603,17 +603,22 @@ class RecordingGenerator:
                 n_drifting = rec_params['n_drifting']
                 
             drift_keys = ('drift_fs', 't_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
-                          'non_rigid_gradient_mode', 'slow_drift_velocity',
-                          'slow_drift_amplitude', 'slow_drift_waveform',
+                          'non_rigid_gradient_mode', 'non_rigid_linear_direction', 
+                          'non_rigid_step_depth_boundary', 'non_rigid_step_factors', 
+                          'slow_drift_velocity', 'slow_drift_amplitude', 'slow_drift_waveform',
                           'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
+
             if drift_dicts is None:
                 drift_params = {k: rec_params[k] for k in drift_keys}
                 drift_dicts = [drift_params]
             else:
                 if verbose:
                     print(f"Using {len(drift_dicts)} custom drift signals")
+                drift_keys += ('external_drift_vector_um', 'external_drift_times', 'external_drift_factors', )
                 for drift_params in drift_dicts:
-                    assert np.all([k in drift_params for k in drift_keys]), "'drift_dicts have some missing keys!"
+                    for k in drift_params:
+                        assert k in drift_keys, f"Wrong drift key {k}"
+                    # assert np.all([k in drift_params for k in drift_keys]), "'drift_dicts have some missing keys!"
         else:
             # if drifting templates, but not recordings, consider initial template
             if temp_info is not None:

@@ -140,14 +140,20 @@ def get_default_drift_dict():
             "drift_mode_probe": 'rigid',
             "drift_fs": 100,
             "non_rigid_gradient_mode": 'linear',
+            "non_rigid_linear_direction": 1,
+            "non_rigid_step_depth_boundary": None,
+            "non_rigid_step_factors": None,
             "slow_drift_velocity": 5,
             "slow_drift_amplitude": None,
             "slow_drift_waveform": 'triangluar',
             "fast_drift_period": 10,
             "fast_drift_max_jump": 20,
             "fast_drift_min_jump": 5,
-            "t_start_drift": 0,
-            "t_end_drift": None}
+            "t_start_drift": None,
+            "t_end_drift": None,
+            "external_drift_vector_um": None,
+            "external_drift_times": None,
+            "external_drift_factors": None}
     
 
 def available_probes():
@@ -2487,17 +2493,31 @@ def convolve_templates_spiketrains(spike_id, st_idx, template, n_samples, cut_ou
 
 def compute_drift_idxs_from_drift_list(spike_index, spike_train_frames, drift_list, fs):
     # pre-compute drift idxs
-    drift_idxs = np.zeros(len(spike_train_frames), dtype="uint16")
+    drift_idxs_displacements = np.zeros(len(spike_train_frames), dtype="int16")
+    spike_times = spike_train_frames / fs
+    mid_point_idx = drift_list[0]["drift_steps"] // 2
+
     for drift_dict in drift_list:
-        drift_vector = np.array(drift_dict["drift_vector_idxs"])
+        drift_vector_idxs = np.array(drift_dict["drift_vector_idxs"]) # 0 - num_steps
         drift_fs = drift_dict["drift_fs"]
         drift_factors = drift_dict["drift_factors"]
-        mid_point_idx = drift_dict["drift_steps"] // 2
-        
-        drift_spike_idxs = (spike_train_frames / fs * drift_fs).astype("int")
-        drift_idxs_i = drift_vector[drift_spike_idxs]
-        drift_idxs += ((drift_idxs_i.astype(np.float) - mid_point_idx) * drift_factors[spike_index] + mid_point_idx).astype("uint16")
+
+        drift_times = drift_dict["drift_times"]
+        if drift_times is not None:
+            # drift is only in a period
+            spike_mask = np.logical_and(spike_times >= drift_times[0],
+                                        spike_times <= drift_times[-1])
+            drift_spike_idxs = np.searchsorted(drift_times, spike_times[spike_mask])
+        else:
+            # drift vector covers entire recording
+            spike_mask = np.ones(len(spike_times), dtype=bool)
+            drift_spike_idxs = (spike_times * drift_fs).astype("int")
+
+        drift_idxs_disp_i = drift_vector_idxs[drift_spike_idxs]
+        drift_idxs_displacements[spike_mask] += (drift_idxs_disp_i * drift_factors[spike_index]).astype("int16")
+    drift_idxs = (drift_idxs_displacements + mid_point_idx).astype("uint16")
     return drift_idxs
+
 
 def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
     """
@@ -2560,13 +2580,14 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
 
     n_units = len(recgen.spiketrains)
     units_drift_vectors = np.zeros((time_vector.size, n_units), dtype='float32')
+    mid_point_idx = drift_list[0]["drift_steps"] // 2
     for unit_index in range(n_units):
-        summed_drift_idxs = np.zeros(time_vector.size, dtype="uint16")
+        summed_drift_idxs = np.zeros(time_vector.size, dtype="int16")
         for drift_dict in drift_list:
-            mid_point_idx = drift_dict["drift_steps"] // 2
             interpolated_drift_vector_idxs = drift_dict["interpolated_drift_vector_idxs"]
             drift_factors = drift_dict["drift_factors"]
-            summed_drift_idxs += ((interpolated_drift_vector_idxs - mid_point_idx) * drift_factors[unit_index] + mid_point_idx).astype("uint16")
+            summed_drift_idxs += ((interpolated_drift_vector_idxs) * drift_factors[unit_index]).astype('int16')
+        summed_drift_idxs = (summed_drift_idxs + mid_point_idx).astype('uint16')
         locs = locations[unit_index, :, 2]
         units_drift_vectors[:, unit_index] = locs[summed_drift_idxs]
 
@@ -3552,7 +3573,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
                     t_jitt = np.pad(temp_up, [(0, 0), (0, np.abs(shift))], 'constant')[:, -nsamples_up:]
                 else:
                     t_jitt = temp_up
-                temp_down = ss.decimate(t_jitt, upsample, axis=1)
+                temp_down = t_jitt[:, ::upsample]
                 templates_jitter[tp, n] = temp_down
     return templates_jitter
 
