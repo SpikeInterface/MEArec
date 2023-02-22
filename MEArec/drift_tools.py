@@ -14,6 +14,7 @@ def generate_drift_dict_from_params(
     drift_mode_speed="slow",
     non_rigid_gradient_mode="linear",
     non_rigid_linear_direction=1,
+    non_rigid_linear_min_factor=0.5,
     non_rigid_step_depth_boundary=None,
     non_rigid_step_factors=None,
     preferred_dir=[0, 0, 1],
@@ -50,13 +51,15 @@ def generate_drift_dict_from_params(
         Drift mode speed
     non_rigid_gradient_mode: 'linear' | 'step'
         Mode to generate non rigid gradient over units on velocity.
-        If 'linear', drift factors (0-1) are assigned to each cells linearly with depth (deeper cells have more drift).
+        If 'linear', drift factors (0.5-1) are assigned to each cells linearly with depth (deeper cells have more drift).
     non_rigid_linear_direction : int
         Direction of linear gradient. 
         Only used if 'drift_mode_probe' is 'non-rigid' and 'non_rigid_gradient_mode' is 'linear'
         If positive, deeper cells drift more than surface cells.
         If negative, deeper cells drift more than surface cells.
         Zero is not allowed, by default 1
+    non_rigid_linear_min_factor: float (default 0.5)
+        When non_rigid_gradient_mode='linear' this control the minimum factor. The max is always 1.
     non_rigid_step_depth_boundary : float or None
         Depth boundary in the preferred_dir dimension to apply the drift step, 
         by default is half of the template locations extensions.
@@ -197,15 +200,16 @@ def generate_drift_dict_from_params(
             locs = template_locations[:, drift_steps // 2, :]
             proj = np.dot(locs, preferred_dir).squeeze()
             if non_rigid_gradient_mode == "linear":
-                assert non_rigid_linear_direction > 0 or non_rigid_linear_direction < 0, \
-                    "'non_rigid_linear_direction' cannot be zero!"
-                # vector with shape (num_cells, ) and value between 0 and 1 which is a factor of the velocity
-                # the upper units on the 'preferred_dir' vector get 0 the lower get 1
-                non_rigid_gradient = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
-                print(f"Direction: {non_rigid_linear_direction}")
+                assert 0 <= non_rigid_linear_min_factor < 1, "non_rigid_linear_min_factor must between 0 and 1"
+                assert non_rigid_linear_direction in (1, -1, 1., -1.), "non_rigid_linear_direction must be 1 or -1"
+                # vector with shape (num_cells, ) and value between 0.5 and 1 which is a factor of the velocity
+                # the upper units on the 'preferred_dir' vector get 0.5 the lower get 1
+                print(f"Linear gradient with Min: {non_rigid_linear_min_factor} Dir: {non_rigid_linear_direction}")
+                drift_factors = (proj - np.min(proj)) / (np.max(proj) - np.min(proj))
                 if non_rigid_linear_direction > 0:
-                    non_rigid_gradient = 1 - non_rigid_gradient                    
-                drift_factors = non_rigid_gradient
+                    drift_factors = 1 - drift_factors
+                f = non_rigid_linear_min_factor
+                drift_factors = drift_factors * (1 - f) + f
             elif non_rigid_gradient_mode == 'step':
                 if non_rigid_step_depth_boundary is None:
                     non_rigid_step_depth_boundary = np.mean(proj)

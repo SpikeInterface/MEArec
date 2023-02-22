@@ -603,7 +603,7 @@ class RecordingGenerator:
                 n_drifting = rec_params['n_drifting']
                 
             drift_keys = ('drift_fs', 't_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
-                          'non_rigid_gradient_mode', 'non_rigid_linear_direction', 
+                          'non_rigid_gradient_mode', 'non_rigid_linear_direction', 'non_rigid_linear_min_factor',
                           'non_rigid_step_depth_boundary', 'non_rigid_step_factors', 
                           'slow_drift_velocity', 'slow_drift_amplitude', 'slow_drift_waveform',
                           'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
