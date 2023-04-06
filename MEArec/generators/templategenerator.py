@@ -20,20 +20,19 @@ _intra_keys = ["sim_time", "target_spikes", "cut_out", "dt", "delay", "weights",
 
 
 def simulate_cell_templates(i, simulate_script, tot, cell_model,
-                            model_folder, intraonly, params, 
+                            model_folder, intraonly, params_path, 
                             verbose):
     model_folder = Path(model_folder)
-    print(f"Starting {i + 1}")
-    print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
+    print(f'Starting simulation {i + 1}/{tot} - cell: {Path(cell_model).name}\n', flush=True)
     python = sys.executable
     if verbose:
         verbose = 1
     else:
         verbose = 0
-    os.system(
-        f'{python} {simulate_script} {i} {str(model_folder / cell_model)} '
-        f'{intraonly} {params} {verbose}')
-    print(f"Exiting {i + 1}")
+    cmd = f'{python} {simulate_script} {i} {str(model_folder / cell_model)} ' \
+          f'{intraonly} {params_path.absolute()} {verbose}'
+    os.system(cmd)
+
 
 
 class TemplateGenerator:
@@ -236,7 +235,7 @@ class TemplateGenerator:
                     print(f"Removing intracellular folder {intracellular_folder} because of intra parameter mismatch")
                 shutil.rmtree(intracellular_folder)
 
-        tmp_params_path = 'tmp_params_path.yaml'
+        tmp_params_path = Path('tmp_params_path.yaml')
         with open(tmp_params_path, 'w') as f:
             # alessio we did have bug here because some params are numpy.int, numpy.bool
             # I did this fast debug but we need a way to convert then to standard float/int/bool
@@ -293,8 +292,7 @@ class TemplateGenerator:
             if self._verbose:
                 print(f"Saving new intracellular parameters in {params_file}")
 
-            tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
-
+        tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
         if not Path(tmp_folder).is_dir():
             raise FileNotFoundError(
                 f'{tmp_folder} not found. Something went wrong in the template generation phase.')

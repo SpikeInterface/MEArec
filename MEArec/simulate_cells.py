@@ -1387,11 +1387,10 @@ if __name__ == '__main__':
         cell_folder = sys.argv[2]
         compile_all_mechanisms(cell_folder)
         sys.exit(0)
-    elif len(sys.argv) == 7:
+    elif len(sys.argv) == 6:
         i = int(sys.argv[1])
         cell_model = sys.argv[2]
         intraonly = str2bool(sys.argv[3])
         params_path = sys.argv[4]
         verbose = int(sys.argv[5])
-
         compute_eap_for_cell_model(i, cell_model, params_path, intraonly=intraonly, verbose=verbose)
