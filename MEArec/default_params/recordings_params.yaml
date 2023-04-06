@@ -100,6 +100,7 @@ recordings:
   drift_mode_probe: 'rigid' # ['rigid', 'non-rigid']
   drift_fs: 100 # sampling frequency of drift signal in Hz
   non_rigid_gradient_mode: 'linear' # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
+  non_rigid_linear_min_factor: 0.5
   non_rigid_linear_direction: 1
   non_rigid_step_depth_boundary: null
   non_rigid_step_factors: null

@@ -1584,19 +1584,17 @@ def pad_templates(templates, pad_samples, drifting, dtype, verbose, n_jobs=None,
             templates_pad = np.zeros(
                 (templates.shape[0], templates.shape[1], templates.shape[2], padded_template_samples))
     if parallel:
+        assert tmp_file is not None
         if n_jobs is None:
             n_jobs = os.cpu_count() // 2
 
         if verbose:
             print('Padding with', n_jobs, 'jobs')
-        output_list = Parallel(n_jobs=n_jobs)(delayed(_pad_parallel)(i, tem, pad_samples, drifting, verbose, )
+        output_list = Parallel(n_jobs=n_jobs)(delayed(_pad_parallel)(i, tem, pad_samples, drifting, verbose, templates_pad)
                                               for i, tem in enumerate(templates))
-
-        for i, tem in enumerate(templates_pad):
-            templates_pad[i] = output_list[i]
     else:
         for i, tem in enumerate(templates):
-            templates_pad[i] = _pad_parallel(i, tem, pad_samples, drifting, verbose)
+            templates_pad[i] = _pad_parallel(i, tem, pad_samples, drifting, verbose, None)
     return templates_pad
 
 
@@ -1649,6 +1647,7 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype
             templates_jitter = np.zeros((templates.shape[0], templates.shape[1], n_jitters,
                                          templates.shape[2], templates.shape[3]))
     if parallel:
+        assert tmp_file is not None
         if n_jobs is None:
             n_jobs = os.cpu_count() // 2
 
@@ -1656,13 +1655,11 @@ def jitter_templates(templates, upsample, fs, n_jitters, jitter, drifting, dtype
             print('Jittering with', n_jobs, 'jobs')
 
         output_list = Parallel(n_jobs=n_jobs)(delayed(_jitter_parallel)(i, tem, upsample, fs, n_jitters, jitter,
-                                                                        drifting, verbose, )
+                                                                        drifting, verbose, templates_jitter)
                                               for i, tem in enumerate(templates))
-        for i, tem in enumerate(templates_jitter):
-            templates_jitter[i] = output_list[i]
     else:
         for i, tem in enumerate(templates):
-            templates_jitter[i] = _jitter_parallel(i, tem, upsample, fs, n_jitters, jitter, drifting, verbose, )
+            templates_jitter[i] = _jitter_parallel(i, tem, upsample, fs, n_jitters, jitter, drifting, verbose, None)
 
     return templates_jitter
 
@@ -3517,7 +3514,7 @@ def _resample_parallel(i, template, up, down, drifting):
     return tem_poly
 
 
-def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, verbose):
+def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, verbose, templates_jitter):
     """
     Adds jittered replicas to one template.
     Parameters
@@ -3543,7 +3540,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
     rng = np.random.RandomState(i)
 
     if not drifting:
-        templates_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
+        template_jitter = np.zeros((n_jitters, template.shape[0], template.shape[1]))
         temp_up = ss.resample_poly(template, upsample, 1, axis=1)
         nsamples_up = temp_up.shape[1]
         for n in np.arange(n_jitters):
@@ -3556,11 +3553,11 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
             else:
                 t_jitt = temp_up
             temp_down = t_jitt[:, ::upsample]
-            templates_jitter[n] = temp_down
+            template_jitter[n] = temp_down
     else:
         if verbose:
             print('Jittering: neuron ', i)
-        templates_jitter = np.zeros((template.shape[0], n_jitters, template.shape[1], template.shape[2]))
+        template_jitter = np.zeros((template.shape[0], n_jitters, template.shape[1], template.shape[2]))
         for tp, tem_p in enumerate(template):
             temp_up = ss.resample_poly(tem_p, upsample, 1, axis=1)
             nsamples_up = temp_up.shape[1]
@@ -3574,11 +3571,15 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
                 else:
                     t_jitt = temp_up
                 temp_down = t_jitt[:, ::upsample]
-                templates_jitter[tp, n] = temp_down
-    return templates_jitter
+                template_jitter[tp, n] = temp_down
+    
+    if templates_jitter is None:
+        return template_jitter
+    else:
+        templates_jitter[i] = template_jitter
 
 
-def _pad_parallel(i, template, pad_samples, drifting, verbose):
+def _pad_parallel(i, template, pad_samples, drifting, verbose, templates_pad):
     """
     Pads one template on both ends.
     Parameters
@@ -3606,7 +3607,11 @@ def _pad_parallel(i, template, pad_samples, drifting, verbose):
         tem_pad = np.zeros((template.shape[0], template.shape[1], padded_template_samples))
         for tp, tem_p in enumerate(template):
             tem_pad[tp] = cubic_padding(tem_p, pad_samples)
-    return tem_pad
+    if templates_pad is None:
+        return tem_pad
+    else:
+        templates_pad[i] = tem_pad
+    
 
 
 def _annotate_parallel(i, st_i, spiketrains, t_jitt, overlapping_pairs, verbose):

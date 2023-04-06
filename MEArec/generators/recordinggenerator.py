@@ -603,7 +603,7 @@ class RecordingGenerator:
                 n_drifting = rec_params['n_drifting']
                 
             drift_keys = ('drift_fs', 't_start_drift', 't_end_drift', 'drift_mode_probe', 'drift_mode_speed',
-                          'non_rigid_gradient_mode', 'non_rigid_linear_direction', 
+                          'non_rigid_gradient_mode', 'non_rigid_linear_direction', 'non_rigid_linear_min_factor',
                           'non_rigid_step_depth_boundary', 'non_rigid_step_factors', 
                           'slow_drift_velocity', 'slow_drift_amplitude', 'slow_drift_waveform',
                           'fast_drift_period', 'fast_drift_max_jump', 'fast_drift_min_jump')
@@ -790,11 +790,22 @@ class RecordingGenerator:
                     self.template_ids = reordered_idx_cells
                 else:
                     print(f"Using provided template ids: {self.template_ids}")
-                    template_celltypes = celltypes[self.template_ids]
-                    template_locs = np.array(locs)[self.template_ids]
-                    template_rots = np.array(rots)[self.template_ids]
-                    template_bin = np.array(bin_cat)[self.template_ids]
-                    templates = np.array(eaps)[self.template_ids]
+                    ordered_ids = np.all(np.diff(self.template_ids) > 0)
+                    if ordered_ids:
+                        template_celltypes = celltypes[self.template_ids]
+                        template_locs = np.array(locs[self.template_ids])
+                        template_rots = np.array(rots[self.template_ids])
+                        template_bin = np.array(bin_cat[self.template_ids])
+                        templates = np.array(eaps[self.template_ids])
+                    else:
+                        order = np.argsort(self.template_ids)
+                        order_back = np.argsort(order)
+                        sorted_ids = self.template_ids[order]
+                        template_celltypes = celltypes[sorted_ids][order_back]
+                        template_locs = np.array(locs[sorted_ids])[order_back]
+                        template_rots = np.array(rots[sorted_ids])[order_back]
+                        template_bin = np.array(bin_cat[sorted_ids])[order_back]
+                        templates = np.array(eaps[sorted_ids])[order_back]
                 
                 # compute gain
                 gain_to_int = None
