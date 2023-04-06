@@ -131,7 +131,7 @@ def get_default_recordings_params():
     recordings_params_file = default_info['recordings_params']
 
     # load template parameters
-    recording_params = safe_yaml_load(recordings_params_file)
+    recordings_params = safe_yaml_load(recordings_params_file)
 
     return recordings_params
 
