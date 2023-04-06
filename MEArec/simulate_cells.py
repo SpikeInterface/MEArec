@@ -8,18 +8,14 @@ The function compile_all_mechanisms must be run once before any cell simulation
 
 import os
 import sys
-from glob import glob
-import numpy as np
-import MEAutility as mu
-import yaml
 import time
 from pathlib import Path
+
+import MEAutility as mu
+import numpy as np
 from packaging.version import parse
 
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
+from MEArec.tools import safe_yaml_load
 
 
 def import_LFPy_neuron():
@@ -290,11 +286,12 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     return noiseVec, cell, syn
 
 
-def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True, return_vi=False,
+def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                    custom_return_cell_function=None, **kwargs):
-    """ Run simulation and adjust input strength to have a certain number of
-        spikes (target_spikes[0] < num_spikes <= target_spikes[1]
-        where target_spikes=[10,30] by default)
+    """ 
+    Run simulation and adjust input strength to have a certain number of
+    spikes (target_spikes[0] < num_spikes <= target_spikes[1]
+    where target_spikes=[10,30] by default)
 
     Parameters:
     -----------
@@ -331,92 +328,29 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
     else:
         return_function = custom_return_cell_function
 
+    intra_params = kwargs
+
     if save:
         assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
         sim_folder.mkdir(exist_ok=True, parents=True)
+    
+    imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
+    vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
 
-        imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
-        vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
+    if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
+            np.any([cell_name in vfile.name for vfile in vmem_files])):
+        np.random.seed(intra_params['seed'])
+        T = intra_params['sim_time'] * 1000
+        dt = intra_params['dt']
+        cell = return_function(
+            cell_model_folder, end_T=T, dt=dt, start_T=0)
 
-        if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
-                np.any([cell_name in vfile.name for vfile in vmem_files])):
-            np.random.seed(kwargs['seed'])
-            T = kwargs['sim_time'] * 1000
-            dt = kwargs['dt']
-            cell = return_function(
-                cell_model_folder, end_T=T, dt=dt, start_T=0)
-
-            delay = kwargs['delay']
-            stim_length = T - delay
-            weights = kwargs['weights']
-            weight = weights[0]
-            target_spikes = kwargs['target_spikes']
-            cuts = kwargs['cut_out']
-            cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
-
-            num_spikes = 0
-
-            i = 0
-            while not target_spikes[0] < num_spikes <= target_spikes[1]:
-                noiseVec, cell, syn = set_input(
-                    weight, dt, T, cell, delay, stim_length)
-                cell.simulate(rec_imem=True)
-
-                t = cell.tvec
-                v = cell.somav
-                t = t
-                v = v
-
-                spikes = find_spike_idxs(v[cut_out[0]:-cut_out[1]])
-                spikes = list(np.array(spikes) + cut_out[0])
-                num_spikes = len(spikes)
-
-                if verbose >= 1:
-                    print(f"Input weight: {weight} - Num Spikes: {num_spikes}")
-                if num_spikes >= target_spikes[1]:
-                    weight *= weights[0]
-                elif num_spikes <= target_spikes[0]:
-                    weight *= weights[1]
-
-                i += 1
-                if i >= 10:
-                    sys.exit()
-
-            t = t[0:(cut_out[0] + cut_out[1])] - t[cut_out[0]]
-            # discard first spike
-            i_spikes = np.zeros((num_spikes - 1, cell.totnsegs, len(t)))
-            v_spikes = np.zeros((num_spikes - 1, len(t)))
-
-            for idx, spike_idx in enumerate(spikes[1:]):
-                spike_idx = int(spike_idx)
-                v_spike = v[spike_idx - cut_out[0]:spike_idx + cut_out[1]]
-                i_spike = cell.imem[:, spike_idx -
-                                    cut_out[0]:spike_idx + cut_out[1]]
-                i_spikes[idx, :, :] = i_spike
-                v_spikes[idx, :] = v_spike
-
-            sim_folder.mkdir(exist_ok=True, parents=True)
-            np.save(
-                str(sim_folder / f'imem_{num_spikes - 1}_{cell_name}.npy'), i_spikes)
-            np.save(
-                str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
-
-        else:
-            if verbose >= 1:
-                print(
-                    '\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
-    else:
-        np.random.seed(kwargs['seed'])
-        T = kwargs['sim_time'] * 1000
-        dt = kwargs['dt']
-        cell = return_function(cell_model_folder, end_T=T, dt=dt, start_T=0)
-
-        delay = kwargs['delay']
+        delay = intra_params['delay']
         stim_length = T - delay
-        weights = kwargs['weights']
+        weights = intra_params['weights']
         weight = weights[0]
-        target_spikes = kwargs['target_spikes']
-        cuts = kwargs['cut_out']
+        target_spikes = intra_params['target_spikes']
+        cuts = intra_params['cut_out']
         cut_out = [int(cuts[0] / dt), int(cuts[1] / dt)]
 
         num_spikes = 0
@@ -459,8 +393,17 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
                                 cut_out[0]:spike_idx + cut_out[1]]
             i_spikes[idx, :, :] = i_spike
             v_spikes[idx, :] = v_spike
+        if save:
+            np.save(
+                str(sim_folder / f'imem_{num_spikes - 1}_{cell_name}.npy'), i_spikes)
+            np.save(
+                str(sim_folder / f'vmem_{num_spikes - 1}_{cell_name}.npy'), v_spikes)
+        else:
+            return cell, v_spikes, i_spikes
+    else:
+        if verbose >= 1:
+            print('\n\n\nCell has already be simulated. Using stored membrane currents\n\n\n')
 
-        return cell, v_spikes, i_spikes
 
 
 def calculate_extracellular_potential(cell, mea, ncontacts=10, position=None, rotation=None):
@@ -1394,18 +1337,15 @@ def compile_models(cell_folder):
 
 
 def compute_eap_for_cell_model(i, cell_model, params_path, intraonly=False, verbose=False):
-    with open(params_path, 'r') as f:
-        if use_loader:
-            params = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            params = yaml.load(f)
+    params = safe_yaml_load(params_path)
 
-    extra_sim_folder = params['templates_folder']
-    vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
+    extra_sim_folder = Path(params['templates_folder'])
+    vm_im_sim_folder = Path(params['templates_folder']) / 'intracellular'
 
     print(f'Intracellular simulation: {cell_model}')
-    run_cell_model(cell_model_folder=cell_model,
-                   sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+    run_cell_model(cell_model_folder=cell_model, save=True,
+                   sim_folder=vm_im_sim_folder, verbose=verbose,
+                   **params)
     if not intraonly:
         print(f'Extracellular simulation: {cell_model}')
         calc_extracellular(i, cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
@@ -1414,11 +1354,7 @@ def compute_eap_for_cell_model(i, cell_model, params_path, intraonly=False, verb
 
 def compute_eap_based_on_tempgen(cell_folder, params_path,
                                  tempgen, intraonly=False, verbose=False):
-    with open(params_path, 'r') as f:
-        if use_loader:
-            params = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            params = yaml.load(f)
+    params = safe_yaml_load(params_path)
 
     extra_sim_folder = params['templates_folder']
     vm_im_sim_folder = str(Path(params['templates_folder']) / 'intracellular')
@@ -1451,31 +1387,11 @@ if __name__ == '__main__':
         cell_folder = sys.argv[2]
         compile_all_mechanisms(cell_folder)
         sys.exit(0)
-    elif len(sys.argv) == 6:
+    elif len(sys.argv) == 7:
         i = int(sys.argv[1])
         cell_model = sys.argv[2]
         intraonly = str2bool(sys.argv[3])
         params_path = sys.argv[4]
         verbose = int(sys.argv[5])
 
-        with open(params_path, 'r') as f:
-            if use_loader:
-                params = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                params = yaml.load(f)
-
-        sim_folder = params['templates_folder']
-        cell_folder = params['cell_models_folder']
-        rot = params['rot']
-
-        extra_sim_folder = params['templates_folder']
-        vm_im_sim_folder = str(
-            Path(params['templates_folder']) / 'intracellular')
-
-        print(f'Intracellular simulation: {cell_model}')
-        run_cell_model(cell_model_folder=cell_model,
-                       sim_folder=vm_im_sim_folder, verbose=verbose, **params)
-        if not intraonly:
-            print(f'Extracellular simulation: {cell_model}')
-            calc_extracellular(i, cell_model_folder=cell_model, save_sim_folder=extra_sim_folder,
-                               load_sim_folder=vm_im_sim_folder, verbose=verbose, **params)
+        compute_eap_for_cell_model(i, cell_model, params_path, intraonly=intraonly, verbose=verbose)

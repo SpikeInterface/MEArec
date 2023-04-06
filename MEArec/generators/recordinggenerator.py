@@ -1,38 +1,33 @@
 # don't enter here without a good guide! (only one person in the world)
 
-from distutils.log import DEBUG
-import numpy as np
+import os
+import random
+import shutil
+import string
+import tempfile
 import time
 from copy import deepcopy
-from MEArec.tools import (select_templates, find_overlapping_templates, get_binary_cat, sigmoid,
-                          resample_templates, jitter_templates, pad_templates, get_templates_features,
-                          compute_modulation, annotate_overlapping_spikes, extract_wf)
+from distutils.log import DEBUG
+from pathlib import Path
+from warnings import warn
 
-from .recgensteps import (chunk_convolution, chunk_uncorrelated_noise,
-                          chunk_distance_correlated_noise, chunk_apply_filter)
+import MEAutility as mu
+import numpy as np
+import quantities as pq
+import yaml
+from joblib import Parallel, delayed
+from packaging.version import parse
+
+from ..tools import (annotate_overlapping_spikes, compute_modulation,
+                          extract_wf, find_overlapping_templates,
+                          get_binary_cat, get_templates_features,
+                          jitter_templates, pad_templates, resample_templates,
+                          select_templates, sigmoid)
 
 from ..drift_tools import generate_drift_dict_from_params
-
-import random
-import string
-import MEAutility as mu
-import yaml
-import os
-import shutil
-from warnings import warn
-import quantities as pq
-from packaging.version import parse
-import tempfile
-from pathlib import Path
-
-from joblib import Parallel, delayed
-
-from MEArec.generators import SpikeTrainGenerator
-
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
+from .recgensteps import (chunk_apply_filter, chunk_convolution,
+                          chunk_distance_correlated_noise,
+                          chunk_uncorrelated_noise)
     
     
 DEBUG = False
@@ -74,6 +69,8 @@ class RecordingGenerator:
     """
 
     def __init__(self, spgen=None, tempgen=None, params=None, rec_dict=None, info=None):
+        from . import SpikeTrainGenerator
+
         self._verbose = False
         self._verbose_1 = False
         self._verbose_2 = False

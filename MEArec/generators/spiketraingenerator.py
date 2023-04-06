@@ -1,10 +1,12 @@
-import numpy as np
-import neo
+from copy import deepcopy
+
 import elephant.spike_train_generation as stg
 import elephant.statistics as stat
-from copy import deepcopy
-from MEArec.tools import *
+import neo
+import numpy as np
 import quantities as pq
+
+from ..tools import compute_sync_rate, annotate_overlapping_spikes
 
 
 class SpikeTrainGenerator:

@@ -16,10 +16,10 @@ import h5py
 import numpy as np
 import scipy.signal
 
-from MEArec.tools import (filter_analog_signals, convolve_templates_spiketrains,
-                          convolve_single_template, 
-                          compute_drift_idxs_from_drift_list
-                          )
+from MEArec.tools import (compute_drift_idxs_from_drift_list,
+                          convolve_single_template,
+                          convolve_templates_spiketrains,
+                          filter_analog_signals)
 
 
 class FuncThenAddChunk:

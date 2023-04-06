@@ -1,23 +1,21 @@
-import numpy as np
-import unittest
-import MEArec as mr
-from pathlib import Path
 import shutil
-import yaml
-import elephant.statistics as stat
-from packaging.version import parse
 import tempfile
+import unittest
 from copy import deepcopy
-from click.testing import CliRunner
+from pathlib import Path
 
+import elephant.statistics as stat
+import numpy as np
+import yaml
+from click.testing import CliRunner
+from packaging.version import parse
+
+import MEArec as mr
 from MEArec.cli import cli
 
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
 
 DEBUG = False
+
 
 if DEBUG:
     import matplotlib.pyplot as plt
