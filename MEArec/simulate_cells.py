@@ -334,11 +334,14 @@ def run_cell_model(cell_model_folder, verbose=False, sim_folder=None, save=True,
         assert sim_folder is not None, "Specify 'save_sim_folder' argument!"
         sim_folder.mkdir(exist_ok=True, parents=True)
     
-    imem_files = [f for f in sim_folder.iterdir() if 'imem' in f.name]
-    vmem_files = [f for f in sim_folder.iterdir() if 'vmem' in f.name]
+        imem_names = [f.name for f in sim_folder.iterdir() if 'imem' in f.name]
+        vmem_names = [f.name for f in sim_folder.iterdir() if 'vmem' in f.name]
+    else:
+        imem_names = []
+        vmem_names = []
 
-    if not (np.any([cell_name in ifile.name for ifile in imem_files]) and
-            np.any([cell_name in vfile.name for vfile in vmem_files])):
+    if not (np.any([cell_name in iname for iname in imem_names]) and
+            np.any([cell_name in vname for vname in vmem_names])):
         np.random.seed(intra_params['seed'])
         T = intra_params['sim_time'] * 1000
         dt = intra_params['dt']

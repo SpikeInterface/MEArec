@@ -1140,6 +1140,8 @@ class RecordingGenerator:
                                    self.n_jobs, self.tmp_mode, assignment_dict)
 
             elif noise_mode == 'far-neurons':
+                from . import SpikeTrainGenerator
+
                 if self.tmp_mode == 'memmap':
                     # file names for templates
                     tmp_templates_noise_pad = self.tmp_folder / (tmp_prefix + "templates_noise_pad.raw")
