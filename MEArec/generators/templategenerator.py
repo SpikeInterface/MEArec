@@ -1,38 +1,38 @@
+import os
+import shutil
 import sys
 import time
-import numpy as np
-from MEArec.tools import *
-import MEAutility as mu
-import shutil
-import yaml
-import os
-from packaging.version import parse
 from pathlib import Path
-from joblib import Parallel, delayed, cpu_count
-from MEArec.simulate_cells import compute_eap_for_cell_model, compute_eap_based_on_tempgen
+from copy import deepcopy
 
-from MEArec.tools import clean_dict_for_yaml
+import MEAutility as mu
+import numpy as np
+import yaml
+from joblib import Parallel, cpu_count, delayed
+from packaging.version import parse
+
+from ..simulate_cells import (compute_eap_based_on_tempgen,
+                                   compute_eap_for_cell_model)
+from ..tools import clean_dict_for_yaml, load_tmp_eap, get_default_config, safe_yaml_load
 
 
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
+_intra_keys = ["sim_time", "target_spikes", "cut_out", "dt", "delay", "weights", "seed", "cell_models_folder"]
 
 
 def simulate_cell_templates(i, simulate_script, tot, cell_model,
-                            model_folder, intraonly, params, verbose):
+                            model_folder, intraonly, params_path, 
+                            verbose):
     model_folder = Path(model_folder)
-    print(f"Starting {i + 1}")
-    print(f'\n\n {cell_model} {i + 1}/{tot}\n\n')
+    print(f'Starting simulation {i + 1}/{tot} - cell: {Path(cell_model).name}\n', flush=True)
     python = sys.executable
     if verbose:
         verbose = 1
     else:
         verbose = 0
-    os.system(
-        f'{python} {simulate_script} {i} {str(model_folder / cell_model)} {intraonly} {params} {verbose}')
-    print(f"Exiting {i + 1}")
+    cmd = f'{python} {simulate_script} {i} {str(model_folder / cell_model)} ' \
+          f'{intraonly} {params_path.absolute()} {verbose}'
+    os.system(cmd)
+
 
 
 class TemplateGenerator:
@@ -224,7 +224,18 @@ class TemplateGenerator:
         n = self.params['n']
         probe = self.params['probe']
 
-        tmp_params_path = 'tmp_params_path.yaml'
+        # check intra params
+        intra_params = {k: v for k, v in self.params.items() if k in _intra_keys}
+        # check params
+        intracellular_folder = Path(self.params['templates_folder']) / 'intracellular'
+        skip_existing_intracellular = check_intracellular_params(intracellular_folder, intra_params)
+        if skip_existing_intracellular:
+            if intracellular_folder.is_dir():
+                if self._verbose:
+                    print(f"Removing intracellular folder {intracellular_folder} because of intra parameter mismatch")
+                shutil.rmtree(intracellular_folder)
+
+        tmp_params_path = Path('tmp_params_path.yaml')
         with open(tmp_params_path, 'w') as f:
             # alessio we did have bug here because some params are numpy.int, numpy.bool
             # I did this fast debug but we need a way to convert then to standard float/int/bool
@@ -271,9 +282,17 @@ class TemplateGenerator:
                                              tempgen=self.tempgen,
                                              intraonly=intraonly,
                                              verbose=self._verbose)
+         # save new intracellular params
+        if skip_existing_intracellular:
+            params_file = intracellular_folder / "intra_params.yaml"
+            if params_file.is_file():
+                params_file.unlink()
+            with params_file.open("w") as f:
+                yaml.dump(intra_params, f)
+            if self._verbose:
+                print(f"Saving new intracellular parameters in {params_file}")
 
         tmp_folder = Path(templates_folder) / rot / f'tmp_{n}_{probe}'
-
         if not Path(tmp_folder).is_dir():
             raise FileNotFoundError(
                 f'{tmp_folder} not found. Something went wrong in the template generation phase.')
@@ -295,3 +314,22 @@ class TemplateGenerator:
         self.info['electrodes'] = mu.return_mea_info(probe)
 
         print(f'\n\n\nSimulation time: {time.time() - start_time}\n\n\n')
+
+
+def check_intracellular_params(vm_im_sim_folder, params,
+                               check_params=["dt", "cut_out", "cell_models_folder", "target_spikes"]):
+    skip_existing_intracellular = False
+    if not vm_im_sim_folder.is_dir():
+        skip_existing_intracellular = True
+    else:
+        params_files = [f for f in Path(vm_im_sim_folder).iterdir() if 'intra_params.yaml' in f.name]
+        if len(params_files) == 0:
+            skip_existing_intracellular = True
+        if len(params_files) == 1:
+            params_file = params_files[0]
+            existing_intra_params = safe_yaml_load(params_file)
+            for param_key in check_params:
+                if existing_intra_params[param_key] != params[param_key]:
+                    print(f"{param_key} is different!")
+                    skip_existing_intracellular = True
+    return skip_existing_intracellular

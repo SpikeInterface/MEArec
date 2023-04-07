@@ -1,20 +1,18 @@
 import os
 import pprint
 import time
-from packaging.version import parse
 from pathlib import Path
 
-import MEArec.generation_tools as gt
-import MEAutility as mu
 import click
+import MEAutility as mu
 import numpy as np
 import yaml
-from MEArec import save_template_generator, save_recording_generator, get_default_config
+from packaging.version import parse
 
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
+from MEArec import (get_default_config, save_recording_generator,
+                    save_template_generator)
+import MEArec.generation_tools as gt
+from MEArec.tools import safe_yaml_load
 
 
 @click.group()
@@ -83,20 +81,11 @@ def cli():
               help='produce verbose output')
 def gen_templates(params, **kwargs):
     """Generates TEMPLATES with biophysical simulation."""
-    info, config_folder = get_default_config()
+    info, _ = get_default_config()
 
     if params is None:
-        with open(info['templates_params'], 'r') as pf:
-            if use_loader:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-            else:
-                params_dict = yaml.load(pf)
-    else:
-        with open(params, 'r') as pf:
-            if use_loader:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-            else:
-                params_dict = yaml.load(pf)
+        params = info['templates_params']
+    params_dict = safe_yaml_load(params)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
@@ -304,20 +293,11 @@ def gen_templates(params, **kwargs):
 def gen_recordings(params, **kwargs):
     """Generates RECORDINGS from TEMPLATES."""
     # Retrieve default_params file
-    info, config_folder = get_default_config()
+    info, _ = get_default_config()
 
     if params is None:
-        with open(info['recordings_params'], 'r') as pf:
-            if use_loader:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-            else:
-                params_dict = yaml.load(pf)
-    else:
-        with open(params, 'r') as pf:
-            if use_loader:
-                params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-            else:
-                params_dict = yaml.load(pf)
+        params = info['recordings_params']
+    params_dict = safe_yaml_load(params)
 
     if kwargs['default'] is True:
         pprint.pprint(params_dict)
@@ -490,7 +470,7 @@ def gen_recordings(params, **kwargs):
 @cli.command()
 def default_config():
     """Print default configurations."""
-    info, config = get_default_config(print_version=True)
+    info, _ = get_default_config(print_version=True)
     pprint.pprint(info)
 
 

@@ -1,19 +1,20 @@
+import os
+import shutil
+from copy import copy, deepcopy
+from datetime import datetime
+from pathlib import Path
+
+import h5py
+import MEAutility as mu
+import neo
 import numpy as np
 import quantities as pq
-from quantities import Quantity
-import yaml
-import neo
 import scipy.signal as ss
-import shutil
-import os
-import MEAutility as mu
-import h5py
-from pathlib import Path
-from copy import deepcopy, copy
-from packaging.version import parse
+import yaml
 from joblib import Parallel, delayed
-from datetime import datetime
 from lazy_ops import DatasetView
+from packaging.version import parse
+from quantities import Quantity
 
 from .version import version
 
@@ -21,6 +22,16 @@ if parse(yaml.__version__) >= parse('5.0.0'):
     use_loader = True
 else:
     use_loader = False
+
+
+def safe_yaml_load(yaml_file):
+    with open(yaml_file, 'r') as f:
+        if use_loader:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            data = yaml.load(f)
+    return data
+    
 
 
 ### GET DEFAULT SETTINGS ###
@@ -70,11 +81,7 @@ def get_default_config(print_version=False):
         with (version_folder / 'mearec.conf').open('w') as f:
             yaml.dump(default_info, f)
     else:
-        with (version_folder / 'mearec.conf').open() as f:
-            if use_loader:
-                default_info = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                default_info = yaml.load(f)
+        default_info = safe_yaml_load(version_folder / 'mearec.conf')
     return default_info, str(mearec_home)
 
 
@@ -106,11 +113,8 @@ def get_default_templates_params():
     templates_params_file = default_info['templates_params']
 
     # load template parameters
-    with open(templates_params_file, 'r') as f:
-        if use_loader:
-            templates_params = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            templates_params = yaml.load(f)
+    templates_params = safe_yaml_load(templates_params_file)
+
     return templates_params
 
 
@@ -127,11 +131,8 @@ def get_default_recordings_params():
     recordings_params_file = default_info['recordings_params']
 
     # load template parameters
-    with open(recordings_params_file, 'r') as f:
-        if use_loader:
-            recordings_params = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            recordings_params = yaml.load(f)
+    recordings_params = safe_yaml_load(recordings_params_file)
+
     return recordings_params
 
 
@@ -3056,8 +3057,8 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
         Matplotlib axis
 
     """
-    import matplotlib.pylab as plt
     import matplotlib.gridspec as gridspec
+    import matplotlib.pylab as plt
 
     if spiketrain_id is None:
         spiketrain_id = np.arange(len(recgen.spiketrains))
@@ -3199,8 +3200,8 @@ def plot_amplitudes(recgen, spiketrain_id=None, electrode=None, ax=None, color=N
         Matplotlib axis
 
     """
-    import matplotlib.pylab as plt
     import matplotlib.gridspec as gridspec
+    import matplotlib.pylab as plt
 
     if spiketrain_id is None:
         spiketrain_id = np.arange(len(recgen.spiketrains))
@@ -3320,8 +3321,8 @@ def plot_pca_map(recgen, n_pc=2, max_elec=None, cmap='rainbow', cut_out=2, n_uni
     except:
         raise Exception("'plot_pca_map' requires scikit-learn package")
 
-    import matplotlib.pylab as plt
     import matplotlib.gridspec as gridspec
+    import matplotlib.pylab as plt
 
     waveforms = []
     n_spikes = []

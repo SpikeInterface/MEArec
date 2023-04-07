@@ -1,18 +1,15 @@
-import MEArec
-from MEArec.tools import load_templates, get_binary_cat, get_default_recordings_params
-from MEArec.generators import RecordingGenerator, SpikeTrainGenerator, TemplateGenerator
-import yaml
 import os
-from packaging.version import parse
 import time
 from pathlib import Path
-import numpy as np
-import neo
 
-if parse(yaml.__version__) >= parse('5.0.0'):
-    use_loader = True
-else:
-    use_loader = False
+import neo
+import numpy as np
+import yaml
+from packaging.version import parse
+
+from .generators import (RecordingGenerator, SpikeTrainGenerator,
+                               TemplateGenerator)
+from .tools import get_binary_cat, load_templates, safe_yaml_load
 
 
 def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbose=True,
@@ -51,11 +48,7 @@ def gen_recordings(params=None, templates=None, tempgen=None, spgen=None, verbos
     if isinstance(params, (str, Path)):
         params = Path(params)
         if params.is_file() and params.suffix in ['.yaml', '.yml']:
-            with open(params, 'r') as pf:
-                if use_loader:
-                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-                else:
-                    params_dict = yaml.load(pf)
+            params_dict = safe_yaml_load(params)
     elif isinstance(params, dict):
         params_dict = params
     else:
@@ -178,11 +171,7 @@ def gen_spiketrains(params=None, spiketrains=None, seed=None, verbose=False):
         if isinstance(params, (str, Path)):
             params = Path(params)
             if params.is_file() and params.suffix in ['.yaml', '.yml']:
-                with open(params, 'r') as pf:
-                    if use_loader:
-                        params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-                    else:
-                        params_dict = yaml.load(pf)
+                params_dict = safe_yaml_load(params)
         elif isinstance(params, dict):
             params_dict = params
         else:
@@ -235,11 +224,7 @@ def gen_templates(cell_models_folder, params=None, templates_tmp_folder=None, te
     if isinstance(params, (str, Path)):
         params = Path(params)
         if params.is_file() and params.suffix in ['.yaml', '.yml']:
-            with open(params, 'r') as pf:
-                if use_loader:
-                    params_dict = yaml.load(pf, Loader=yaml.FullLoader)
-                else:
-                    params_dict = yaml.load(pf)
+            params_dict = safe_yaml_load(params)
     elif isinstance(params, dict):
         params_dict = params
     else:
