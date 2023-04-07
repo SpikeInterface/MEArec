@@ -2524,6 +2524,8 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
     Internally vector drift vector per units is constructed with a linear sum of 
     of drift index multiplied by a factor per cell.
     Then this drift index is converted to micrometer given the cell locations.
+
+    Here `time_vector` is assumed to be the center of the bins (even if internally evreything is floored to the left of the bin)
     
     Parameters
     ----------
@@ -2571,7 +2573,8 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
             interpolated_drift_vector_idxs = drift_vector_idxs
         else:
             # linear interpolation on the timevector
-            local_times = np.arange(drift_vector_idxs.shape[0]) / drift_fs
+            # note that we use the center of the bins here
+            local_times = np.arange(drift_vector_idxs.shape[0]) / drift_fs + 0.5 / drift_fs
             f = scipy.interpolate.interp1d(local_times, drift_vector_idxs)
             interpolated_drift_vector_idxs = f(time_vector)
         drift_dict['interpolated_drift_vector_idxs'] = interpolated_drift_vector_idxs
