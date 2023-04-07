@@ -2525,7 +2525,7 @@ def extract_units_drift_vector(mearec_file=None, recgen=None, time_vector=None):
     of drift index multiplied by a factor per cell.
     Then this drift index is converted to micrometer given the cell locations.
 
-    Here time_vector is the center of the bins (even if internally evrything is floored so the left of the bin)
+    Here `time_vector` is assumed to be the center of the bins (even if internally evreything is floored to the left of the bin)
     
     Parameters
     ----------
