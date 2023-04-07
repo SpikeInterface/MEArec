@@ -49,6 +49,7 @@ class FuncThenAddChunk:
 
         return return_dict
 
+
 class FuncThenReplaceChunk:
     """
     Helper function to compute by and replace an existing array by chunk.
@@ -354,5 +355,6 @@ def chunk_apply_filter_(ch, i_start, i_stop, fs, lsb,
     return_dict['filtered_chunk'] = filtered_chunk.astype(dtype)
 
     return return_dict
+
 
 chunk_apply_filter = FuncThenReplaceChunk(chunk_apply_filter_)
