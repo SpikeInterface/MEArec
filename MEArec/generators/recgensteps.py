@@ -24,8 +24,9 @@ from MEArec.tools import (compute_drift_idxs_from_drift_list,
 
 class FuncThenAddChunk:
     """
-    Helper for functions that do chunk to assign one or several chunks at the 
-    good place.
+    Helper function to compute and add to an existing array by chunk.
+
+    E.g., used for convolution, additive noise
     """
 
     def __init__(self, func):
@@ -45,6 +46,33 @@ class FuncThenAddChunk:
             for key, full_arr in assignment_dict.items():
                 out_chunk = return_dict.pop(key)
                 full_arr[i_start:i_stop] += out_chunk.astype(full_arr.dtype)
+
+        return return_dict
+
+class FuncThenReplaceChunk:
+    """
+    Helper function to compute by and replace an existing array by chunk.
+
+    E.g., used for convolution, additive noise
+    """
+
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, *args, **kargs):
+        return_dict = self.func(*args)
+
+        ch, i_start, i_stop, = args[:3]
+
+        assignment_dict = kargs['assignment_dict']
+        tmp_mode = kargs['tmp_mode']
+
+        if tmp_mode is None:
+            pass
+        elif tmp_mode == 'memmap':
+            for key, full_arr in assignment_dict.items():
+                out_chunk = return_dict.pop(key)
+                full_arr[i_start:i_stop] = out_chunk.astype(full_arr.dtype)
 
         return return_dict
 
@@ -327,5 +355,4 @@ def chunk_apply_filter_(ch, i_start, i_stop, fs, lsb,
 
     return return_dict
 
-
-chunk_apply_filter = FuncThenAddChunk(chunk_apply_filter_)
+chunk_apply_filter = FuncThenReplaceChunk(chunk_apply_filter_)
