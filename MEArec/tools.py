@@ -1123,7 +1123,9 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
         iter += 1
         if n_sel == n_exc + n_inh:
             break
+        # Excitatory and inhibitory cells
         if excinh:
+            # excitatory cell
             if bcat == 'E':
                 if n_sel_exc < n_exc:
                     dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
@@ -1239,6 +1241,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     if placed:
                         n_sel_exc += 1
                         selected_cat.append('E')
+            # inhibitory cell
             elif bcat == 'I':
                 if n_sel_inh < n_inh:
                     dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
@@ -1353,6 +1356,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                     if placed:
                         n_sel_inh += 1
                         selected_cat.append('I')
+        # unknown cell type
         else:
             dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
             if np.any(dist < min_dist):
@@ -1417,6 +1421,7 @@ def select_templates(loc, templates, bin_cat, n_exc, n_inh, min_dist=25, x_lim=N
                             if n_overlap_pairs is None:
                                 pos_sel.append(loc[id_cell])
                                 selected_idxs.append(id_cell)
+                                n_sel += 1
                                 placed = True
                             else:
                                 possible_selected = deepcopy(selected_idxs)
