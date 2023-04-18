@@ -860,7 +860,7 @@ class RecordingGenerator:
                 voltage_peaks = np.array(voltage_peaks)
 
                 # pad templates
-                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                pad_samples = [int((pp * spike_fs.rescale('kHz')).magnitude) for pp in pad_len]
                 if verbose_1:
                     print('Padding template edges')
                 t_pad = time.time()
@@ -872,14 +872,19 @@ class RecordingGenerator:
 
                 # resample spikes
                 t_rs = time.time()
-                up = fs
-                down = spike_fs
+                f_up = fs
+                f_down = spike_fs
                 spike_duration_pad = templates_pad.shape[-1]
-                if up != down:
-                    n_resample = int(spike_duration_pad * (up / down))
-                    templates_rs = resample_templates(templates_pad, n_resample, up, down, drifting, np.float32,
+                if f_up != f_down:
+                    if verbose_1:
+                        print(f"Resampling templates at {f_up}")
+                    n_resample = int(spike_duration_pad * (f_up / f_down))
+                    print(n_resample)
+                    templates_rs = resample_templates(templates_pad, n_resample, f_up, f_down, drifting, np.float32,
                                                       verbose_2, tmp_file=tmp_templates_rs,
                                                       parallel=parallel_templates)
+                    # adjust pad_samples to account for resampling
+                    pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
                     if verbose_1:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
@@ -1165,7 +1170,7 @@ class RecordingGenerator:
                     template_noise *= gain_to_int
 
                 # pad spikes
-                pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
+                pad_samples = [int((pp * spike_fs.rescale('kHz')).magnitude) for pp in pad_len]
                 if verbose_1:
                     print('Padding noisy template edges')
                 t_pad = time.time()
@@ -1176,14 +1181,16 @@ class RecordingGenerator:
 
                 # resample templates
                 t_rs = time.time()
-                up = fs
-                down = spike_fs
+                f_up = fs
+                f_down = spike_fs
                 spike_duration_pad = templates_noise_pad.shape[-1]
-                if up != down:
-                    n_resample = int(spike_duration_pad * (up / down))
-                    templates_noise = resample_templates(templates_noise_pad, n_resample, up, down,
+                if f_up != f_down:
+                    n_resample = int(spike_duration_pad * (f_up / f_down))
+                    templates_noise = resample_templates(templates_noise_pad, n_resample, f_up, f_down,
                                                          drifting, dtype, verbose_2,
                                                          tmp_file=tmp_templates_noise_rs)
+                    # adjust pad_samples to account for resampling
+                    pad_samples = [int((pp * fs.rescale('kHz')).magnitude) for pp in pad_len]
                     if verbose_1:
                         print('Elapsed resample time:', time.time() - t_rs)
                 else:
@@ -1191,7 +1198,7 @@ class RecordingGenerator:
 
                 # find cut out samples for convolution after padding and resampling
                 pre_peak_fraction = (pad_len[0] + cut_outs[0]) / (np.sum(pad_len) + np.sum(cut_outs))
-                samples_pre_peak = int(pre_peak_fraction * templates.shape[-1])
+                samples_pre_peak = int(pre_peak_fraction * templates_noise.shape[-1])
                 samples_post_peak = templates_noise.shape[-1] - samples_pre_peak
                 cut_outs_samples = [samples_pre_peak, samples_post_peak]
 
