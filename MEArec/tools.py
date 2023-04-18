@@ -3159,7 +3159,7 @@ def plot_waveforms(recgen, spiketrain_id=None, ax=None, color=None, cmap=None, e
             else:
                 electrode_idx = electrode
             if i == 0:
-                ax_sel.set_ylabel('voltage ($\mu$V)', fontsize=15)
+                ax_sel.set_ylabel('voltage ($\\mu$V)', fontsize=15)
             ax_sel.plot(wf[:, electrode_idx].T, color=colors[np.mod(i, len(colors))], lw=0.1)
             ax_sel.plot(wf[:, electrode_idx].mean(axis=0), color='k', lw=1)
             ax_sel.set_title('Unit ' + str(i) + ' - Ch. ' + str(electrode_idx), fontsize=12)
