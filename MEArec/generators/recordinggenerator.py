@@ -879,7 +879,6 @@ class RecordingGenerator:
                     if verbose_1:
                         print(f"Resampling templates at {f_up}")
                     n_resample = int(spike_duration_pad * (f_up / f_down))
-                    print(n_resample)
                     templates_rs = resample_templates(templates_pad, n_resample, f_up, f_down, drifting, np.float32,
                                                       verbose_2, tmp_file=tmp_templates_rs,
                                                       parallel=parallel_templates)
