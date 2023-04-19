@@ -653,7 +653,7 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
         Path to the h5 field
     """
     for key, item in dic.items():
-        if isinstance(item, (int, float, np.integer, np.float, str, bytes, np.bool_)):
+        if isinstance(item, (int, float, np.integer, str, bytes, np.bool_)):
             if isinstance(item, np.str_):
                 item = str(item)
             h5file[path + key] = item
