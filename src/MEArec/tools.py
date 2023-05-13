@@ -2815,7 +2815,7 @@ def extract_wf(spiketrains, recordings, fs, cut_out=2, timestamps=None):
         st.waveforms = np.array(sp_rec_wf)
 
 
-def filter_analog_signals(signals, freq, fs, filter_type="bandpass", order=3):
+def filter_analog_signals(signals, freq, fs, filter_type="bandpass", mode="filtfilt", order=3):
     """
     Filter analog signals with zero-phase Butterworth filter.
     The function raises an Exception if the required filter is not stable.
@@ -2828,8 +2828,10 @@ def filter_analog_signals(signals, freq, fs, filter_type="bandpass", order=3):
         Cutoff frequency-ies in Hz
     fs : Quantity
         Sampling frequency
-    filter_type : string
+    filter_type : str
         Filter type ('lowpass', 'highpass', 'bandpass', 'bandstop')
+    mode : str
+        Filtering mode ('filtfilt', 'lfilter')
     order : int
         Filter order
 
@@ -2838,21 +2840,26 @@ def filter_analog_signals(signals, freq, fs, filter_type="bandpass", order=3):
     signals_filt : np.array
         Filtered signals
     """
-    from scipy.signal import butter, filtfilt
+    from scipy.signal import butter, filtfilt, lfilter
 
     fn = fs / 2.0
-    # fn = fn.rescale(pq.Hz)
     freq = freq.rescale(pq.Hz)
     band = freq / fn
+
+    assert mode in ["filtfilt", "lfilter"], "Filtering mode not recognized"
+    if mode == "filtfilt":
+        filter_func = filtfilt
+    elif mode == "lfilter":
+        filter_func = lfilter
 
     b, a = butter(order, band, btype=filter_type)
 
     if np.all(np.abs(np.roots(a)) < 1) and np.all(np.abs(np.roots(a)) < 1):
         # print('Filtering signals with ', filter_type, ' filter at ', freq, '...')
         if len(signals.shape) == 2:
-            signals_filt = filtfilt(b, a, signals, axis=0)
+            signals_filt = filter_func(b, a, signals, axis=0)
         elif len(signals.shape) == 1:
-            signals_filt = filtfilt(b, a, signals)
+            signals_filt = filter_func(b, a, signals)
         return signals_filt
     else:
         raise ValueError("Filter is not stable")

@@ -89,6 +89,7 @@ recordings:
   filter: True # if True it filters the recordings
   filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
   filter_order: 3 # filter order
+  filter_mode: filtfilt # filter mode (filtfilt, lfilter)
 
   drifting: False # if True templates are drifted
   # these params are shared across multiple drift signals
@@ -96,17 +97,17 @@ recordings:
   preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
   angle_tol: 15  # tolerance for direction in degrees
   # these params specify one drift signal
-  drift_mode_speed: 'slow' # drifting mode can be ['slow', 'fast']
-  drift_mode_probe: 'rigid' # ['rigid', 'non-rigid']
+  drift_mode_speed: slow # drifting mode can be ['slow', 'fast']
+  drift_mode_probe: rigid # ['rigid', 'non-rigid']
   drift_fs: 100 # sampling frequency of drift signal in Hz
-  non_rigid_gradient_mode: 'linear' # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
+  non_rigid_gradient_mode: linear # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
   non_rigid_linear_min_factor: 0.5
   non_rigid_linear_direction: 1
   non_rigid_step_depth_boundary: null
   non_rigid_step_factors: null
   slow_drift_velocity: 5  # drift velocity in um/min.
   slow_drift_amplitude: null  # Amplitude of drifts in um. If None, the maximum available value based on the drifting templates is used.
-  slow_drift_waveform: 'triangluar'  # 'triangluar' or 'sine'
+  slow_drift_waveform: triangluar  # 'triangluar' or 'sine'
   fast_drift_period: 10  # period between fast drift events
   fast_drift_max_jump: 20 # maximum 'jump' in um for fast drifts
   fast_drift_min_jump: 5 # minimum 'jump' in um for fast drifts

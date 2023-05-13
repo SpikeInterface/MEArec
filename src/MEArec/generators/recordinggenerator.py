@@ -396,7 +396,11 @@ class RecordingGenerator:
 
         if "filter_order" not in rec_params.keys():
             params["recordings"]["filter_order"] = 3
-        order = params["recordings"]["filter_order"]
+        filter_order = params["recordings"]["filter_order"]
+
+        if "filter_mode" not in rec_params.keys():
+            params["recordings"]["filter_mode"] = "filtfilt"
+        filter_mode = params["recordings"]["filter_mode"]
 
         if "modulation" not in rec_params.keys():
             params["recordings"]["modulation"] = "electrode"
@@ -1415,7 +1419,8 @@ class RecordingGenerator:
                 recordings,
                 pad_samples_filt,
                 cutoff,
-                order,
+                filter_order,
+                filter_mode,
                 dtype,
             )
             assignment_dict = {
