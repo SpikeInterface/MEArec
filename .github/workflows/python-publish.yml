@@ -23,7 +23,6 @@ jobs:
           conda --version
       - name: Install dependencies
         run: |
-          conda install mpi mpi4py
           pip install .[templates,test]
           pip install setuptools wheel twine
       - name: Test with pytest and build coverage report
