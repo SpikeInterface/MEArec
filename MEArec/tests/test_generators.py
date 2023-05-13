@@ -477,6 +477,45 @@ class TestGenerators(unittest.TestCase):
         assert np.isclose(np.std(recgen_noise.recordings), noise_level, atol=1)
         del recgen_noise
 
+
+    def test_gen_recordings_filters(self):
+        print('Test recording generation - filters')
+        ne = 1
+        ni = 1
+        num_chan = self.num_chan
+        n_neurons = ne + ni
+
+        rec_params = mr.get_default_recordings_params()
+
+        filter_modes = ['filtfilt', 'lfilter']
+        filter_orders = [1, 3, 5]
+        filter_cutoffs = [300, 500, [300, 3000], [300, 6000]]
+        chunk_rec = [0, 2]
+
+        rec_params['spiketrains']['n_exc'] = ne
+        rec_params['spiketrains']['n_inh'] = ni
+        rec_params['spiketrains']['duration'] = 5
+        rec_params['recordings']['filter'] = True
+        rec_params['templates']['min_dist'] = 1
+
+        for mode in filter_modes:
+            for order in filter_orders:
+                for cutoff in filter_cutoffs:
+                        for ch in chunk_rec:
+                            print(f'Filter: mode {mode} order {order} cutoff {cutoff} chunk dur {ch}')
+                            rec_params['recordings']['chunk_duration'] = ch
+                            rec_params['recordings']['filter_mode'] = mode
+                            rec_params['recordings']['filter_order'] = order
+                            rec_params['recordings']['filter_cutoff'] = cutoff
+
+                            recgen_filt = mr.gen_recordings(params=rec_params, tempgen=self.tempgen,
+                                                            verbose=False)
+                            assert recgen_filt.recordings.shape[1] == num_chan
+                            assert len(recgen_filt.spiketrains) == n_neurons
+                            assert recgen_filt.channel_positions.shape == (num_chan, 3)
+                            assert recgen_filt.spike_traces.shape[1] == n_neurons
+                            del recgen_filt
+
     
     def test_gen_recordings_drift(self):
         print('Test recording generation - drift')
@@ -960,5 +999,5 @@ if __name__ == '__main__':
     test = TestGenerators()
     test.setUpClass()
     # TestGenerators().test_gen_recordings_drift()
-    test.test_default_params()
+    test.test_gen_recordings_filters()
     # test.test_simulate_cell()
