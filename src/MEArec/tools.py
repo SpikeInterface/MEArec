@@ -16,7 +16,7 @@ from lazy_ops import DatasetView
 from packaging.version import parse
 from quantities import Quantity
 
-from .version import version
+from . import __version__ as mearec_version
 
 if parse(yaml.__version__) >= parse("5.0.0"):
     use_loader = True
@@ -49,24 +49,13 @@ def get_default_config(print_version=False):
     this_dir = Path(this_dir)
     home = Path(os.path.expanduser("~"))
     mearec_home = home / ".config" / "mearec"
-    version_folder = mearec_home / version
+    version_folder = mearec_home / mearec_version
 
     if print_version:
-        print(f"MEArec version: {version}\n")
+        print(f"MEArec version: {mearec_version}\n")
 
     if not mearec_home.is_dir():
         mearec_home.mkdir(exist_ok=True, parents=True)
-    # ~ else:
-    # ~ versions = [ver.name for ver in mearec_home.iterdir() if ver.is_dir() and len(ver.name.split('.')) > 1]
-    # ~ if len(versions) > 0:
-    # ~ if np.all(np.array(versions) != version):
-    # ~ # find most recent version
-    # ~ old_version = np.sort(versions)[::-1][0]
-    # ~ recent_version = mearec_home / old_version
-    # ~ print(f"Copying settings from version {old_version} to new version {version}\n")
-    # ~ shutil.copytree(recent_version, version_folder)
-    # ~ else:
-    # ~ version_folder.mkdir(exist_ok=True, parents=True)
 
     if not (version_folder / "mearec.conf").is_file():
         version_folder.mkdir(exist_ok=True, parents=True)
@@ -582,7 +571,7 @@ def save_recording_generator(recgen, filename=None, verbose=False):
         os.makedirs(str(filename.parent))
     assert filename.suffix in [".h5", ".hdf5"], "Provide an .h5 or .hdf5 file name"
     with h5py.File(filename, "w") as f:
-        f.attrs["mearec_version"] = version
+        f.attrs["mearec_version"] = mearec_version
         f.attrs["date"] = datetime.now().strftime("%y-%m-%d %H:%M:%S")
         save_recording_to_file(recgen, f)
     if verbose:
@@ -828,9 +817,9 @@ def convert_recording_to_new_version(filename, new_filename=None):
         shutil.copy(filename, new_filename)
 
     with h5py.File(filename, "r+") as f:
-        mearec_version = f.attrs.get("mearec_version", "1.4.0")
+        mearec_version_in_file = f.attrs.get("mearec_version", "1.4.0")
 
-        if parse(mearec_version) >= parse("1.5.0"):
+        if parse(mearec_version_in_file) >= parse("1.5.0"):
             print("The provided mearec file is already up to date")
         else:
             # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file
@@ -844,13 +833,13 @@ def convert_recording_to_new_version(filename, new_filename=None):
                     del fnew["spike_traces"]
                     fnew.create_dataset("recordings", data=recordings.T)
                     fnew.create_dataset("spike_traces", data=spike_traces.T)
-                    fnew.attrs["mearec_version"] = version
+                    fnew.attrs["mearec_version"] = mearec_version
             else:
                 del f["recordings"]
                 del f["spike_traces"]
                 f.create_dataset("recordings", data=recordings.T)
                 f.create_dataset("spike_traces", data=spike_traces.T)
-                f.attrs["mearec_version"] = version
+                f.attrs["mearec_version"] = mearec_version
 
 
 ### TEMPLATES INFO ###

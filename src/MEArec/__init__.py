@@ -1,3 +1,7 @@
+import importlib.metadata
+
+__version__ = importlib.metadata.version("MEArec")
+
 from MEArec.generation_tools import (gen_recordings, gen_spiketrains,
                                      gen_templates)
 from MEArec.generators import (RecordingGenerator, SpikeTrainGenerator,
@@ -19,5 +23,3 @@ from MEArec.tools import (available_probes, convert_recording_to_new_version,
                           plot_waveforms, safe_yaml_load, save_dict_to_hdf5,
                           save_recording_generator, save_recording_to_file,
                           save_template_generator)
-
-from .version import version as __version__
