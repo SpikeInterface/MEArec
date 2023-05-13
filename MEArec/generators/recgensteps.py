@@ -314,7 +314,7 @@ chunk_distance_correlated_noise = FuncThenAddChunk(chunk_distance_correlated_noi
 
 
 def chunk_apply_filter_(ch, i_start, i_stop, fs, lsb,
-                        recordings, pad_samples, cutoff, order, dtype):
+                        recordings, pad_samples, cutoff, order, mode, dtype):
     n_samples = recordings.shape[0]
 
     # compute padding idxs
@@ -337,13 +337,14 @@ def chunk_apply_filter_(ch, i_start, i_stop, fs, lsb,
 
     if cutoff.size == 1:
         filtered_chunk = filter_analog_signals(recordings[i_start_pad:i_stop_pad], freq=cutoff, fs=fs,
-                                               filter_type='highpass', order=order)
+                                               filter_type='highpass', mode=mode, order=order)
     elif cutoff.size == 2:
         if fs / 2. < cutoff[1]:
             filtered_chunk = filter_analog_signals(recordings[i_start_pad:i_stop_pad], freq=cutoff[0], fs=fs,
-                                                   filter_type='highpass', order=order)
+                                                   filter_type='highpass', mode=mode, order=order)
         else:
-            filtered_chunk = filter_analog_signals(recordings[i_start_pad:i_stop_pad], freq=cutoff, fs=fs)
+            filtered_chunk = filter_analog_signals(recordings[i_start_pad:i_stop_pad], freq=cutoff, fs=fs,
+                                                   filter_type='bandpass', mode=mode, order=order)
 
     filtered_chunk = filtered_chunk
     if pad_samples > 0:
