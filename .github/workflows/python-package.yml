@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda install mpi mpi4py
-          pip install .[template,test]
+          pip install .[templates,test]
       - name: pip list
         run: |
           pip list
