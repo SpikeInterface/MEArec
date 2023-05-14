@@ -66,7 +66,7 @@ def compile_all_mechanisms(cell_folder, verbose=False):
     """Attempt to set up a folder with all unique mechanism *.mod files and
         compile them all. assumes all cell models are in a folder 'cell_models'
 
-    Parameters:
+    Parameters
     -----------
     cell_folder : str
         Path to cell folder
@@ -100,8 +100,8 @@ def compile_all_mechanisms(cell_folder, verbose=False):
 def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=0):
     """Function to load cell models
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     cell_folder : string
         Path to folder with the BBP cell model
     end_T : float
@@ -111,8 +111,8 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=0):
     start_T: float
         Simulation start time (recording starts at 0 ms)
 
-    Returns:
-    --------
+    Returns
+    -------
     cell : object
         LFPy cell object
     """
@@ -183,8 +183,8 @@ def return_bbp_cell(cell_folder, end_T, dt, start_T, verbose=0):
 def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
     """Function to load cell models
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     cell_name : string
         Name of the cell type.
     cell_folder : string
@@ -192,8 +192,8 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
     pt3d : bool
         If True detailed 3d morphology is used
 
-    Returns:
-    --------
+    Returns
+    -------
     cell : object
         LFPy cell object
     """
@@ -215,8 +215,8 @@ def return_bbp_cell_morphology(cell_name, cell_folder, pt3d=False):
 def find_spike_idxs(v, thresh=-30, find_max=30):
     """Find spike indices
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     v: array_like
         Membrane potential
     thresh: float (optional, default = -30)
@@ -224,8 +224,8 @@ def find_spike_idxs(v, thresh=-30, find_max=30):
     find_max: int
         Number of sample to find spike maximum after detection crossing
 
-    Returns:
-    --------
+    Returns
+    -------
     spikes : array_like
         Indices of spike peaks in the positive direction, i.e. spikes
     """
@@ -240,8 +240,8 @@ def find_spike_idxs(v, thresh=-30, find_max=30):
 def set_input(weight, dt, T, cell, delay, stim_length):
     """Set current input synapse in soma
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     weight : float
         Strength of input current [nA]
     dt : float
@@ -255,8 +255,8 @@ def set_input(weight, dt, T, cell, delay, stim_length):
     stim_length: float
         Duration of injected current [ms]
 
-    Returns:
-    --------
+    Returns
+    -------
     noiseVec :  NEURON vector
         NEURON vector of input current
     cell : object
@@ -291,8 +291,8 @@ def run_cell_model(
     spikes (target_spikes[0] < num_spikes <= target_spikes[1]
     where target_spikes=[10,30] by default)
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     cell_model_folder : string
         Path to folder where cell model is saved.
     verbose : int
@@ -307,8 +307,8 @@ def run_cell_model(
     **kwargs : keyword arguments
         Kwargs must include: 'sim_time', 'dt', 'delay', 'weights', 'target_spikes', 'cut_out', 'seed'
 
-    Returns:
-    --------
+    Returns
+    -------
     cell : object
         LFPy cell object (if save is False)
     v : np.array
@@ -472,8 +472,8 @@ def calc_extracellular(
     Loads data from previous cell simulation, and use results to generate
     arbitrary number of spikes above a certain noise level.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     i: int
         Index of cell model
     cell_model_folder : string
@@ -502,9 +502,6 @@ def calc_extracellular(
     **kwargs: keyword arguments
         Template generation parameters (use mr.get_default_template_parameters() to retrieve the arguments)
 
-    Returns:
-    --------
-        nothing, but saves the result
     """
     LFPy, neuron = import_LFPy_neuron()
 
@@ -994,11 +991,11 @@ def skip_duplicate(pos, saved_positions, drifting, verbose=False):
 def get_physrot_specs(cell_name, model):
     """Return physrot specifications for cell types
 
-    Parameters:
+    Parameters
     -----------
     cell_name : string
         The name of the cell.
-    Returns:
+    Returns
     --------
     polarlim : array_like
         lower and upper bound for the polar angle
@@ -1055,8 +1052,8 @@ def return_extracellular_spike(
     """
     Calculate extracellular spike on MEA at random position relative to cell
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     cell: LFPy.Cell
         cell object from LFPy
     cell_name: string
@@ -1075,8 +1072,8 @@ def return_extracellular_spike(
     max_iter: int
         Max number of iterations to find a position that hasn't been used yet
 
-    Returns:
-    --------
+    Returns
+    -------
     Extracellular spike for each MEA contact site
     """
 
@@ -1088,7 +1085,7 @@ def return_extracellular_spike(
         R : matrix
             3x3 rotation matrix
 
-        Returns:
+        Returns
         --------
         R_z : float
         R_y : float
@@ -1104,7 +1101,7 @@ def return_extracellular_spike(
         """Generate uniformly distributed random rotation matrices
         see: 'Fast Random Rotation Matrices' by Arvo (1992)
 
-        Returns:
+        Returns
         --------
         R : 3x3 matrix
             random rotation matrix
@@ -1123,7 +1120,7 @@ def return_extracellular_spike(
         """Check whether a matrix rotates the vector 'pre' into a region
             defined by 'polarlim' around the vector 'post'
 
-        Parameters:
+        Parameters
         -----------
         matrix : matrix
             3x3 rotation matrix
@@ -1137,7 +1134,7 @@ def return_extracellular_spike(
             i.e. the angle between rotated pre vector and post vector has to ly
             within these polar limits.
 
-        Returns:
+        Returns
         --------
         test : bool
             True if the vector np.dot(matrix,pre) lies inside the specified region.
@@ -1284,11 +1281,11 @@ def return_extracellular_spike(
 def str2bool(v):
     """Transform string to bool
 
-    Parameters:
+    Parameters
     -----------
     v : str
 
-    Returns:
+    Returns
     --------
     transformed_v, bool
         If v is any of ("yes", "true", "t", "1") (case insensitive)

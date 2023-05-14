@@ -23,3 +23,5 @@ from MEArec.tools import (available_probes, convert_recording_to_new_version,
                           plot_waveforms, safe_yaml_load, save_dict_to_hdf5,
                           save_recording_generator, save_recording_to_file,
                           save_template_generator)
+
+from MEArec.drift_tools import generate_drift_dict_from_params

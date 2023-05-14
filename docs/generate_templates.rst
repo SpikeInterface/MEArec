@@ -133,15 +133,6 @@ Drifting parameters summary
     drift_z_lim: [20, 80]  # drift limits in the z-direction
 
 
-Running template generation using CLI
--------------------------------------
-
-Templates can be generated using the CLI with the command: :code:`mearec gen-templates`.
-Run :code:`mearec gen-templates --help` to display the list of available arguments, that can be used to overwrite the
-default parameters or to point to another parameter .yaml file.
-
-The output templates are saved in .h5 format to the default templates output folder.
-
 Running template generation using Python
 ----------------------------------------
 
@@ -165,6 +156,14 @@ If :code:`verbose` is True, the output shows the progress of the template simula
 
 The :code:`gen_templates()` function returns a gen_templates :code:`TemplateGenerator` object (:code:`tempgen`).
 
+Running template generation using CLI (not recommended)
+-------------------------------------------------------
+
+Templates can be generated using the CLI with the command: :code:`mearec gen-templates`.
+Run :code:`mearec gen-templates --help` to display the list of available arguments, that can be used to overwrite the
+default parameters or to point to another parameter .yaml file.
+
+The output templates are saved in .h5 format to the default templates output folder.
 
 The TemplateGenerator object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

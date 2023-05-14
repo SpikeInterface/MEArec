@@ -20,13 +20,15 @@ and plotting functions.
 
    overview
    installation
-   cli
    generate_templates
    generate_recordings
+   cli
    usage
    api
 
-For further details, please refer to the `MEArec preprint <https://www.biorxiv.org/content/10.1101/691642v1>`_
+For further details, please refer to the article:
+
+`MEArec: A Fast and Customizable Testbench Simulator for Ground-truth Extracellular Spiking Activity <https://doi.org/10.1007/s12021-020-09467-7>`_
 
 Contact
 =======

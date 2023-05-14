@@ -97,8 +97,7 @@ Templates are selected so that they match the excitatory-inhibitory spike trains
 provided) and they follow the following rules:
 
 * neuron locations cannot be closer than the :code:`min_dist` parameter (default 25 :math:`\mu m`)
-* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`) and at most :code:`max_amp` 
-(default 500 :math:`\mu V`)
+* templates must have an amplitude of at least :code:`min_amp` (default 50 :math:`\mu V`) and at most :code:`max_amp` (default 500 :math:`\mu V`)
 * if specified, neuron locations are selected within the :code:`xlim`, :code:`ylim`, and :code:`zlim` limits
 
 
@@ -263,12 +262,14 @@ When drifting templates are generated (:ref:`drift-templates`), drifting recordi
 :code:`drifting` is set to :code:`True`. The :code:`preferred_dir` parameter indicates the 3D vector with the
 preferred direction of drift ([0,0,1], default, is upwards in the z-direction) and the :code:`angle_tol` (default is 15
 degrees) corresponds to the tolerance in this direction.
-There are three types of :code:`drift_mode`: slow, fast, and slow+fast.
+There are three types of :code:`drift_mode`: slow or fast.
 The different modalities vary in terms of how the drifting template is selected for each spike during the modulated convolution.
 
 For slow drifts, a new position is calculated moving from the initial position along the drifting direction with
 a velocity of :code:`slow_drift_velocity` (default 5 :math:`\mu m`/min).
 If a boundary position is reached (initial or final positions), the drift direction is reversed.
+The shape of slow drift can be controlled with the :code:`slow_drift_shape` parameter (default is a :code:`triangluar` shape), 
+while the amplitude in :math:`\mu m` with the :code:`slow_drift_amplitude`.
 
 For fast drifts, the user can set the frequency at which fast drift events occur (every :code:`fast_drift_period` s, default 20 s).
 When a fast drift event happens, a new template position is selected randomly among the drifting templates for each
@@ -276,20 +277,41 @@ drifting neuron, so that the amplitude of the new template on the channel in whi
 peak is within :code:`fast_drift_min_jump` and :code:`fast_drift_min_jump` (defaults 5-20).
 This is to ensure that fast drifts are not too abrupt.
 
-Finally, when the slow+fast mode is selected, the two previously described modes are combined.
+Drift can be rigid (all neurons drift coherently) or non-rigid (each neuron drifts differently). The :code:`drift_mode_probe` parameter 
+controls this and in case of non-rigid drift, the a lineare gradient depending on the neurons' depth is applied.
+By default, the neurons at the bottom of the probe will drift at 50% speed with respect to the neurons at the top of the probe.
+Other parameters can be controlled. See the :py:func:`~MEArec.drift_tools.generate_drift_dict_from_params` function for more details.
+
+Using the drift parameters, only one drift signal can be generated. However, it is possible to generate multiple drift signals 
+by externally creating a list of drift signals that will be applied simultaneously. 
+Check out the :code:`notebooks/generate_templates_and_recorindgs_drift.ipynb` for more details.
+
+
 
 .. code-block:: bash
 
       drifting: False # if True templates are drifted
-      drift_mode: 'slow' # drifting mode can be ['slow', 'fast', 'slow+fast']
+      # these params are shared across multiple drift signals
       n_drifting: null # number of drifting units
       preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
       angle_tol: 15  # tolerance for direction in degrees
+      # these params specify one drift signal
+      drift_mode_speed: slow # drifting mode can be ['slow', 'fast']
+      drift_mode_probe: rigid # ['rigid', 'non-rigid']
+      drift_fs: 100 # sampling frequency of drift signal in Hz
+      non_rigid_gradient_mode: linear # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
+      non_rigid_linear_min_factor: 0.5 # minimum factor of velocity for the neurons
+      non_rigid_linear_direction: 1 # the non rigid direction: if 1, non rigid drift is from bottom to top, if -1 is the opposite
+      non_rigid_step_depth_boundary: null # if not None, the depth in um at which the non rigid drift changes direction
+      non_rigid_step_factors: null # if not None, the factors of velocity for the non rigid drift
       slow_drift_velocity: 5  # drift velocity in um/min.
+      slow_drift_amplitude: null  # Amplitude of drifts in um. If None, the maximum available value based on the drifting templates is used.
+      slow_drift_waveform: triangluar  # 'triangluar' or 'sine'
       fast_drift_period: 10  # period between fast drift events
       fast_drift_max_jump: 20 # maximum 'jump' in um for fast drifts
       fast_drift_min_jump: 5 # minimum 'jump' in um for fast drifts
-      t_start_drift: 0  # time in s from which drifting starts
+      t_start_drift: 0  # time in s when drifting starts
+      t_end_drift: null  # time in s when drifting stops
 
 Random seeds
 ^^^^^^^^^^^^
@@ -307,9 +329,32 @@ and saved, to ensure full reproducibility of the simulations.
       convolution: null # random seed for jitter selection in convolution
       noise: null # random seed for noise
 
+Running recording generation using Python
+-----------------------------------------
 
-Running recording generation using CLI
---------------------------------------
+Recordings can also be generated using a Python script, or a jupyter notebook.
+
+
+.. code-block:: python
+
+    import MEArec as mr
+    recgen = mr.gen_recordings(params=None, templates=None, tempgen=None, n_jobs=None, verbose=False)
+
+
+The :code:`params` argument can be the path to a yaml file or a dictionary containing the parameters (if :code:`None`` default 
+parameters are used). On of the :code:`templates` or :code:`tempgen` parameters must be indicated, the
+former pointing to a generated templates file, the latter instead is a :code:`TemplateGenerator` object.
+The :code:`n_jobs` argument indicates how many jobs will be used in parallel (for parallel processing, more than 1 chunks
+are required).
+If :code:`verbose=True`, the output shows the progress of the template simulation. :code:`verbose=True` corresponds to
+:code:`verbose=1`. For a higher level of verbosity also :code:`verbose=2` can be used.
+
+
+The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGenerator` object (:code:`recgen`).
+
+
+Running recording generation using CLI (not recommended)
+--------------------------------------------------------
 
 Recordings can be generated using the CLI with the command: :code:`mearec gen-recordings`.
 Run :code:`mearec gen-recordings --help` to display the list of available arguments, that can be used to overwrite the
@@ -318,27 +363,6 @@ default parameters or to point to another parameter .yaml file. In order to run 
 
 The output recordings are saved in .h5 format to the default recordings output folder.
 
-Running recording generation using Python
------------------------------------------
-
-Recordings can also be generated using a Python script, or a jupyter notebook.
-
-.. code-block:: python
-
-    import MEArec as mr
-    recgen = mr.gen_recordings(params=None, templates=None, tempgen=None, n_jobs=None, verbose=False)
-
-The :code:`params` argument can be the path to a .yaml file or a dictionary containing the parameters
-(if None default parameters are used). On of the :code:`templates` or :code:`tempgen` parameters must be indicated, the
-former pointing to a generated templates file, the latter instead is a :code:`TemplateGenerator` object.
-The :code:`n_jobs` argument indicates how many jobs will be used in parallel (for parallel processing, more than 1 chunks
-are required).
-If :code:`verbose` is True, the output shows the progress of the template simulation. :code:`verbose`=True corresponds to
-:code:`verbose`=1. For a higher level of verbosity also :code:`verbose`=2 can be used.
-
-
-The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGenerator` object (:code:`recgen`).
-
 The RecordingGenerator object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -346,8 +370,7 @@ The :code:`RecordingGenerator` class contains several fields:
 
 * recordings: (n_electrodes, n_samples) recordings
 * spiketrains: list of (n_spiketrains) :code:`neo.Spiketrain` objects
-* templates: (n_spiketrains, n_jitters, n_electrodes, n_templates samples) templates --
-(n_spiketrains, n_drifting_steps, n_jitters, n_electrodes, n_templates samples) for drifting recordings
+* templates: (n_spiketrains, n_jitters, n_electrodes, n_templates samples) templates -- (n_spiketrains, n_drifting_steps, n_jitters, n_electrodes, n_templates samples) for drifting recordings
 * templates_celltypes: (n_spiketrains) templates cell type
 * templates_locations: (n_spiketrains, 3) templates soma locations
 * templates_rotations: (n_spiketrains, 3) 3d model rotations
