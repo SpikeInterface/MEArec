@@ -17,18 +17,14 @@ jobs:
       - uses: actions/checkout@v2
       - uses: s-weigand/setup-conda@v1
         with:
-          python-version: 3.8
+          python-version: "3.9"
       - name: Which python
         run: |
           conda --version
       - name: Install dependencies
         run: |
-          conda install mpi mpi4py
-          pip install neuron
-          pip install LFPy
-          pip install .
+          pip install .[templates,test]
           pip install setuptools wheel twine
-          pip install pytest
       - name: Test with pytest and build coverage report
         run: |
           pytest -s

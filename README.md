@@ -15,10 +15,11 @@ The MEArec package can be installed with:
 ```
 pip install MEArec
 ```
-or, from the cloned folder:
+
+To install from sources, run this from the cloned folder:
 
 ```
-python setup.py develop
+pip install -e .
 ```
 
 ## Documentation

@@ -1,0 +1,115 @@
+# Default parameters for recording generation
+
+spiketrains:
+  # Default parameters for spike train generation (spiketrain_gen.py)
+
+  # spike train generation parameters
+
+  # rates: [3,3,5] # individual spike trains rates
+  # types: ['E', 'E', 'I'] # individual spike trains class (exc-inh)
+  # alternative to rates - excitatory and inhibitory settings
+  n_exc: 7 # number of excitatory cells
+  n_inh: 3 # number of inhibitory cells
+  f_exc: 5 # average firing rate of excitatory cells in Hz
+  f_inh: 15 # average firing rate of inhibitory cells in Hz
+  st_exc: 1 # firing rate standard deviation of excitatory cells in Hz
+  st_inh: 3 # firing rate standard deviation of inhibitory cells in Hz
+  min_rate: 0.5 # minimum firing rate in Hz
+  ref_per: 2 # refractory period in ms
+  process: poisson # process for spike train simulation (poisson-gamma)
+  gamma_shape: 2 # gamma shape (for gamma process)
+  t_start: 0 # start time in s
+  duration: 10 # duration in s
+
+cell_types:
+  # excitatory and inhibitory cell names (overwrite if using custom models)
+  excitatory: ['PC', 'SS', 'SP']
+  inhibitory: ['AC', 'BP', 'BC', 'BTC', 'ChC', 'DBC', 'MC', 'NGC']
+
+seeds:
+  spiketrains: null # random seed for spiketrain generation
+  templates: null # random seed for template selection
+  convolution: null # random seed for jitter selection in convolution
+  noise: null # random seed for noise
+
+templates:
+  # recording generation parameters
+  min_dist: 25 # minimum distance between neurons
+  min_amp: 50 # minimum spike amplitude in uV
+  max_amp: 300 # maximum spike amplitude in uV
+  n_overlap_pairs: null # number of spatially overlapping templates
+  xlim: null # limits for neuron depths (x-coord) in um [min, max]
+  ylim: null # limits for neuron depths (y-coord) in um [min, max]
+  zlim: null # limits for neuron depths (z-coord) in um [min, max]
+  overlap_threshold: 0.9 # threshold to consider two templates spatially overlapping
+  # (e.g 0.9 -> 90% of template B on largest electrode of template A)
+  n_jitters: 10 # number of temporal jittered copies for each eap
+  upsample: 8 # upsampling factor to extract jittered copies
+  pad_len: [3, 3] # padding of templates in ms
+  smooth_percent: 0.5 # percent of pad_len used to smooth with sigmoid. If 0, no extra smoothing is performed
+  smooth_strength: 1 # exponent of sigmoid function for smoothing 
+
+recordings:
+  fs: null # sampling frequency in Hz (if null it is computed form the templates)
+  dtype: float32 # dtype of generated recordings
+  adc_bit_depth: null # if dtype is int, the number of bit of the ADC
+  lsb: null # if dtype is int, the int16 lsb. lsb and adc_bit_depth will determine the signal range (if gain is null)
+  gain: null # the gain to convert the signals to uV. If given, the adc_bit_depth is ignored. 
+  overlap: False # if True, temporal and spatial overlap are computed for each spike (it may be time consuming)
+  extract_waveforms: False # if True, waveforms are extracted from recordings
+  sync_rate: null # added synchrony rate for spatially overlapping templates
+  sync_jitt: 1 # jitter in ms for added spikes
+  chunk_duration: 10 # chunk duration for convolution, noise, and filter
+
+  modulation: electrode # type of spike modulation [none (no modulation) |
+    # template (each spike instance is modulated with the same value on each electrode) |
+    # electrode (each electrode is modulated separately)]
+  sdrand:  0.05 # standard deviation of gaussian modulation
+  bursting: False # if True, spikes are modulated in amplitude depending on the isi and in shape (if shape_mod is True)
+  bursting_units: null # if not None, list to indicate which units should be bursting
+  exp_decay: 0.2 # with bursting modulation experimental decay in amplitude between consecutive spikes
+  n_burst_spikes: 10 # max number of 'bursting' consecutive spikes
+  max_burst_duration: 100 # duration in ms of maximum burst modulation
+  shape_mod: False # if True waveforms are modulated in shape with a low pass filter depending on the isi
+  shape_stretch: 30.  # parameter that controls the amount of shape modulation (higher values -> higher stretch)
+  n_bursting: null  # number of bursting units
+
+  noise_level: 10 # noise standard deviation in uV
+  noise_mode: uncorrelated # [uncorrelated | distance-correlated | far-neurons]
+  noise_color: False # if True noise is colored resembling experimental noise
+  noise_half_distance: 30 # (distance-correlated noise) distance between electrodes in um for which correlation is 0.5
+  far_neurons_n: 300 # number of far noisy neurons to be simulated
+  far_neurons_max_amp: 10 # maximum amplitude of far neurons
+  far_neurons_noise_floor: 0.5 # percent of random noise
+  far_neurons_exc_inh_ratio: 0.8 # excitatory / inhibitory noisy neurons ratio
+  color_peak: 300 # (color) peak / curoff frequency of resonating filter
+  color_q: 2 # (color) quality factor of resonating filter
+  color_noise_floor: 1 # (color) additional noise floor
+
+  filter: True # if True it filters the recordings
+  filter_cutoff: [300, 6000] # filter cutoff frequencies in Hz
+  filter_order: 3 # filter order
+  filter_mode: filtfilt # filter mode (filtfilt, lfilter)
+
+  drifting: False # if True templates are drifted
+  # these params are shared across multiple drift signals
+  n_drifting: null # number of drifting units
+  preferred_dir: [0, 0, 1]  # preferred drifting direction ([0,0,1] is positive z, direction)
+  angle_tol: 15  # tolerance for direction in degrees
+  # these params specify one drift signal
+  drift_mode_speed: slow # drifting mode can be ['slow', 'fast']
+  drift_mode_probe: rigid # ['rigid', 'non-rigid']
+  drift_fs: 100 # sampling frequency of drift signal in Hz
+  non_rigid_gradient_mode: linear # ['linear'] how the gradient on drift is applied on the prefered_dir. linear is 0->max velocity from up to bottom.
+  non_rigid_linear_min_factor: 0.5 # minimum factor of velocity for the neurons
+  non_rigid_linear_direction: 1 # the non rigid direction: if 1, non rigid drift is from bottom to top, if -1 is the opposite
+  non_rigid_step_depth_boundary: null # if not None, the depth in um at which the non rigid drift changes direction
+  non_rigid_step_factors: null # if not None, the factors of velocity for the non rigid drift
+  slow_drift_velocity: 5  # drift velocity in um/min.
+  slow_drift_amplitude: null  # Amplitude of drifts in um. If None, the maximum available value based on the drifting templates is used.
+  slow_drift_waveform: triangluar  # 'triangluar' or 'sine'
+  fast_drift_period: 10  # period between fast drift events
+  fast_drift_max_jump: 20 # maximum 'jump' in um for fast drifts
+  fast_drift_min_jump: 5 # minimum 'jump' in um for fast drifts
+  t_start_drift: 0  # time in s when drifting starts
+  t_end_drift: null  # time in s when drifting stops

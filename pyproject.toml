@@ -1,0 +1,82 @@
+[project]
+name = "MEArec"
+version = "1.9.0"
+authors = [
+  { name="Alessio Buccino", email="alessiop.buccino@gmail.com" },
+]
+description = "Python toolkit for biophysical simulation of extracellular electrophysiology recordings"
+readme = "README.md"
+requires-python = ">=3.7,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: OS Independent"
+]
+
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "click",
+    "pyyaml",
+    "h5py",
+    "joblib",
+    "scipy",
+    "elephant",
+    "lazy_ops",
+    "MEAutility"
+]
+
+[build-system]
+requires = ["setuptools>=62.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+MEArec = ["default_params/*.yaml", "cell_models/**"]
+
+
+[tool.setuptools.exclude-package-data]
+MEArec = ["**/tests/test_*"]
+
+[project.scripts]
+mearec= "MEArec.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["MEArec*"]
+namespaces = false
+exclude = ["MEArec.*.tests"]
+
+[tool.black]
+line-length = 120
+
+[project.urls]
+homepage = "https://github.com/alejoe91/MEArec"
+repository = "https://github.com/alejoe91/MEArec"
+documentation = "https://mearec.readthedocs.io/"
+
+
+[project.optional-dependencies]
+
+templates = [
+    "neuron",
+    "LFPy"
+]
+
+test = [
+    "pytest",
+    "pytest-cov"
+]
+
+
+[tool.pytest.ini_options]
+filterwarnings =[
+    'ignore:.*distutils Version classes are deprecated.*:DeprecationWarning',
+    'ignore:.*the imp module is deprecated in favour of importlib.*:DeprecationWarning',
+]

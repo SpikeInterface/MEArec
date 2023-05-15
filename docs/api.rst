@@ -3,24 +3,18 @@ API reference
 
 Module :mod:`MEArec.generators`
 -------------------------------
-.. automodule:: generators
+.. automodule:: MEArec.generators
 
-    class :class:`TemplateGenerator`
-    --------------------------------
     .. autoclass:: TemplateGenerator
         :members:
         :show-inheritance:
         :undoc-members:
 
-    class :class:`SpikeTrainGenerator`
-    ----------------------------------
     .. autoclass:: SpikeTrainGenerator
         :members:
         :show-inheritance:
         :undoc-members:
 
-    class :class:`RecordingGenerator`
-    ---------------------------------
     .. autoclass:: RecordingGenerator
         :members:
         :show-inheritance:
@@ -29,88 +23,44 @@ Module :mod:`MEArec.generators`
 
 Module :mod:`MEArec.generation_tools`
 -------------------------------------
-.. automodule:: generation_tools
+.. automodule:: MEArec.generation_tools
 
-    function :class:`gen_templates`
-    -----------------------------------
     .. autofunction:: gen_templates
-
-
-    function :class:`gen_spiketrains`
-    -----------------------------------
     .. autofunction:: gen_spiketrains
-
-
-    function :class:`gen_recordings`
-    -----------------------------------
     .. autofunction:: gen_recordings
 
 
 Module :mod:`MEArec.tools`
 --------------------------
-.. automodule:: tools
+.. automodule:: MEArec.tools
 
-    function :class:`load_templates`
-    -----------------------------------
     .. autofunction:: load_templates
-
-
-    function :class:`load_recordings`
-    -----------------------------------
     .. autofunction:: load_recordings
-
-    function :class:`save_template_generator`
-    -----------------------------------------
     .. autofunction:: save_template_generator
-
-
-    function :class:`save_recording_generator`
-    ------------------------------------------
     .. autofunction:: save_recording_generator
-
-
-    function :class:`get_default_config`
-    ------------------------------------
     .. autofunction:: get_default_config
-
-
-    function :class:`get_default_cell_models_folder`
-    ------------------------------------------------
     .. autofunction:: get_default_cell_models_folder
-
-
-    function :class:`get_default_templates_params`
-    ----------------------------------------------
     .. autofunction:: get_default_templates_params
-
-
-    function :class:`get_default_recordings_params`
-    -----------------------------------------------
     .. autofunction:: get_default_recordings_params
-
-    function :class:`plot_rasters`
-    ------------------------------
     .. autofunction:: plot_rasters
-
-
-    function :class:`plot_templates`
-    --------------------------------
     .. autofunction:: plot_templates
-
-
-    function :class:`plot_recordings`
-    ---------------------------------
     .. autofunction:: plot_recordings
-
-
-    function :class:`plot_waveforms`
-    --------------------------------
     .. autofunction:: plot_waveforms
-
-    function :class:`plot_amplitudes`
-    ----------------------------------
     .. autofunction:: plot_amplitudes
-
-    function :class:`plot_pca_map`
-    --------------------------------
     .. autofunction:: plot_pca_map
+
+Module :mod:`MEArec.drift_tools`
+--------------------------------
+.. automodule:: MEArec.drift_tools
+
+    .. autofunction:: generate_drift_dict_from_params
+
+
+Module :mod:`MEArec.simulate_cells`
+-----------------------------------
+.. automodule:: MEArec.simulate_cells
+
+    .. autofunction:: calculate_extracellular_potential
+    .. autofunction:: return_bbp_cell
+    .. autofunction:: return_bbp_cell_morphology
+    .. autofunction:: run_cell_model

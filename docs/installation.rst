@@ -14,7 +14,7 @@ If you want to install from sources and be updated with the latest development y
 
     git clone https://github.com/alejoe91/MEArec
     cd MEArec
-    python setup.py install (or develop)
+    pip install -e .
 
 Requirements
 ------------
@@ -33,6 +33,13 @@ The following are the Python requirements, which are installed when running the 
 Additional requirements for template generatiom
 -----------------------------------------------
 
+The template generation phase requires NEURON and LFPy to be installed. These are not installed by default, but they can be easily installed with pip.
+
+.. code-block:: bash
+
+    pip install MEArec[templatess]
+
+
 Installing NEURON
 ~~~~~~~~~~~~~~~~~
 
@@ -47,13 +54,16 @@ On Windows machines, NEURON can be downloaded and installed from this `link <htt
 
 
 Installing LFPy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 LFPy is used to generate extracellular templates. It is not installed by default, but it can be easily installed with:
 
 .. code-block:: bash
 
     pip install LFPy>=2.2
+
+
+***NOTE***: LFPy version 2.2 is required. LFPy version 2.1 is not compatible with MEArec.
 
 
 Test the installation
