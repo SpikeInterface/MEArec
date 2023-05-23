@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/alejoe91/MEArec/actions/workflows/python-package.yml/badge.svg)](https://github.com/alejoe91/MEArec/actions/workflows/python-package.yml/badge.svg) [![PyPI version](https://badge.fury.io/py/MEArec.svg)](https://badge.fury.io/py/MEArec)
+[![Build Status](https://github.com/SpikeInterface/MEArec/actions/workflows/python-package.yml/badge.svg)](https://github.com/SpikeInterface/MEArec/actions/workflows/python-package.yml/badge.svg) [![PyPI version](https://badge.fury.io/py/MEArec.svg)](https://badge.fury.io/py/MEArec)
 
 # MEArec: Fast and customizable simulation of extracellular recordings on Multi-Electrode-Arrays
 
@@ -6,7 +6,7 @@ MEArec is a package for generating biophysical extracellular neural recording on
 
 To clone this repo open your terminal and run:
 
-`git clone https://github.com/alejoe91/MEArec.git`
+`git clone https://github.com/SpikeInterface/MEArec.git`
 
 ## Installation
 

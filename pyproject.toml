@@ -57,8 +57,8 @@ exclude = ["MEArec.*.tests"]
 line-length = 120
 
 [project.urls]
-homepage = "https://github.com/alejoe91/MEArec"
-repository = "https://github.com/alejoe91/MEArec"
+homepage = "https://github.com/SpikeInterface/MEArec"
+repository = "https://github.com/SpikeInterface/MEArec"
 documentation = "https://mearec.readthedocs.io/"
 
 
