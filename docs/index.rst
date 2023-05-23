@@ -25,6 +25,7 @@ and plotting functions.
    cli
    usage
    api
+   whatisnew
 
 For further details, please refer to the article:
 
