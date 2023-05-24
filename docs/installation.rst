@@ -12,7 +12,7 @@ If you want to install from sources and be updated with the latest development y
 
 .. code-block:: python
 
-    git clone https://github.com/alejoe91/MEArec
+    git clone https://github.com/SpikeInterface/MEArec
     cd MEArec
     pip install -e .
 
