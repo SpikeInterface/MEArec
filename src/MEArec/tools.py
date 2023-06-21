@@ -3757,7 +3757,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
         nsamples_up = temp_up.shape[1]
         for n in np.arange(n_jitters):
             # align waveform
-            shift = int((jitter * (rng.random() - 0.5) * upsample * fs).magnitude)
+            shift = int((jitter * (rng.rand() - 0.5) * upsample * fs).magnitude)
             if shift > 0:
                 t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], "constant")[:, :nsamples_up]
             elif shift < 0:
@@ -3775,7 +3775,7 @@ def _jitter_parallel(i, template, upsample, fs, n_jitters, jitter, drifting, ver
             nsamples_up = temp_up.shape[1]
             for n in np.arange(n_jitters):
                 # align waveform
-                shift = int((jitter * rng.randn() * upsample * fs).magnitude)
+                shift = int((jitter * rng.rand() * upsample * fs).magnitude)
                 if shift > 0:
                     t_jitt = np.pad(temp_up, [(0, 0), (np.abs(shift), 0)], "constant")[:, :nsamples_up]
                 elif shift < 0:
