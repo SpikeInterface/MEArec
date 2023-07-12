@@ -448,7 +448,7 @@ class RecordingGenerator:
             exp_decay = params["recordings"]["exp_decay"]
 
             if "n_burst_spikes" not in rec_params.keys():
-                params["recordings"]["exp_decay"] = [10] * n_bursting
+                params["recordings"]["n_burst_spikes"] = [10] * n_bursting
             else:
                 if not isinstance(rec_params["n_burst_spikes"], list):
                     assert isinstance(rec_params["n_burst_spikes"], int), "'n_burst_spikes' can be list or int"
