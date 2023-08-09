@@ -262,7 +262,7 @@ When drifting templates are generated (:ref:`drift-templates`), drifting recordi
 :code:`drifting` is set to :code:`True`. The :code:`preferred_dir` parameter indicates the 3D vector with the
 preferred direction of drift ([0,0,1], default, is upwards in the z-direction) and the :code:`angle_tol` (default is 15
 degrees) corresponds to the tolerance in this direction.
-There are *three* types of :code:`drift_mode`: slow or fast.
+There are two types of :code:`drift_mode`: slow or fast.
 The different modalities vary in terms of how the drifting template is selected for each spike during the modulated convolution.
 
 For slow drift, a new position is calculated moving from the initial position along the drifting direction with
@@ -341,7 +341,7 @@ Recordings can also be generated using a Python script, or a jupyter notebook.
     recgen = mr.gen_recordings(params=None, templates=None, tempgen=None, n_jobs=None, verbose=False)
 
 
-The :code:`params` argument can be the path to a yaml file or a dictionary containing the parameters (if :code:`None`` default 
+The :code:`params` argument can be the path to a yaml file or a dictionary containing the parameters (if :code:`None` default 
 parameters are used). One of the :code:`templates` or :code:`tempgen` parameters must be indicated, the
 former pointing to a generated templates file, the latter instead is a :code:`TemplateGenerator` object.
 The :code:`n_jobs` argument indicates how many jobs will be used in parallel (for parallel processing, more than 1 chunk
