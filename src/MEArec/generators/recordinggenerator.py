@@ -1410,9 +1410,9 @@ class RecordingGenerator:
 
             # compute pad samples as 3 times the low-cutoff period
             if cutoff.size == 1:
-                pad_samples_filt = 3 * int((1.0 / cutoff * fs).magnitude)
+                pad_samples_filt = 3 * int((1.0 / cutoff * fs).magnitude[0])
             elif cutoff.size == 2:
-                pad_samples_filt = 3 * int((1.0 / cutoff[0] * fs).magnitude)
+                pad_samples_filt = 3 * int((1.0 / cutoff[0] * fs).magnitude[0])
 
             # call the loop on chunks
             args = (

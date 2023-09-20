@@ -1107,7 +1107,7 @@ def return_extracellular_spike(
             random rotation matrix
         """
         gamma = np.random.uniform(0, 2.0 * np.pi)
-        rotation_z = np.matrix([[np.cos(gamma), -np.sin(gamma), 0], [np.sin(gamma), np.cos(gamma), 0], [0, 0, 1]])
+        rotation_z = np.array([[np.cos(gamma), -np.sin(gamma), 0], [np.sin(gamma), np.cos(gamma), 0], [0, 0, 1]])
         x = np.random.uniform(size=2)
         v = np.array(
             [np.cos(2.0 * np.pi * x[0]) * np.sqrt(x[1]), np.sin(2.0 * np.pi * x[0]) * np.sqrt(x[1]), np.sqrt(1 - x[1])]
