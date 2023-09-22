@@ -405,6 +405,9 @@ def gen_recordings(params, **kwargs):
     if kwargs["filt_cutoff"] is not None:
         if isinstance(kwargs["filt_cutoff"], tuple):
             kwargs["filt_cutoff"] = list(kwargs["filt_cutoff"])
+        # for high-pass filter, make a scalar
+        if len(kwargs["filt_cutoff"]) == 1:
+            kwargs["filt_cutoff"] = kwargs["filt_cutoff"][0]
         params_dict["recordings"]["filter_cutoff"] = kwargs["filt_cutoff"]
     if kwargs["filt_order"] is not None:
         params_dict["recordings"]["filt_order"] = kwargs["filt_order"]
