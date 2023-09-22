@@ -1,13 +1,13 @@
 Overview
 =========
 
-MEArec is a Python package designed to make simulation of extracellular recordings easy, fast, and highly controllable.
+MEArec is a Python package designed to make the simulation of extracellular recordings easy, fast, and highly controllable.
 
 The core idea of MEArec is explained in this figure.
 
 .. image:: images/overview.png
 
-The biophysical simulations of extracellular action potentials (EAP or templates) allows to generate a large number of
+The biophysical simulations of extracellular action potentials (EAPs or templates) allow for the generation of a large number of
 templates from different cell models placed at random locations and with varying rotations around the probe.
 Further details and parameters of the template generation are explained :ref:`gen-templates`.
 

@@ -8,7 +8,7 @@ MEArec is a Python package and it can be easily installed using pip:
     pip install MEArec
 
 
-If you want to install from sources and be updated with the latest development you can install with:
+If you want to install from source and be up-to-date with the latest development you can install with:
 
 .. code-block:: python
 
@@ -30,14 +30,14 @@ The following are the Python requirements, which are installed when running the 
 - h5py
 - `MEAutility <https://github.com/alejoe91/MEAutility>`_
 
-Additional requirements for template generatiom
+Additional requirements for template generation
 -----------------------------------------------
 
 The template generation phase requires NEURON and LFPy to be installed. These are not installed by default, but they can be easily installed with pip.
 
 .. code-block:: bash
 
-    pip install MEArec[templatess]
+    pip install MEArec[templates]
 
 
 Installing NEURON

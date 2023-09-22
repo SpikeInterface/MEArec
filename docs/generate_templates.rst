@@ -60,7 +60,7 @@ Rotations are optional and can be chosen with the :code:`rot` parameter among :c
 
 The :code:`physrot` rotation is default and it is designed for L5 models of the NMC portal. This kind of rotation applies
 a physiological rotation to the models: for example, pyramidal cells are rotated along the z-axis (depth) and a small
-rendom tilt is applied (15 degrees). Some interneurons, that do not show a preferred orientation, are rotated randomly
+random tilt is applied (15 degrees). Some interneurons, that do not show a preferred orientation, are rotated randomly
 in 3d.
 
 The :code:`probe` parameter allows the user to choose which neural probe has to be used. Probes are handled with the
@@ -106,17 +106,17 @@ Extracellular parameters summary
 Drifting templates
 ------------------
 
-MEArec allows to generate recordings with drifting units over time. In order to do so, drifting templates have to be
+MEArec allows for the generation of recordings with units drifting over time. In order to do so, drifting templates have to be
 generated. Note that drifting recordings can be simulated ONLY from drifting templates.
 
 To generate drifting, set the :code:`drifting` parameter to :code:`True`.
 Drifting is simulated as follows: first, an initial position is chosen so that the resulting EAP is above the detection
 threshold. Second, a final position is chosen so that i) the EAP is above threshold and ii) the drifting distance is
-between :code:`min_drift` (defualt 20 :math:`\mu m`) and :code:`max_drift` defualt 100 :math:`\mu m`. Third, the neuron is moved along
+between :code:`min_drift` (default 20 :math:`\mu m`) and :code:`max_drift` default 100 :math:`\mu m`. Third, the neuron is moved along
 the straight line connecting the initial and final position for :code:`drift_steps` points (default 50).
 The :code:`drift_x_lim`, :code:`drift_y_lim`, and :code:`drift_z_lim` can be used to decide the drift directions. For
 example, in the default case :code:`drift_x_lim` is [-10, 10], :code:`drift_y_lim` is [-10, 10], and :code:`drift_z_lim`
-is [20, 80] and the final position will be pointing upwards in the z-direction, with some small shifts in the x- abd
+is [20, 80] and the final position will be pointing upwards in the z-direction, with some small shifts in the x- and
 y-axes.
 
 Drifting parameters summary
@@ -151,7 +151,7 @@ If :code:`intraonly` is True, only
 the intracellular simulation is run. Simulations are run in parallel if :code:`parallel` is True and the temporary
 processing folder is deleted if :code:`delete_tmp` is True. If :code:`n_jobs` is None, the function will use as many jobs
 as available cell models (if run in parallel). Finally, the :code:`recompile` argument forces a recompilation of the
-models (use this if you added new cell models in the :code:`cell_models_folder`).
+models (use this if you have added new cell models in the :code:`cell_models_folder`).
 If :code:`verbose` is True, the output shows the progress of the template simulation.
 
 The :code:`gen_templates()` function returns a gen_templates :code:`TemplateGenerator` object (:code:`tempgen`).

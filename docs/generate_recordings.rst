@@ -3,7 +3,7 @@
 Generating Recordings
 =====================
 
-Recordings are generated combining templates and spike trains. The recordings parameters are divided in different
+Recordings are generated combining templates and spike trains. The recordings parameters are divided into different
 sections:
 
 * :code:`spiketrains`
@@ -13,8 +13,8 @@ sections:
 * :code:`seeds`
 
 The :code:`spiketrains` part deals with the generation of spike trains, while the :code:`templates`, 
-:code:`cell-types`, and :code:`recordings` sections specify parameters to assemble spike trains and templates and build 
-the extracellular recordings. The :code:`seeds` contains all the random seeds involved in the simulations, to ensure
+:code:`cell-types`, and :code:`recordings` sections specify parameters to assemble templates, select cell types, and build 
+the extracellular recordings, respectively. The :code:`seeds` contains all the random seeds involved in the simulations to ensure
 reproducibility.
 
 
@@ -23,19 +23,19 @@ Spike trains generation
 
 The first step is the spike train generation. The user can specify the number and type of cells in 2 ways:
 
-1. providing a list of :code:`rates` and corresponding :code:`types`: e.g. rates = [3, 3, 5], types = ['E', 'E', 'E'] 
+1. providing a list of :code:`rates` and corresponding :code:`types`: e.g. rates = [3, 3, 5], types = ['E', 'E', 'I'] 
 will generate 3 spike trains with average firing rates 3, 3, and 5 Hz and respectively excitatory, excitatory , and inhibitory type.
 2. providing :code:`n_exc`, :code:`n_inh`, :code:`f_exc`, :code:`f_inh`, :code:`st_exc`, :code:`st_min`: in this case 
 there will be generated :code:`n_exc` excitatory spike trains with average firing rate of :code:`f_exc` and firing rate standard deviation of :code:`st_exc` (same for inhibitory spike trains)
 
-The firinga rates generated with the second option have a minimum firing rate of :code:`min_rate` (default 0.5 Hz).
+The firing rates generated with the second option have a minimum firing rate of :code:`min_rate` (default 0.5 Hz).
 
 Spike trains are simulated as Poisson or Gamma processes (chosen with the parameter :code:`process`) and in the latter
 case the :code:`gamma` parameter controls the curve shape.
 
 Spikes violating the refreactory period :code:`ref_per` (default is 2 ms) are removed.
 
-:code:`t_start` (0 s by default) is the start timestamp of the recordings in second and :code:`duration` will correspond
+:code:`t_start` (0 s by default) is the start timestamp of the recordings in seconds and :code:`duration` will correspond
 to the duration of the recordings.
 
 
@@ -60,7 +60,7 @@ Spike trains parameters section summary
       st_inh: 3 # firing rate standard deviation of inhibitory cells in Hz
       min_rate: 0.5 # minimum firing rate in Hz
       ref_per: 2 # refractory period in ms
-      process: poisson # process for spike train simulation (poisson-gamma)
+      process: poisson # process for spike train simulation (poisson, gamma)
       gamma_shape: 2 # gamma shape (for gamma process)
       t_start: 0 # start time in s
       duration: 10 # duration in s
@@ -72,8 +72,8 @@ Recordings Generation
 Specifying excitatory and inhibitory cell-types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In order to select the proper cell type (excitatory - inhibitory) the :code:`cell-types` section of the parameters
-allows the user to specify which  strings to look for in the cell model name (from the NMC database) to assign it to
+In order to select the proper cell type (excitatory or inhibitory) the :code:`cell-types` section of the parameters
+allows the user to specify which strings to look for in the cell model name (from the NMC database) to assign it to
 the excitatory or inhibitory set. In this example from L5 cells, all cells contining LBC (Large Basket Cells) will be
 marked as inhibitory, and so on. 
 If you use custom cell models, you should overwrite this section as shown in 
@@ -104,8 +104,8 @@ provided) and they follow the following rules:
 Once the templates are selected and matched to the corresponding spike train, temporal jitter is added to them to
 simulate the uncertainty of the spike event within the sampling period. :code:`n_jitters` (default is 10) templates are
 created by upsampling the original templates by :code:`upsample` times (default is 8) and shifting them within a
-sampling period. During convolution, randomly a jittered version of the spike is selected.
-Finally, the templates are linearly padded on both sides (:code:`pad_len` by default pads 3 ms before and 3 after the
+sampling period. During convolution, a jittered version of the spike is randomly selected.
+Finally, the templates are linearly padded on both sides (:code:`pad_len` by default pads 3 ms before and 3 ms after the
 duration of the template) to ensure a smooth convolution.
 
 The :code:`overlap_threshold` allows to define spatially overlapping templates. For example, if set to 0.9 (by default)
@@ -139,7 +139,7 @@ Other recordings settings
 
 After the templates are selected, jittered, and padded, clean recordings are generated by convolving each template with
 its corresponding spike train.
-The :code:`fs` parameters permits to resample the recordings and if it is not provided recordings are created with the
+The :code:`fs` parameters permits resampling of the recordings and if it is not provided recordings are created with the
 same sampling frequency as the templates.
 Recordings can be split in times chunks using the :code:`chunk_duration` (20 s by default) parameter.
 Chunks can be processed in parallel.
@@ -151,7 +151,7 @@ coincident. :code:`sync_jitt` (default 1 ms) controls the jittering in time for 
 The :code:`modulation` parameter is extremely important, as it controls the variablility of the amplitude modulation:
 * if :code:`modulation` id :code:`none`, spikes are not modulated and each instance will have the same aplitude
 * if :code:`modulation` id :code:`template`, each spike event is modulated with the same amplitude for all electrodes
-* if :code:`modulation` id :code:`electrode`, each spike event is modulated with different amplitude for each electrode
+* if :code:`modulation` id :code:`electrode`, each spike event is modulated with a different amplitude for each electrode
 
 For the :code:`template` and :code:`electrode` modulations, the amplitude is modulated as a Normal distribution with
 amplitude 1 and standard deviation of :code:`sdrand` (default is 0.05).
@@ -178,14 +178,14 @@ The templates are stretched with the same value on all electrodes, and then, in 
 the eap on each electrode to match the specific :math:`mod` for the electrode. Also for an :code:`template`-type modulation,
 the eap is rescaled at the template level.
 
-Next, noise is added to to the clean recordings. Three different noise modes can be used (using the :code:`noise_mode`
+Next, noise is added to the clean recordings. Three different noise modes can be used (using the :code:`noise_mode`
 parameter):
 
 1. :code:`uncorrelated`: additive gaussian noise (default) with a standard deviation of :code:`noise_level`
 (10 :math:`\mu V` by default)
 
-2. :code:`distance-correlated`: noise is generated as a multivariate normal with covariance matrix decaying with
-distance between electrodes. The :code:`noise_half_distance` parameter is the distance for which correlation is 0.5.
+2. :code:`distance-correlated`: noise is generated as a multivariate normal with a covariance matrix decaying with
+distance between electrodes. The :code:`noise_half_distance` parameter is the distance for which the correlation is 0.5.
 
 3. :code:`far-neurons`: noise is generated by the activity of :code:`far_neurons_n` far neurons (default 300). In order to use this mode,
    it is recommended to generate templates with a small or null maximum amplitude. In fact, far neurons if their maximum amplitude
@@ -205,7 +205,7 @@ noise level is adjusted so that the overall standard deviation is equal to :code
 
 Finally, and optionally, the recordings can be filtered (if :code:`filter` is :code:`True`) with a high-pass or band-pass
 filter with :code:`filter_cutoff` frequency(ies) ([300, 6000] by default). If :code:`filter_cutoff` is a scalar, the signal is high-pass
-filtered. The order of the Butterworth filter can be adjusted with the :code:`filter_order` frequency(ies) param.
+filtered. The order of the Butterworth filter can be adjusted with the :code:`filter_order` frequency(ies) parameter.
 
 For further analysis, spike events can be annotated as "TO" (temporal overlapping) or "SO" (spatio-temporal overlapping)
 when :code:`overlap` is set to :code:`True`. The waveforms can also be extracted and loaded to the
@@ -262,23 +262,23 @@ When drifting templates are generated (:ref:`drift-templates`), drifting recordi
 :code:`drifting` is set to :code:`True`. The :code:`preferred_dir` parameter indicates the 3D vector with the
 preferred direction of drift ([0,0,1], default, is upwards in the z-direction) and the :code:`angle_tol` (default is 15
 degrees) corresponds to the tolerance in this direction.
-There are three types of :code:`drift_mode`: slow or fast.
+There are two types of :code:`drift_mode`: slow or fast.
 The different modalities vary in terms of how the drifting template is selected for each spike during the modulated convolution.
 
-For slow drifts, a new position is calculated moving from the initial position along the drifting direction with
+For slow drift, a new position is calculated moving from the initial position along the drifting direction with
 a velocity of :code:`slow_drift_velocity` (default 5 :math:`\mu m`/min).
 If a boundary position is reached (initial or final positions), the drift direction is reversed.
 The shape of slow drift can be controlled with the :code:`slow_drift_shape` parameter (default is a :code:`triangluar` shape), 
 while the amplitude in :math:`\mu m` with the :code:`slow_drift_amplitude`.
 
-For fast drifts, the user can set the frequency at which fast drift events occur (every :code:`fast_drift_period` s, default 20 s).
+For fast drift, the user can set the frequency at which fast drift events occur (every :code:`fast_drift_period` s, default 20 s).
 When a fast drift event happens, a new template position is selected randomly among the drifting templates for each
 drifting neuron, so that the amplitude of the new template on the channel in which the old template has the largest
-peak is within :code:`fast_drift_min_jump` and :code:`fast_drift_min_jump` (defaults 5-20).
-This is to ensure that fast drifts are not too abrupt.
+peak is within :code:`fast_drift_min_jump` and :code:`fast_drift_max_jump` (defaults 5 and 20, respectively).
+This is to ensure that each fast drift event is not too abrupt.
 
 Drift can be rigid (all neurons drift coherently) or non-rigid (each neuron drifts differently). The :code:`drift_mode_probe` parameter 
-controls this and in case of non-rigid drift, the a lineare gradient depending on the neurons' depth is applied.
+controls this and in the case of non-rigid drift, a linear gradient depending on the neuron's depth is applied.
 By default, the neurons at the bottom of the probe will drift at 50% speed with respect to the neurons at the top of the probe.
 Other parameters can be controlled. See the :py:func:`~MEArec.drift_tools.generate_drift_dict_from_params` function for more details.
 
@@ -341,13 +341,13 @@ Recordings can also be generated using a Python script, or a jupyter notebook.
     recgen = mr.gen_recordings(params=None, templates=None, tempgen=None, n_jobs=None, verbose=False)
 
 
-The :code:`params` argument can be the path to a yaml file or a dictionary containing the parameters (if :code:`None`` default 
-parameters are used). On of the :code:`templates` or :code:`tempgen` parameters must be indicated, the
+The :code:`params` argument can be the path to a yaml file or a dictionary containing the parameters (if :code:`None` default 
+parameters are used). One of the :code:`templates` or :code:`tempgen` parameters must be indicated, the
 former pointing to a generated templates file, the latter instead is a :code:`TemplateGenerator` object.
-The :code:`n_jobs` argument indicates how many jobs will be used in parallel (for parallel processing, more than 1 chunks
-are required).
+The :code:`n_jobs` argument indicates how many jobs will be used in parallel (for parallel processing, more than 1 chunk
+is required).
 If :code:`verbose=True`, the output shows the progress of the template simulation. :code:`verbose=True` corresponds to
-:code:`verbose=1`. For a higher level of verbosity also :code:`verbose=2` can be used.
+:code:`verbose=1`. For a higher level of verbosity :code:`verbose=2` can also be used.
 
 
 The :code:`gen_recordings()` function returns a gen_templates :code:`RecordingGenerator` object (:code:`recgen`).
