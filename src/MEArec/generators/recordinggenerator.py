@@ -218,6 +218,7 @@ class RecordingGenerator:
                 self._is_tmp_folder_local = False
             else:
                 self.tmp_folder = Path(self.tmp_folder)
+                self.tmp_folder.mkdir(exist_ok=True, parents=True)
                 self._is_tmp_folder_local = True
         else:
             self._is_tmp_folder_local = False
@@ -686,7 +687,7 @@ class RecordingGenerator:
             tmp_templates_rs = self.tmp_folder / (tmp_prefix + "templates_resample.raw")
             tmp_templates_jit = self.tmp_folder / (tmp_prefix + "templates_jitter.raw")
             self._to_remove_on_delete.extend(
-                [tmp_path_0, tmp_path_1, tmp_templates_pad, tmp_templates_rs, tmp_templates_jit]
+                [tmp_path_0, tmp_path_1, tmp_templates_pad, tmp_templates_jit]
             )
         else:
             recordings = np.zeros((n_samples, n_elec), dtype=dtype)
@@ -947,6 +948,9 @@ class RecordingGenerator:
                     pad_samples = [int((pp * fs.rescale("kHz")).magnitude) for pp in pad_len]
                     if verbose_1:
                         print("Elapsed resample time:", time.time() - t_rs)
+                    self._to_remove_on_delete.extend(
+                        [tmp_templates_rs]
+                    )
                 else:
                     templates_rs = templates_pad
 

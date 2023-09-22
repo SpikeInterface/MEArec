@@ -19,7 +19,7 @@ offset: 0 # plane offset (um) for MEA
 xlim: [10,80] # limits ( low high ) for neuron locations in the x-axis (depth)
 ylim: null # limits ( low high ) for neuron locations in the y-axis
 zlim: null # limits ( low high ) for neuron locations in the z-axis
-x_distr: 'uniform' # distribution of x locsations ('uniform' | 'beta')
+x_distr: 'uniform' # distribution of x locations ('uniform' | 'beta')
 beta_distr_params: [1.5, 5] # parameters for beta distribution of x locations (depth)
 min_amp: 30 # minimum amplitude for detection
 check_eap_shape: True # if True, EAPs with negative peaks smaller than positive peaks are discarded
