@@ -95,6 +95,6 @@ one can easily load a MEArec generated recording, run several spike sorting algo
     comp_MS.get_performance()
     comp_KS.get_performance()
 
-More information about the SpikeInterface framework visit the `docs <https://spikeinterface.readthedocs.io/en/latest/>`_
+More information about the SpikeInterface framework in the `docs <https://spikeinterface.readthedocs.io/en/latest/>`_
 and the `manuscript <https://www.biorxiv.org/content/10.1101/796599v1>`_.
 
