@@ -1412,7 +1412,7 @@ class RecordingGenerator:
             if cutoff.size == 1:
                 pad_samples_filt = 3 * int((1.0 / cutoff * fs).magnitude[0])
             elif cutoff.size == 2:
-                pad_samples_filt = 3 * int((1.0 / cutoff[0] * fs).magnitude[0])
+                pad_samples_filt = 3 * int((1.0 / cutoff[0] * fs).magnitude)
 
             # call the loop on chunks
             args = (
