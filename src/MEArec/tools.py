@@ -1803,8 +1803,8 @@ def cubic_padding(template, pad_samples):
     """
     import scipy.interpolate as interp
 
-    n_pre = pad_samples[0]
-    n_post = pad_samples[1]
+    assert len(pad_samples) == 2, "'pad_samples' should be a list/tuple/array of length 2!"
+    n_pre, n_post = pad_samples
 
     padded_template = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
     splines = np.zeros((template.shape[0], int(n_pre) + template.shape[1] + n_post))
@@ -1814,7 +1814,7 @@ def cubic_padding(template, pad_samples):
         sp_copy = deepcopy(sp)
         padded_sp = np.zeros(n_pre + len(sp) + n_post)
         padded_t = np.arange(len(padded_sp))
-        initial_offset = np.mean(sp[0])
+        initial_offset = sp[0]
         sp_copy -= initial_offset
 
         x_pre = float(n_pre)
