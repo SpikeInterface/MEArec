@@ -213,7 +213,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             print("loading cell type: ", f)
         if celltypes is not None:
             if celltype in celltypes:
-                eaps = np.load(str(eaplist[idx]))
+                eaps = np.load(str(eaplist[idx]), mmap_mode="r")
                 locs = np.load(str(loclist[idx]))
                 rots = np.load(str(rotlist[idx]))
 
@@ -230,7 +230,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             else:
                 ignored_categories.add(celltype)
         else:
-            eaps = np.load(str(eaplist[idx]))
+            eaps = np.load(str(eaplist[idx]), mmap_mode="r")
             locs = np.load(str(loclist[idx]))
             rots = np.load(str(rotlist[idx]))
 
@@ -245,10 +245,17 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             cat_list.extend([celltype] * samples_to_read)
             loaded_categories.add(celltype)
 
+    if len(eap_list) > 0:
+        all_eaps = np.lib.format.open_memmap(templates_folder / "all_eaps.npy", mode="w+", dtype=eaps[0].dtype, shape=(len(eap_list), *eap_list[0].shape))
+        for i in range(len(eap_list)):
+            all_eaps[i, ...] = eap_list[i]
+    else:
+        all_eaps = np.array([])
+
     if verbose:
         print("Done loading spike data ...")
 
-    return np.array(eap_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
+    return all_eaps, np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
 def load_templates(templates, return_h5_objects=True, verbose=False, check_suffix=True):
