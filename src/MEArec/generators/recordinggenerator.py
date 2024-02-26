@@ -993,7 +993,7 @@ class RecordingGenerator:
 
                     if verbose_1:
                         print("Smoothing templates")
-                    templates = templates * window
+                    templates *= window
 
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
