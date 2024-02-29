@@ -875,7 +875,7 @@ def calc_extracellular(
     if verbose >= 1:
         print(f"Done generating EAPs for {cell_name}")
 
-    saved_eaps = np.array(saved_eaps)
+    saved_eaps = np.array(saved_eaps, dtype=np.float32)
     saved_positions = np.array(saved_positions)
     saved_rotations = np.array(saved_rotations)
 
@@ -1268,14 +1268,14 @@ def return_extracellular_spike(
     cell.set_rotation(x=x_rot, y=y_rot, z=z_rot)
     rot = [x_rot, y_rot, z_rot]
 
-    lfp = electrodes.get_transformation_matrix() @ cell.imem
+    lfp = np.array(electrodes.get_transformation_matrix() @ cell.imem, dtype=np.float32)
 
     # Reverse rotation to bring cell back into initial rotation state
     if rotation is not None:
         rev_rot = [-r for r in rot]
         cell.set_rotation(rev_rot[0], rev_rot[1], rev_rot[2], rotation_order="zyx")
 
-    return 1000 * lfp, pos, rot, found_position
+    return 1e3 * lfp, pos, rot, found_position
 
 
 def str2bool(v):

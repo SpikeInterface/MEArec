@@ -128,9 +128,9 @@ Drifting parameters summary
     max_drift: 100  # max distance from the initial and final cell position
     min_drift: 30   # min distance from the initial and final cell position
     drift_steps: 50 # number of drift steps
-    drift_x_lim: [-10, 10] # drift limits in the x-direction
-    drift_y_lim: [-10, 10] # drift limits in the y-direction
-    drift_z_lim: [20, 80]  # drift limits in the z-direction
+    drift_xlim: [-10, 10] # drift limits in the x-direction
+    drift_ylim: [-10, 10] # drift limits in the y-direction
+    drift_zlim: [20, 80]  # drift limits in the z-direction
 
 
 Running template generation using Python
