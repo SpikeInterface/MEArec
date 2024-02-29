@@ -137,17 +137,17 @@ def generate_drift_dict_from_params(
             # triangle / sine frequency depends on the velocity
             freq = 1.0 / (2 * half_period)
 
-            times = np.arange(end_drift_index - start_drift_index) / drift_fs
+            drift_times = np.arange(end_drift_index - start_drift_index) / drift_fs
 
             if slow_drift_waveform == "triangluar":
-                triangle = np.abs(scipy.signal.sawtooth(2 * np.pi * freq * times + np.pi / 2))
+                triangle = np.abs(scipy.signal.sawtooth(2 * np.pi * freq * drift_times + np.pi / 2))
                 triangle *= slow_drift_amplitude
                 triangle -= slow_drift_amplitude / 2.0
 
                 drift_vector_um[start_drift_index:end_drift_index] = triangle
                 drift_vector_um[end_drift_index:] = triangle[-1]
             elif slow_drift_waveform == "sine":
-                sine = np.cos(2 * np.pi * freq * times + np.pi / 2)
+                sine = np.cos(2 * np.pi * freq * drift_times + np.pi / 2)
                 sine *= slow_drift_amplitude / 2.0
 
                 drift_vector_um[start_drift_index:end_drift_index] = sine
