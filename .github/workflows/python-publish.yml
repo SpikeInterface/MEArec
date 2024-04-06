@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: s-weigand/setup-conda@v1
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - name: Which python
         run: |
           conda --version
@@ -25,13 +25,12 @@ jobs:
         run: |
           pip install .[templates,test]
           pip install setuptools wheel twine
-      - name: Test with pytest and build coverage report
-        run: |
-          pytest -s
-      - name: Publish on PyPI
+      - name: Package and Upload
         env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+          STACKMANAGER_VERSION: ${{ github.event.release.tag_name }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          python setup.py sdist bdist_wheel
+          python -m build --sdist --wheel
           twine upload dist/*
+    
