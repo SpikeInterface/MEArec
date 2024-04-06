@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install .[templates,test]
-          pip install setuptools wheel twine
+          pip install setuptools wheel twine build
       - name: Package and Upload
         env:
           STACKMANAGER_VERSION: ${{ github.event.release.tag_name }}

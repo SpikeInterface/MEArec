@@ -77,7 +77,7 @@ allows the user to specify which strings to look for in the cell model name (fro
 the excitatory or inhibitory set. In this example from L5 cells, all cells contining LBC (Large Basket Cells) will be
 marked as inhibitory, and so on. 
 If you use custom cell models, you should overwrite this section as shown in 
-`this notebook <https://github.com/SpikeInterface/MEArec/blob/master/notebooks/generate_recordings_with_allen_models.ipynb>`_  
+`this notebook <https://github.com/SpikeInterface/MEArec/blob/main/notebooks/generate_recordings_with_allen_models.ipynb>`_  
 using cell models from `Allen database <https://celltypes.brain-map.org/>`_.
 
 Cell-types parameters section summary
