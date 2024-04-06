@@ -312,7 +312,7 @@ def chunk_uncorrelated_noise_(
 
     if noise_color:
         # iir peak filter
-        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
+        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=float(fs))
         additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=0, padlen=1000)
         additive_noise += (
             color_noise_floor
@@ -354,7 +354,7 @@ def chunk_distance_correlated_noise_(
     additive_noise = noise_level * np.random.multivariate_normal(np.zeros(n_elec), cov_dist, size=length)
     if noise_color:
         # iir peak filter
-        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=fs)
+        b_iir, a_iir = scipy.signal.iirpeak(color_peak, Q=color_q, fs=float(fs))
         additive_noise = scipy.signal.filtfilt(b_iir, a_iir, additive_noise, axis=0, padlen=1000)
         additive_noise = additive_noise + color_noise_floor * np.std(additive_noise) * np.random.multivariate_normal(
             np.zeros(n_elec), cov_dist, size=length
