@@ -213,7 +213,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             print("loading cell type: ", f)
         if celltypes is not None:
             if celltype in celltypes:
-                eaps = np.load(str(eaplist[idx]))
+                eaps = np.load(str(eaplist[idx]), mmap_mode="r")
                 locs = np.load(str(loclist[idx]))
                 rots = np.load(str(rotlist[idx]))
 
@@ -230,7 +230,7 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             else:
                 ignored_categories.add(celltype)
         else:
-            eaps = np.load(str(eaplist[idx]))
+            eaps = np.load(str(eaplist[idx]), mmap_mode="r")
             locs = np.load(str(loclist[idx]))
             rots = np.load(str(rotlist[idx]))
 
@@ -245,10 +245,17 @@ def load_tmp_eap(templates_folder, celltypes=None, samples_per_cat=None, verbose
             cat_list.extend([celltype] * samples_to_read)
             loaded_categories.add(celltype)
 
+    if len(eap_list) > 0:
+        all_eaps = np.lib.format.open_memmap(templates_folder / "all_eaps.npy", mode="w+", dtype=eaps[0].dtype, shape=(len(eap_list), *eap_list[0].shape))
+        for i in range(len(eap_list)):
+            all_eaps[i, ...] = eap_list[i]
+    else:
+        all_eaps = np.array([])
+
     if verbose:
         print("Done loading spike data ...")
 
-    return np.array(eap_list), np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
+    return all_eaps, np.array(loc_list), np.array(rot_list), np.array(cat_list, dtype=str)
 
 
 def load_templates(templates, return_h5_objects=True, verbose=False, check_suffix=True):
@@ -553,7 +560,7 @@ def save_template_generator(tempgen, filename=None, verbose=True):
         print("\nSaved  templates in", filename, "\n")
 
 
-def save_recording_generator(recgen, filename=None, verbose=False):
+def save_recording_generator(recgen, filename=None, verbose=False, include_spike_traces: bool = True):
     """
     Save recordings to disk.
 
@@ -565,6 +572,8 @@ def save_recording_generator(recgen, filename=None, verbose=False):
         Path to .h5 file
     verbose : bool
         If True output is verbose
+    include_spike_traces: bool, default=True
+        If True, will include the spike traces (which can be large for many units)
     """
     filename = Path(filename)
     if not filename.parent.is_dir():
@@ -573,12 +582,12 @@ def save_recording_generator(recgen, filename=None, verbose=False):
     with h5py.File(filename, "w") as f:
         f.attrs["mearec_version"] = mearec_version
         f.attrs["date"] = datetime.now().strftime("%y-%m-%d %H:%M:%S")
-        save_recording_to_file(recgen, f)
+        save_recording_to_file(recgen, f, include_spike_traces=include_spike_traces)
     if verbose:
         print("\nSaved recordings in", filename, "\n")
 
 
-def save_recording_to_file(recgen, f, path=""):
+def save_recording_to_file(recgen, f, path="", include_spike_traces: bool = True):
     """
     Save recordings to file handler.
 
@@ -588,6 +597,8 @@ def save_recording_to_file(recgen, f, path=""):
         RecordingGenerator object to be saved
     filename : _io.TextIOWrapper
         File handler
+    include_spike_traces: bool, default=True
+        If True, will include the spike traces (can be heavy)
     """
     save_dict_to_hdf5(recgen.info, f, path + "info/")
     if len(recgen.voltage_peaks) > 0:
@@ -598,7 +609,7 @@ def save_recording_to_file(recgen, f, path=""):
         f.create_dataset(path + "recordings", data=recgen.recordings)
         if recgen.gain_to_uV is not None:
             f["recordings"].attrs["gain_to_uV"] = recgen.gain_to_uV
-    if len(recgen.spike_traces) > 0:
+    if len(recgen.spike_traces) > 0 and include_spike_traces:
         f.create_dataset(path + "spike_traces", data=recgen.spike_traces)
     if len(recgen.spiketrains) > 0:
         for ii in range(len(recgen.spiketrains)):

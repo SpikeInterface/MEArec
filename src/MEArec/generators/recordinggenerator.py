@@ -825,7 +825,9 @@ class RecordingGenerator:
                     template_locs = np.array(locs)[reordered_idx_cells]
                     template_rots = np.array(rots)[reordered_idx_cells]
                     template_bin = np.array(bin_cat)[reordered_idx_cells]
-                    templates = np.array(eaps)[reordered_idx_cells]
+                    templates = np.empty((len(reordered_idx_cells), *eaps.shape[1:]), dtype=eaps.dtype)
+                    for i, reordered_idx in enumerate(reordered_idx_cells):
+                        templates[i] = eaps[reordered_idx]
                     self.template_ids = reordered_idx_cells
                 else:
                     print(f"Using provided template ids: {self.template_ids}")
@@ -991,7 +993,7 @@ class RecordingGenerator:
 
                     if verbose_1:
                         print("Smoothing templates")
-                    templates = templates * window
+                    templates *= window
 
                 # delete temporary preprocessed templates
                 del templates_rs, templates_pad
