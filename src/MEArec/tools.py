@@ -573,7 +573,7 @@ def save_recording_generator(recgen, filename=None, verbose=False, include_spike
     verbose : bool
         If True output is verbose
     include_spike_traces: bool, default=True
-        If True, will include the spike traces (can be heavy)
+        If True, will include the spike traces (which can be large for many units)
     """
     filename = Path(filename)
     if not filename.parent.is_dir():
