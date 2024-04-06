@@ -36,7 +36,7 @@ The :code:`recgen` is a :code:`RecordingGenerator` objects and contains the foll
 * spike_traces: (n_spiketrains, n_samples) clean spike trace for each spike train
 * info: dictionary with parameters used
 
-There are several notebooks available `here <https://github.com/SpikeInterface/MEArec/tree/master/notebooks>`_
+There are several notebooks available `here <https://github.com/SpikeInterface/MEArec/tree/main/notebooks>`_
 that show MEArec applications.
 
 Plotting

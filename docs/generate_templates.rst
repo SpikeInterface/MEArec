@@ -14,7 +14,7 @@ A set of 13 cell models from layer 5 is included in the basic installation and c
 the `download <https://bbp.epfl.ch/nmc-portal/downloads>`_ page, move them to the cell model folder (which can be
 retrieved with the :code:`mearec default-config` command or with the Python code:
 :code:`mr.get_default_cell_models_folder()`), and unzip them.
-Note also custom models cane be used. In `this notebook <https://github.com/alejoe91/MEArec/blob/master/notebooks/generate_recordings_with_allen_models.ipynb>`_ we show how to use models from the
+Note also custom models cane be used. In `this notebook <https://github.com/SpikeInterface/MEArec/blob/main/notebooks/generate_recordings_with_allen_models.ipynb>`_ we show how to use models from the
 `Allen database <https://celltypes.brain-map.org/>`_ to build templates (and recordings).
 
 Templates are generated in two steps:
