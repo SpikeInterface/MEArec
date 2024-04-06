@@ -2,7 +2,7 @@ numpy
 matplotlib
 pyyaml
 MEAutility
-elephant<0.11
+elephant
 click
 h5py
-scipy<1.8
+scipy
