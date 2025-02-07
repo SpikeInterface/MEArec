@@ -777,7 +777,7 @@ def clean_dict(d):
 def _clean_numpy_scalar(v):
     if isinstance(v, np.bool_):
         v = bool(v)
-    if isinstance(v, np.float_):
+    if isinstance(v, np.float64):
         v = float(v)
     if isinstance(v, np.int_):
         v = int(v)
