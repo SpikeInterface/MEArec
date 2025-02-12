@@ -4,7 +4,6 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-import elephant.statistics as stat
 import numpy as np
 import yaml
 from click.testing import CliRunner
@@ -198,6 +197,8 @@ class TestGenerators(unittest.TestCase):
         assert tempgen_drift_beta.templates.shape[0] == self.tempgen_drift.templates.shape[0]
 
     def test_gen_spiketrains(self):
+        import elephant.statistics as stat
+        
         print("Test spike train generation")
         rec_params = mr.get_default_recordings_params()
         sp_params = rec_params["spiketrains"]
