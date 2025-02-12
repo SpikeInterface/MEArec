@@ -1,6 +1,6 @@
 [project]
 name = "MEArec"
-version = "1.9.1"
+version = "1.9.2"
 authors = [
   { name="Alessio Buccino", email="alessiop.buccino@gmail.com" },
 ]
