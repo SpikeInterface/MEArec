@@ -26,6 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install .[templates,test]
+          pip install "zarr<3.0.0"
       - name: pip list
         run: |
           pip list
