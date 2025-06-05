@@ -7,7 +7,8 @@ import string
 import tempfile
 import time
 from copy import deepcopy
-from distutils.log import DEBUG
+import logging
+DEBUG = logging.DEBUG
 from pathlib import Path
 from warnings import warn
 

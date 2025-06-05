@@ -27,6 +27,7 @@ dependencies = [
     "scipy",
     "elephant",
     "lazy_ops",
+    "zarr<3.0",
     "MEAutility"
 ]
 

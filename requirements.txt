@@ -1,8 +1,0 @@
-numpy
-matplotlib
-pyyaml
-MEAutility
-elephant
-click
-h5py
-scipy
