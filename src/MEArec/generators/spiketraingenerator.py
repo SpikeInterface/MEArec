@@ -1,7 +1,5 @@
 from copy import deepcopy
 
-import elephant.spike_train_generation as stg
-import elephant.statistics as stat
 import neo
 import numpy as np
 import quantities as pq
@@ -129,6 +127,9 @@ class SpikeTrainGenerator:
         Generate spike trains based on default_params of the SpikeTrainGenerator class.
         self.spiketrains contains the newly generated spike trains
         """
+        import elephant.spike_train_generation as stg
+        import elephant.statistics as stat
+        
         if not self._has_spiketrains:
             self.spiketrains = []
             idx = 0
