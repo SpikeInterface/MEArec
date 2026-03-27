@@ -12,7 +12,6 @@ import quantities as pq
 import scipy.signal as ss
 import yaml
 from joblib import Parallel, delayed
-from lazy_ops import DatasetView
 from packaging.version import parse
 from quantities import Quantity
 
@@ -353,22 +352,18 @@ def load_recordings(
         f = h5py.File(str(recordings), "r")
         mearec_version = f.attrs.get("mearec_version", "1.4.0")
 
-        if parse(mearec_version) >= parse("1.5.0"):
+        if parse(mearec_version) < parse("1.5.0"):
             # version after 1.5.0 is (n_samples, n_channel) inside the h5 file
-            need_transpose = False
-        else:
-            # version  1.4.0 and before is (n_channel, n_samples) inside the h5 file
-            print(
-                "Warning: MEArec file created with version <1.5. This could result in lower efficiency. To upgrade"
-                "your file to the new format use: mr.convert_recording_to_new_version(filename)"
+            raise Exception(
+                "MEArec file created with version <1.5 and not supported anymore. To upgrade"
+                "your file to the new format, install MEArec version 1.5 or higher (<1.10.0) and use: "
+                "`mr.convert_recording_to_new_version(filename)`"
             )
-            need_transpose = True
 
         rec_dict, info = load_recordings_from_file(
             f,
             return_h5_objects=return_h5_objects,
             load=load,
-            need_transpose=need_transpose,
             load_waveforms=load_waveforms,
         )
 
@@ -386,7 +381,7 @@ def load_recordings(
     return recgen
 
 
-def load_recordings_from_file(f, path="", return_h5_objects=True, load=None, need_transpose=False, load_waveforms=True):
+def load_recordings_from_file(f, path="", return_h5_objects=True, load=None, load_waveforms=True):
     """
     Load generated recordings from file.
 
@@ -403,10 +398,6 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None, nee
                                        'timestamps', 'spike_traces', 'templates'))
     load_waveforms : bool
         If True waveforms are loaded to spiketrains
-    verbose : bool
-        If True output is verbose
-    check_suffix : bool
-        If True, hdf5 suffix is checked
 
     Returns
     -------
@@ -447,27 +438,17 @@ def load_recordings_from_file(f, path="", return_h5_objects=True, load=None, nee
             rec_dict["channel_positions"] = np.array(f.get(path + "channel_positions"))
     if f.get(path + "recordings") is not None and "recordings" in load:
         if return_h5_objects:
-            if need_transpose:
-                rec_dict["recordings"] = DatasetView(f.get(path + "recordings")).lazy_transpose()
-            else:
-                rec_dict["recordings"] = f.get(path + "recordings")
+            rec_dict["recordings"] = f.get(path + "recordings")
         else:
             arr = np.array(f.get(path + "recordings"))
-            if need_transpose:
-                arr = arr.T
             rec_dict["recordings"] = arr
         if "gain_to_uV" in f.get(path + "recordings").attrs:
             rec_dict["gain_to_uV"] = f.get(path + "recordings").attrs["gain_to_uV"]
     if f.get(path + "spike_traces") is not None and "spike_traces" in load:
         if return_h5_objects:
-            if need_transpose:
-                rec_dict["spike_traces"] = DatasetView(f.get(path + "spike_traces")).lazy_transpose()
-            else:
-                rec_dict["spike_traces"] = f.get(path + "spike_traces")
+            rec_dict["spike_traces"] = f.get(path + "spike_traces")
         else:
             arr = np.array(f.get(path + "spike_traces"))
-            if need_transpose:
-                arr = arr.T
             rec_dict["spike_traces"] = arr
     if f.get(path + "templates") is not None and "templates" in load:
         if return_h5_objects:
@@ -693,8 +674,10 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
         elif isinstance(item, dict):
             recursively_save_dict_contents_to_group(h5file, path + key + "/", item)
         else:
-            print(key, item)
-            raise ValueError("Cannot save %s type" % type(item))
+            try:
+                h5file[path + key] = item
+            except Exception as e:
+                raise ValueError("Cannot save %s type" % type(item))
 
 
 def load_dict_from_hdf5(h5file, path):
