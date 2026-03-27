@@ -1,12 +1,12 @@
 [project]
 name = "MEArec"
-version = "1.9.3"
+version = "1.10.0"
 authors = [
   { name="Alessio Buccino", email="alessiop.buccino@gmail.com" },
 ]
 description = "Python toolkit for biophysical simulation of extracellular electrophysiology recordings"
 readme = "README.md"
-requires-python = ">=3.7,<4.0"
+requires-python = ">=3.10,<4.0"
 classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "License :: OSI Approved :: MIT License",
