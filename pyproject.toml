@@ -64,7 +64,7 @@ documentation = "https://mearec.readthedocs.io/"
 [project.optional-dependencies]
 
 templates = [
-    "neuron",
+    "neuron<9",
     "LFPy"
 ]
 

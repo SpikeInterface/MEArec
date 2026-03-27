@@ -674,8 +674,10 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
         elif isinstance(item, dict):
             recursively_save_dict_contents_to_group(h5file, path + key + "/", item)
         else:
-            print(key, item)
-            raise ValueError("Cannot save %s type" % type(item))
+            try:
+                h5file[path + key] = item
+            except Exception as e:
+                raise ValueError("Cannot save %s type" % type(item))
 
 
 def load_dict_from_hdf5(h5file, path):
