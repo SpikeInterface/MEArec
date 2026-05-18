@@ -8,10 +8,10 @@ Templates are generated using `NEURON <https://www.neuron.yale.edu/neuron/>`_ an
 `LFPy <https://lfpy.readthedocs.io/en/latest/>`_ packages.
 
 The current version (1.0.4) only supports biophysical multi-compartment models from the
-Neocortical Microcircuit Collaboration Portal `(NMC) <https://bbp.epfl.ch/nmc-portal/welcome>`_.
+Neocortical Microcircuit Collaboration Portal `(NMC) <https://bbp.epfl.ch/nmc-portal/welcome.html>`_.
 A set of 13 cell models from layer 5 is included in the basic installation and copied in
 :code:`.config/mearec/cell_models/bbp`. In order to add more cell models, you can simply download the zip files from
-the `download <https://bbp.epfl.ch/nmc-portal/downloads>`_ page, move them to the cell model folder (which can be
+the `download <https://bbp.epfl.ch/nmc-portal/downloads.html>`_ page, move them to the cell model folder (which can be
 retrieved with the :code:`mearec default-config` command or with the Python code:
 :code:`mr.get_default_cell_models_folder()`), and unzip them.
 Note also custom models cane be used. In `this notebook <https://github.com/SpikeInterface/MEArec/blob/main/notebooks/generate_recordings_with_allen_models.ipynb>`_ we show how to use models from the
