@@ -1167,7 +1167,7 @@ def select_templates(
             # excitatory cell
             if bcat == "E":
                 if n_sel_exc < n_exc:
-                    dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                    dist = np.array([np.linalg.norm(loc[id_cell] - p, axis=-1) for p in pos_sel])
                     if np.any(dist < min_dist):
                         if verbose:
                             print("Distance violation", np.min(dist), iter)
@@ -1300,7 +1300,7 @@ def select_templates(
             # inhibitory cell
             elif bcat == "I":
                 if n_sel_inh < n_inh:
-                    dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+                    dist = np.array([np.linalg.norm(loc[id_cell] - p, axis=-1) for p in pos_sel])
                     if np.any(dist < min_dist):
                         if verbose:
                             print("Distance violation", np.min(dist), iter)
@@ -1373,6 +1373,7 @@ def select_templates(
                                 drift_angle = np.rad2deg(np.arccos(np.dot(drift_dir[id_cell], preferred_dir)))
                                 if drift_angle - angle_tol <= 0:
                                     if n_overlap_pairs is None:
+                                        pos_sel.append(loc[id_cell])
                                         selected_idxs.append(id_cell)
                                         n_sel += 1
                                         placed = True
@@ -1431,7 +1432,7 @@ def select_templates(
                         selected_cat.append("I")
         # unknown cell type
         else:
-            dist = np.array([np.linalg.norm(loc[id_cell] - p) for p in pos_sel])
+            dist = np.array([np.linalg.norm(loc[id_cell] - p, axis=-1) for p in pos_sel])
             if np.any(dist < min_dist):
                 if verbose:
                     print("Distance violation", np.min(dist), iter)
