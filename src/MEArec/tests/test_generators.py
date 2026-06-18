@@ -659,6 +659,64 @@ class TestGenerators(unittest.TestCase):
             del recgen_drift
             recgen_mixed_file.unlink()
 
+    def test_min_dist(self):
+        print("Test recording generation - min_dist between cells")
+        ne = 5
+        ni = 3
+        n_neurons = ne + ni
+        min_dist = 30
+
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params["spiketrains"]["n_exc"] = ne
+        rec_params["spiketrains"]["n_inh"] = ni
+        rec_params["spiketrains"]["duration"] = 2
+        rec_params["recordings"]["modulation"] = "none"
+        rec_params["recordings"]["filter"] = False
+        rec_params["templates"]["min_dist"] = min_dist
+
+        recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen, verbose=False)
+
+        locs = np.asarray(recgen.template_locations)
+        # non-drifting: locations have shape (n_neurons, 3)
+        assert locs.shape == (n_neurons, 3)
+        for i in range(n_neurons):
+            for j in range(i + 1, n_neurons):
+                dist = np.linalg.norm(locs[i] - locs[j])
+                assert dist >= min_dist, f"Cells {i} and {j} are {dist} um apart (min_dist={min_dist})"
+        del recgen
+
+    def test_min_dist_drift(self):
+        print("Test recording generation - min_dist between cells with drift")
+        ne = 5
+        ni = 3
+        n_neurons = ne + ni
+        min_dist = 30
+
+        rec_params = mr.get_default_recordings_params()
+
+        rec_params["spiketrains"]["n_exc"] = ne
+        rec_params["spiketrains"]["n_inh"] = ni
+        rec_params["spiketrains"]["duration"] = 2
+        rec_params["recordings"]["modulation"] = "none"
+        rec_params["recordings"]["filter"] = False
+        rec_params["recordings"]["drifting"] = True
+        rec_params["templates"]["min_dist"] = min_dist
+
+        recgen = mr.gen_recordings(params=rec_params, tempgen=self.tempgen_drift, verbose=False)
+
+        locs = np.asarray(recgen.template_locations)
+        # drifting: locations have shape (n_neurons, n_drift_steps, 3)
+        assert locs.ndim == 3 and locs.shape[0] == n_neurons and locs.shape[-1] == 3
+        # the min_dist constraint must be satisfied at every drift step
+        for i in range(n_neurons):
+            for j in range(i + 1, n_neurons):
+                dist = np.linalg.norm(locs[i] - locs[j], axis=-1)
+                assert np.all(dist >= min_dist), (
+                    f"Cells {i} and {j} are {np.min(dist)} um apart at some drift step (min_dist={min_dist})"
+                )
+        del recgen
+
     def test_save_load_templates(self):
         tempgen = mr.load_templates(self.test_dir / "templates.h5", verbose=True)
         tempgen_drift = mr.load_templates(self.test_dir / "templates_drift.h5")
