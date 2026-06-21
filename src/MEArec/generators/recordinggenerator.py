@@ -730,6 +730,8 @@ class RecordingGenerator:
                         gain = 1.0 / gain_to_int
                 else:
                     gain_to_int = 1.0 / gain
+            else:
+                gain = 1.0  # Necessary to output the correct gain used
         else:
             if tempgen is not None:
                 if celltype_params is not None:
@@ -868,6 +870,8 @@ class RecordingGenerator:
                             gain = 1.0 / gain_to_int
                     else:
                         gain_to_int = 1.0 / gain
+                else:
+                    gain = 1.0  # Necessary to output the correct gain used
 
                 if gain_to_int is not None:
                     if verbose_1:
