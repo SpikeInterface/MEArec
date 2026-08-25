@@ -135,8 +135,8 @@ def gen_templates(params, **kwargs):
     params_dict["seed"] = seed
 
     if kwargs["folder"] is not None:
-        templates_folder = kwargs["folder"]
-        params_dict["templates_folder"] = Path(kwargs["folder"])
+        templates_folder = Path(kwargs["folder"])
+        params_dict["templates_folder"] = templates_folder
     else:
         templates_folder = Path(info["templates_folder"])
     intraonly = kwargs["intraonly"]
